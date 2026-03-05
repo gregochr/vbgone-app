@@ -43,9 +43,13 @@ public class AnalysisService {
         session.setFilename(filename);
         session.setVbContent(content);
 
-        String json = claudeClient.sendWithCachedSystemPrompt(
+        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 SYSTEM_PROMPT, content, Model.CLAUDE_SONNET_4_6, 4096L);
-        json = stripMarkdownFences(json);
+        String json = stripMarkdownFences(response.text());
+
+        String modelId = Model.CLAUDE_SONNET_4_6.asString();
+        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
+        session.addTokenUsage(new TokenUsage("analyse", modelId, response.inputTokens(), response.outputTokens(), cost));
 
         AnalysisResult result = parseAnalysis(session.getSessionId(), json);
         session.setAnalysisResult(result);

@@ -15,7 +15,9 @@ public class ClaudeClient {
         this.client = client;
     }
 
-    public String sendWithCachedSystemPrompt(String systemPrompt, String userMessage, Model model, long maxTokens) {
+    public record ClaudeResponse(String text, long inputTokens, long outputTokens) {}
+
+    public ClaudeResponse sendWithCachedSystemPrompt(String systemPrompt, String userMessage, Model model, long maxTokens) {
         MessageCreateParams params = MessageCreateParams.builder()
                 .model(model)
                 .maxTokens(maxTokens)
@@ -29,11 +31,14 @@ public class ClaudeClient {
 
         Message response = client.messages().create(params);
 
-        return response.content().stream()
+        String text = response.content().stream()
                 .filter(ContentBlock::isText)
                 .map(ContentBlock::asText)
                 .map(TextBlock::text)
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No text response from Claude"));
+
+        Usage usage = response.usage();
+        return new ClaudeResponse(text, usage.inputTokens(), usage.outputTokens());
     }
 }

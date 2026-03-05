@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
 import { generateInterface } from '../../api/migrateApi'
+import { ConfirmDialog, shouldSkipConfirm } from './ConfirmDialog'
+import { InfoTip } from './InfoTip'
 
 interface Props {
   state: WizardState
@@ -9,8 +11,9 @@ interface Props {
 }
 
 export function Step3Interface({ state, update, onReady }: Props) {
-  const [loading, setLoading] = useState(!state.interfaceResult)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   const className = state.analysis?.classes[0]?.name ?? ''
   const sessionId = state.analysis?.sessionId ?? ''
@@ -20,6 +23,16 @@ export function Step3Interface({ state, update, onReady }: Props) {
       onReady()
       return
     }
+    if (shouldSkipConfirm()) {
+      runGeneration()
+    } else {
+      setShowConfirm(true)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const runGeneration = () => {
+    setShowConfirm(false)
+    setLoading(true)
     generateInterface(sessionId, className)
       .then((result) => {
         update({ interfaceResult: result })
@@ -30,7 +43,20 @@ export function Step3Interface({ state, update, onReady }: Props) {
         setLoading(false)
         setError(err instanceof Error ? err.message : 'Interface generation failed')
       })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }
+
+  if (showConfirm) {
+    return (
+      <div>
+        <h2 className="step-title">Generating C# Interface</h2>
+        <ConfirmDialog
+          message={`This will call Claude (Haiku) to generate a C# interface for ${className}. Proceed?`}
+          onConfirm={runGeneration}
+          onCancel={() => setShowConfirm(false)}
+        />
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -58,7 +84,20 @@ export function Step3Interface({ state, update, onReady }: Props) {
 
   return (
     <div>
-      <h2 className="step-title">{iface.interfaceName}</h2>
+      <h2 className="step-title">
+        {iface.interfaceName}
+        <span className="step-infotip">
+          <InfoTip>
+            <p>
+              <strong>Claude extracts a clean C# interface from the VB.NET source.</strong>{' '}
+              UI event handlers are stripped — only the pure business logic methods remain.
+            </p>
+            <p>
+              This uses Claude Haiku for fast, cost-effective generation. Review and edit the interface before proceeding.
+            </p>
+          </InfoTip>
+        </span>
+      </h2>
       <p className="step-subtitle">
         Generated C# interface for {iface.className}. Review and edit if needed before proceeding.
       </p>

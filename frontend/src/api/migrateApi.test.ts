@@ -8,6 +8,7 @@ import {
   implement,
   buildAfterImplement,
   raisePR,
+  fetchCost,
 } from './migrateApi'
 
 describe('migrateApi mock functions', () => {
@@ -89,5 +90,12 @@ describe('migrateApi mock functions', () => {
     expect(result.prUrl).toBe('https://github.com/owner/repo/pull/1')
     expect(result.branchName).toBe('migrate/foo')
     expect(result.filesCommitted).toHaveLength(3)
+  })
+
+  it('fetchCost returns cost result', async () => {
+    const result = await fetchCost('session-1')
+    expect(result.sessionId).toBeTruthy()
+    expect(result.steps).toEqual([])
+    expect(result.totalCost).toBe(0)
   })
 })

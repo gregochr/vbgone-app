@@ -60,6 +60,11 @@ vi.mock('../../api/migrateApi', async () => {
       branchName: 'migrate/foo',
       filesCommitted: ['Foo/IFoo.cs', 'Foo/Foo.cs'],
     }),
+    fetchCost: vi.fn().mockResolvedValue({
+      sessionId: 'test-session',
+      steps: [],
+      totalCost: 0,
+    }),
   }
 })
 

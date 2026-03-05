@@ -44,9 +44,13 @@ public class GenerationService {
         String userMessage = "Generate a C# interface named I" + className
                 + " for this VB.NET:\n" + session.getVbContent();
 
-        String code = claudeClient.sendWithCachedSystemPrompt(
+        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 INTERFACE_SYSTEM_PROMPT, userMessage, Model.CLAUDE_HAIKU_4_5, 4096L);
-        code = stripCodeFences(code);
+        String code = stripCodeFences(response.text());
+
+        String modelId = Model.CLAUDE_HAIKU_4_5.asString();
+        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
+        session.addTokenUsage(new TokenUsage("interface", modelId, response.inputTokens(), response.outputTokens(), cost));
 
         InterfaceResult result = new InterfaceResult(sessionId, className, "I" + className, code);
         session.setInterfaceResult(result);
@@ -58,9 +62,13 @@ public class GenerationService {
         String userMessage = "Generate NUnit tests for I" + className
                 + " based on this VB.NET:\n" + session.getVbContent();
 
-        String code = claudeClient.sendWithCachedSystemPrompt(
+        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 TESTS_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);
-        code = stripCodeFences(code);
+        String code = stripCodeFences(response.text());
+
+        String modelId = Model.CLAUDE_SONNET_4_6.asString();
+        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
+        session.addTokenUsage(new TokenUsage("tests", modelId, response.inputTokens(), response.outputTokens(), cost));
 
         int testCount = countTests(code);
         TestsResult result = new TestsResult(sessionId, className, className + "Tests", code, testCount);
@@ -76,9 +84,13 @@ public class GenerationService {
         }
 
         String userMessage = "Generate a stub implementation of " + iface.code();
-        String code = claudeClient.sendWithCachedSystemPrompt(
+        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 STUB_SYSTEM_PROMPT, userMessage, Model.CLAUDE_HAIKU_4_5, 4096L);
-        code = stripCodeFences(code);
+        String code = stripCodeFences(response.text());
+
+        String modelId = Model.CLAUDE_HAIKU_4_5.asString();
+        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
+        session.addTokenUsage(new TokenUsage("stub", modelId, response.inputTokens(), response.outputTokens(), cost));
 
         StubResult result = new StubResult(sessionId, className, code);
         session.setStubResult(result);
@@ -105,9 +117,13 @@ public class GenerationService {
         String userMessage = "Implement " + iface.code()
                 + " based on this VB.NET behaviour:\n" + session.getVbContent();
 
-        String code = claudeClient.sendWithCachedSystemPrompt(
+        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);
-        code = stripCodeFences(code);
+        String code = stripCodeFences(response.text());
+
+        String modelId = Model.CLAUDE_SONNET_4_6.asString();
+        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
+        session.addTokenUsage(new TokenUsage("implement", modelId, response.inputTokens(), response.outputTokens(), cost));
 
         ImplementResult result = new ImplementResult(sessionId, className, code, mode);
         session.setImplementResult(result);

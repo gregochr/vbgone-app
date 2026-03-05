@@ -1,5 +1,8 @@
 package com.vbgone.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MigrationSession {
     private final String sessionId;
     private String filename;
@@ -12,6 +15,7 @@ public class MigrationSession {
     private BuildResult redBuild;
     private BuildResult greenBuild;
     private PullRequestResult prResult;
+    private final List<TokenUsage> tokenUsages = new ArrayList<>();
 
     public MigrationSession(String sessionId) {
         this.sessionId = sessionId;
@@ -48,4 +52,7 @@ public class MigrationSession {
 
     public PullRequestResult getPrResult() { return prResult; }
     public void setPrResult(PullRequestResult prResult) { this.prResult = prResult; }
+
+    public List<TokenUsage> getTokenUsages() { return tokenUsages; }
+    public void addTokenUsage(TokenUsage usage) { tokenUsages.add(usage); }
 }

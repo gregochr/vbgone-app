@@ -2,10 +2,7 @@ package com.vbgone.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vbgone.model.*;
-import com.vbgone.service.AnalysisService;
-import com.vbgone.service.BuildService;
-import com.vbgone.service.GenerationService;
-import com.vbgone.service.GitHubService;
+import com.vbgone.service.*;
 import com.vbgone.session.SessionStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +16,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -43,6 +41,9 @@ class MigrationControllerTest {
 
     @MockitoBean
     private GitHubService gitHubService;
+
+    @MockitoBean
+    private CostService costService;
 
     @MockitoBean
     private SessionStore sessionStore;
@@ -169,5 +170,20 @@ class MigrationControllerTest {
                 .andExpect(jsonPath("$.branchName").value("migrate/form1"))
                 .andExpect(jsonPath("$.filesCommitted").isArray())
                 .andExpect(jsonPath("$.filesCommitted.length()").value(3));
+    }
+
+    @Test
+    void getCost_returns200WithCostResult() throws Exception {
+        when(costService.getCost(SESSION_ID))
+                .thenReturn(new CostResult(SESSION_ID,
+                        List.of(new TokenUsage("analyse", "claude-sonnet-4-6", 200, 100, 0.0021)),
+                        0.0021));
+
+        mockMvc.perform(get("/api/migrate/cost/" + SESSION_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sessionId").value(SESSION_ID))
+                .andExpect(jsonPath("$.steps").isArray())
+                .andExpect(jsonPath("$.steps[0].step").value("analyse"))
+                .andExpect(jsonPath("$.totalCost").value(0.0021));
     }
 }

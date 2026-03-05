@@ -48,12 +48,16 @@ class AnalysisServiceTest {
         analysisService = new AnalysisService(claudeClient, sessionStore, objectMapper);
     }
 
+    private ClaudeClient.ClaudeResponse claudeResponse(String text) {
+        return new ClaudeClient.ClaudeResponse(text, 100, 50);
+    }
+
     @Test
     void analyse_callsClaudeAndReturnsAnalysisResult() {
         MigrationSession session = new MigrationSession("test-session-123");
         when(sessionStore.create()).thenReturn(session);
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
-                .thenReturn(CLAUDE_JSON_RESPONSE);
+                .thenReturn(claudeResponse(CLAUDE_JSON_RESPONSE));
 
         AnalysisResult result = analysisService.analyse("Form1.vb", "Public Class Form1...");
 
@@ -72,7 +76,7 @@ class AnalysisServiceTest {
         MigrationSession session = new MigrationSession("test-session-123");
         when(sessionStore.create()).thenReturn(session);
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
-                .thenReturn(CLAUDE_JSON_RESPONSE);
+                .thenReturn(claudeResponse(CLAUDE_JSON_RESPONSE));
 
         analysisService.analyse("Form1.vb", "Public Class Form1...");
 
@@ -87,7 +91,7 @@ class AnalysisServiceTest {
         MigrationSession session = new MigrationSession("test-session-123");
         when(sessionStore.create()).thenReturn(session);
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
-                .thenReturn(CLAUDE_JSON_RESPONSE);
+                .thenReturn(claudeResponse(CLAUDE_JSON_RESPONSE));
 
         analysisService.analyse("Form1.vb", "Public Class Form1...");
 
@@ -106,7 +110,7 @@ class AnalysisServiceTest {
 
         String wrappedResponse = "```json\n" + CLAUDE_JSON_RESPONSE + "\n```";
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
-                .thenReturn(wrappedResponse);
+                .thenReturn(claudeResponse(wrappedResponse));
 
         AnalysisResult result = analysisService.analyse("Form1.vb", "Public Class Form1...");
 
@@ -119,10 +123,26 @@ class AnalysisServiceTest {
         MigrationSession session = new MigrationSession("test-session-123");
         when(sessionStore.create()).thenReturn(session);
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
-                .thenReturn("not valid json");
+                .thenReturn(claudeResponse("not valid json"));
 
         assertThatThrownBy(() -> analysisService.analyse("Form1.vb", "..."))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Failed to parse Claude response");
+    }
+
+    @Test
+    void analyse_tracksTokenUsageInSession() {
+        MigrationSession session = new MigrationSession("test-session-123");
+        when(sessionStore.create()).thenReturn(session);
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(new ClaudeClient.ClaudeResponse(CLAUDE_JSON_RESPONSE, 200, 100));
+
+        analysisService.analyse("Form1.vb", "Public Class Form1...");
+
+        assertThat(session.getTokenUsages()).hasSize(1);
+        assertThat(session.getTokenUsages().get(0).step()).isEqualTo("analyse");
+        assertThat(session.getTokenUsages().get(0).inputTokens()).isEqualTo(200);
+        assertThat(session.getTokenUsages().get(0).outputTokens()).isEqualTo(100);
+        assertThat(session.getTokenUsages().get(0).cost()).isGreaterThan(0);
     }
 }

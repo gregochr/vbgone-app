@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import './WizardShell.css'
 import { Step1Upload } from './Step1Upload'
 import { Step2Analysis } from './Step2Analysis'
@@ -6,6 +6,7 @@ import { Step3Interface } from './Step3Interface'
 import { Step4Tests } from './Step4Tests'
 import { Step5Implement } from './Step5Implement'
 import { Step6PR } from './Step6PR'
+import { fetchCost } from '../../api/migrateApi'
 import type {
   AnalysisResult,
   InterfaceResult,
@@ -45,8 +46,21 @@ export function WizardShell() {
   const [step, setStep] = useState(0)
   const [state, setState] = useState<WizardState>(initialState)
   const [stepReady, setStepReady] = useState(false)
+  const [totalCost, setTotalCost] = useState(0)
 
   const update = (partial: Partial<WizardState>) => setState((prev) => ({ ...prev, ...partial }))
+
+  const refreshCost = useCallback(() => {
+    const sessionId = state.analysis?.sessionId
+    if (!sessionId) return
+    fetchCost(sessionId)
+      .then((result) => setTotalCost(result.totalCost))
+      .catch(() => {})
+  }, [state.analysis?.sessionId])
+
+  useEffect(() => {
+    refreshCost()
+  }, [step, refreshCost])
 
   const next = () => {
     setStepReady(false)
@@ -57,13 +71,18 @@ export function WizardShell() {
     setStep((s) => Math.max(s - 1, 0))
   }
 
+  const onReady = () => {
+    setStepReady(true)
+    refreshCost()
+  }
+
   const steps = [
     <Step1Upload key={0} state={state} update={update} onReady={() => setStepReady(true)} />,
-    <Step2Analysis key={1} state={state} update={update} onReady={() => setStepReady(true)} />,
-    <Step3Interface key={2} state={state} update={update} onReady={() => setStepReady(true)} />,
-    <Step4Tests key={3} state={state} update={update} onReady={() => setStepReady(true)} />,
-    <Step5Implement key={4} state={state} update={update} onReady={() => setStepReady(true)} />,
-    <Step6PR key={5} state={state} update={update} onReady={() => setStepReady(true)} />,
+    <Step2Analysis key={1} state={state} update={update} onReady={onReady} />,
+    <Step3Interface key={2} state={state} update={update} onReady={onReady} />,
+    <Step4Tests key={3} state={state} update={update} onReady={onReady} />,
+    <Step5Implement key={4} state={state} update={update} onReady={onReady} />,
+    <Step6PR key={5} state={state} update={update} onReady={onReady} />,
   ]
 
   return (
@@ -82,6 +101,11 @@ export function WizardShell() {
             )}
           </div>
         ))}
+        {totalCost > 0 && (
+          <span className="cost-display" data-testid="cost-display">
+            ${totalCost.toFixed(4)}
+          </span>
+        )}
       </nav>
 
       <div className="wizard-content">{steps[step]}</div>

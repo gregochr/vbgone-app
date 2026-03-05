@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
 import { analyse } from '../../api/migrateApi'
+import { ConfirmDialog, shouldSkipConfirm } from './ConfirmDialog'
+import { InfoTip } from './InfoTip'
 
 interface Props {
   state: WizardState
@@ -9,14 +11,25 @@ interface Props {
 }
 
 export function Step2Analysis({ state, update, onReady }: Props) {
-  const [loading, setLoading] = useState(!state.analysis)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
     if (state.analysis) {
       onReady()
       return
     }
+    if (shouldSkipConfirm()) {
+      runAnalysis()
+    } else {
+      setShowConfirm(true)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const runAnalysis = () => {
+    setShowConfirm(false)
+    setLoading(true)
     analyse(state.filename, state.content)
       .then((result) => {
         update({ analysis: result })
@@ -27,7 +40,20 @@ export function Step2Analysis({ state, update, onReady }: Props) {
         setLoading(false)
         setError(err instanceof Error ? err.message : 'Analysis failed')
       })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }
+
+  if (showConfirm) {
+    return (
+      <div>
+        <h2 className="step-title">Analysing VB.NET Source</h2>
+        <ConfirmDialog
+          message="This will send your VB.NET source to Claude (Sonnet) for analysis. Proceed?"
+          onConfirm={runAnalysis}
+          onCancel={() => setShowConfirm(false)}
+        />
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -55,7 +81,20 @@ export function Step2Analysis({ state, update, onReady }: Props) {
 
   return (
     <div>
-      <h2 className="step-title">Analysis Complete</h2>
+      <h2 className="step-title">
+        Analysis Complete
+        <span className="step-infotip">
+          <InfoTip>
+            <p>
+              <strong>Claude analyses the VB.NET source and identifies classes, methods, dependencies, and complexity.</strong>{' '}
+              This uses Claude Sonnet to extract business logic from UI event handlers.
+            </p>
+            <p>
+              Complexity is rated LOW, MEDIUM, or HIGH based on the number of methods, branching logic, and dependencies between classes.
+            </p>
+          </InfoTip>
+        </span>
+      </h2>
       <p className="step-subtitle">{analysis.summary}</p>
 
       {analysis.classes.map((cls) => (

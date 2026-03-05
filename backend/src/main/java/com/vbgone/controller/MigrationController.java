@@ -3,13 +3,11 @@ package com.vbgone.controller;
 import com.vbgone.model.*;
 import com.vbgone.service.AnalysisService;
 import com.vbgone.service.BuildService;
+import com.vbgone.service.CostService;
 import com.vbgone.service.GenerationService;
 import com.vbgone.service.GitHubService;
 import com.vbgone.session.SessionStore;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/migrate")
@@ -19,17 +17,20 @@ public class MigrationController {
     private final GenerationService generationService;
     private final BuildService buildService;
     private final GitHubService gitHubService;
+    private final CostService costService;
     private final SessionStore sessionStore;
 
     public MigrationController(AnalysisService analysisService,
                                GenerationService generationService,
                                BuildService buildService,
                                GitHubService gitHubService,
+                               CostService costService,
                                SessionStore sessionStore) {
         this.analysisService = analysisService;
         this.generationService = generationService;
         this.buildService = buildService;
         this.gitHubService = gitHubService;
+        this.costService = costService;
         this.sessionStore = sessionStore;
     }
 
@@ -67,5 +68,10 @@ public class MigrationController {
     public PullRequestResult raisePR(@RequestBody PullRequestRequest request) {
         return gitHubService.raisePR(
                 request.sessionId(), request.repoOwner(), request.repoName(), request.branchName());
+    }
+
+    @GetMapping("/cost/{sessionId}")
+    public CostResult getCost(@PathVariable String sessionId) {
+        return costService.getCost(sessionId);
     }
 }

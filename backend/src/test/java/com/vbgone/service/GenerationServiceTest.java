@@ -32,6 +32,10 @@ class GenerationServiceTest {
         service = new GenerationService(claudeClient, sessionStore);
     }
 
+    private ClaudeClient.ClaudeResponse claudeResponse(String text) {
+        return new ClaudeClient.ClaudeResponse(text, 100, 50);
+    }
+
     private MigrationSession sessionWithVb(String sessionId) {
         MigrationSession session = new MigrationSession(sessionId);
         session.setVbContent("Public Class Form1...");
@@ -59,7 +63,7 @@ class GenerationServiceTest {
         MigrationSession session = sessionWithVb("s1");
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
-                .thenReturn("public interface IForm1 { int Add(int a, int b); }");
+                .thenReturn(claudeResponse("public interface IForm1 { int Add(int a, int b); }"));
 
         InterfaceResult result = service.generateInterface("s1", "Form1");
 
@@ -106,7 +110,7 @@ class GenerationServiceTest {
                     public void Subtract_ReturnsDifference() { }
                 }""";
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
-                .thenReturn(testCode);
+                .thenReturn(claudeResponse(testCode));
 
         TestsResult result = service.generateTests("s1", "Form1");
 
@@ -130,7 +134,7 @@ class GenerationServiceTest {
         MigrationSession session = sessionWithInterface("s1");
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
-                .thenReturn("public class Form1 : IForm1 { }");
+                .thenReturn(claudeResponse("public class Form1 : IForm1 { }"));
 
         StubResult result = service.generateStub("s1", "Form1");
 
@@ -163,7 +167,7 @@ class GenerationServiceTest {
         MigrationSession session = sessionWithInterface("s1");
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
-                .thenReturn("public class Form1 : IForm1 { public int Add(int a, int b) => a + b; }");
+                .thenReturn(claudeResponse("public class Form1 : IForm1 { public int Add(int a, int b) => a + b; }"));
 
         ImplementResult result = service.implement("s1", "Form1", ImplementMode.CLAUDE);
 
@@ -214,7 +218,7 @@ class GenerationServiceTest {
         MigrationSession session = sessionWithVb("s1");
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
-                .thenReturn("```csharp\npublic interface IForm1 { }\n```");
+                .thenReturn(claudeResponse("```csharp\npublic interface IForm1 { }\n```"));
 
         InterfaceResult result = service.generateInterface("s1", "Form1");
 
@@ -237,5 +241,22 @@ class GenerationServiceTest {
                 """;
 
         assertThat(service.countTests(code)).isEqualTo(4);
+    }
+
+    // ── Token tracking ──
+
+    @Test
+    void generateInterface_tracksTokenUsage() {
+        MigrationSession session = sessionWithVb("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(new ClaudeClient.ClaudeResponse("public interface IForm1 {}", 150, 75));
+
+        service.generateInterface("s1", "Form1");
+
+        assertThat(session.getTokenUsages()).hasSize(1);
+        assertThat(session.getTokenUsages().get(0).step()).isEqualTo("interface");
+        assertThat(session.getTokenUsages().get(0).inputTokens()).isEqualTo(150);
+        assertThat(session.getTokenUsages().get(0).outputTokens()).isEqualTo(75);
     }
 }
