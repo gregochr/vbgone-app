@@ -133,7 +133,8 @@ export function Step4Tests({ state, update, onReady }: Props) {
       </p>
 
       <div className="build-status build-red">
-        {'\uD83D\uDD34'} {state.redBuild?.failed} / {state.redBuild?.total} tests failing
+        {'\uD83D\uDD34'} {(state.redBuild?.total ?? 0) - (state.redBuild?.passed ?? 0)} /{' '}
+        {state.redBuild?.total} tests failing — stub throws NotImplementedException
       </div>
 
       {state.tests && (
