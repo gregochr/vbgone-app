@@ -129,14 +129,29 @@ export function Step4Tests({ state, update, onReady }: Props) {
     <div>
       <h2 className="step-title">Tests + Red Build</h2>
       <p className="step-subtitle">
-        {state.tests?.testCount} NUnit tests generated. All failing against the stub — exactly what
-        we expect.
+        {state.tests?.testCount} NUnit tests generated.
+        {state.redBuild?.buildStatus === 'ERROR'
+          ? ' Build failed — see compilation errors below.'
+          : ' All failing against the stub — exactly what we expect.'}
       </p>
 
-      <div className="build-status build-red">
-        {'\uD83D\uDD34'} {state.redBuild?.failed} / {state.redBuild?.total} tests failing — stub
-        throws NotImplementedException
-      </div>
+      {state.redBuild?.buildStatus === 'ERROR' ? (
+        <div className="build-status build-red">
+          {'\uD83D\uDD34'} Build error — generated code did not compile
+          {state.redBuild.errors.length > 0 && (
+            <ul style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: '0.85rem', fontWeight: 400 }}>
+              {state.redBuild.errors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : (
+        <div className="build-status build-red">
+          {'\uD83D\uDD34'} {state.redBuild?.failed} / {state.redBuild?.total} tests failing — stub
+          throws NotImplementedException
+        </div>
+      )}
 
       {state.tests && (
         <>

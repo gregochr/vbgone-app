@@ -73,6 +73,23 @@ describe('Step4Tests', () => {
     expect(screen.getByText(/exactly what we expect/)).toBeInTheDocument()
   })
 
+  it('shows compilation errors when build status is ERROR', () => {
+    const errorBuild: api.BuildResult = {
+      sessionId: 'session-1',
+      buildStatus: 'ERROR',
+      total: 0,
+      passed: 0,
+      failed: 0,
+      errors: ['CS1002: ; expected', 'CS0246: type not found'],
+    }
+    const errorState = { ...baseState, tests: mockTests, redBuild: errorBuild }
+    render(<Step4Tests state={errorState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText(/Build error/)).toBeInTheDocument()
+    expect(screen.getByText(/did not compile/)).toBeInTheDocument()
+    expect(screen.getByText('CS1002: ; expected')).toBeInTheDocument()
+    expect(screen.getByText('CS0246: type not found')).toBeInTheDocument()
+  })
+
   it('shows confirm dialog before making API calls', () => {
     render(<Step4Tests state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText('Tests + Red Build')).toBeInTheDocument()

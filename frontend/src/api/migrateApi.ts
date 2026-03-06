@@ -41,7 +41,7 @@ export interface StubResult {
 
 export interface BuildResult {
   sessionId: string
-  buildStatus: 'RED' | 'GREEN'
+  buildStatus: 'RED' | 'GREEN' | 'ERROR'
   total: number
   passed: number
   failed: number

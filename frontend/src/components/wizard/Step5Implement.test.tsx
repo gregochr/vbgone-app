@@ -126,6 +126,29 @@ describe('Step5Implement', () => {
     expect(screen.getByText(/Manual/)).toBeInTheDocument()
   })
 
+  it('displays build error when build status is ERROR', () => {
+    const errorState = {
+      ...baseState,
+      implementResult: {
+        sessionId: 'session-1',
+        className: 'Foo',
+        code: 'public class Foo : IFoo { }',
+        mode: 'CLAUDE' as const,
+      },
+      greenBuild: {
+        sessionId: 'session-1',
+        buildStatus: 'ERROR' as const,
+        total: 0,
+        passed: 0,
+        failed: 0,
+        errors: ['CS0246: type not found'],
+      },
+    }
+    render(<Step5Implement state={errorState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText(/Build error/)).toBeInTheDocument()
+    expect(screen.getByText(/did not compile/)).toBeInTheDocument()
+  })
+
   it('shows loading state while API call is in progress', async () => {
     const user = userEvent.setup()
     vi.mocked(api.implement).mockReturnValue(new Promise(() => {})) // never resolves

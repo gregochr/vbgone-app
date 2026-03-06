@@ -76,9 +76,11 @@ export function Step5Implement({ state, update, onReady }: Props) {
         </p>
 
         <div className={`build-status ${isGreen ? 'build-green' : 'build-red'}`}>
-          {isGreen
-            ? `\uD83D\uDFE2 ${b.passed} / ${b.total} tests passing`
-            : `\uD83D\uDD34 ${b.failed} / ${b.total} tests failing`}
+          {b.buildStatus === 'ERROR'
+            ? `\uD83D\uDD34 Build error — generated code did not compile`
+            : isGreen
+              ? `\uD83D\uDFE2 ${b.passed} / ${b.total} tests passing`
+              : `\uD83D\uDD34 ${b.failed} / ${b.total} tests failing`}
         </div>
 
         <h3 style={{ marginBottom: 8 }}>Implementation</h3>
