@@ -75,6 +75,12 @@ public class MigrationController {
         return generationService.implement(request.sessionId(), request.className(), request.mode());
     }
 
+    @PostMapping("/retry-implement")
+    public ImplementResult retryImplement(@RequestBody RetryRequest request) {
+        return generationService.retryImplement(
+                request.sessionId(), request.className(), request.failingTests());
+    }
+
     @PostMapping("/pr")
     public PullRequestResult raisePR(@RequestBody PullRequestRequest request) {
         return gitHubService.raisePR(

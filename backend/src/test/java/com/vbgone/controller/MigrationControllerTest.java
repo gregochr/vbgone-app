@@ -124,7 +124,7 @@ class MigrationControllerTest {
     @Test
     void build_returns200WithBuildResult() throws Exception {
         when(buildService.build(SESSION_ID))
-                .thenReturn(new BuildResult(SESSION_ID, BuildStatus.RED, 30, 0, 30, List.of()));
+                .thenReturn(new BuildResult(SESSION_ID, BuildStatus.RED, 30, 0, 30, List.of(), List.of("TestA", "TestB")));
 
         mockMvc.perform(post("/api/migrate/build")
                         .contentType(MediaType.APPLICATION_JSON)

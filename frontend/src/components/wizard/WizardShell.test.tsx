@@ -38,7 +38,7 @@ vi.mock('../../api/migrateApi', async () => {
       total: 10,
       passed: 0,
       failed: 10,
-      errors: [],
+      errors: [], failedTests: [],
     }),
     implement: vi.fn().mockResolvedValue({
       sessionId: 'test-session',
@@ -52,7 +52,7 @@ vi.mock('../../api/migrateApi', async () => {
       total: 10,
       passed: 10,
       failed: 0,
-      errors: [],
+      errors: [], failedTests: [],
     }),
     raisePR: vi.fn().mockResolvedValue({
       sessionId: 'test-session',

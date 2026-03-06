@@ -154,6 +154,37 @@ public class GenerationService {
         return result;
     }
 
+    public ImplementResult retryImplement(String sessionId, String className, java.util.List<String> failingTests) {
+        MigrationSession session = getSession(sessionId);
+
+        InterfaceResult iface = session.getInterfaceResult();
+        if (iface == null) {
+            throw new IllegalStateException("Interface must be generated before retry");
+        }
+        ImplementResult previous = session.getImplementResult();
+        if (previous == null) {
+            throw new IllegalStateException("Previous implementation must exist before retry");
+        }
+
+        String failingList = String.join(", ", failingTests);
+        String userMessage = "The following tests are failing. Fix the implementation to make them pass: "
+                + failingList + "\n\nCurrent failing implementation:\n" + previous.code()
+                + "\n\nInterface:\n" + iface.code()
+                + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContent();
+
+        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
+                IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);
+        String code = stripCodeFences(response.text());
+
+        String modelId = Model.CLAUDE_SONNET_4_6.asString();
+        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
+        session.addTokenUsage(new TokenUsage("retry-implement", modelId, response.inputTokens(), response.outputTokens(), cost));
+
+        ImplementResult result = new ImplementResult(sessionId, className, code, ImplementMode.CLAUDE);
+        session.setImplementResult(result);
+        return result;
+    }
+
     private MigrationSession getSession(String sessionId) {
         return sessionStore.get(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));

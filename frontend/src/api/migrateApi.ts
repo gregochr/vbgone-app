@@ -46,6 +46,7 @@ export interface BuildResult {
   passed: number
   failed: number
   errors: string[]
+  failedTests: string[]
 }
 
 export interface ImplementResult {
@@ -269,6 +270,7 @@ public class ${className} : I${className}
       passed: 0,
       failed: 30,
       errors: [],
+      failedTests: Array.from({ length: 30 }, (_, i) => `Test_${i + 1}`),
     }
   },
 
@@ -318,6 +320,22 @@ public class ${className} : I${className}
       passed: mode === 'CLAUDE' ? 30 : 0,
       failed: mode === 'CLAUDE' ? 0 : 30,
       errors: [],
+      failedTests: mode === 'CLAUDE' ? [] : Array.from({ length: 30 }, (_, i) => `Test_${i + 1}`),
+    }
+  },
+
+  async retryImplement(
+    sessionId: string,
+    className: string,
+    _failingTests: string[],
+  ): Promise<ImplementResult> {
+    void sessionId
+    await delay(2000)
+    return {
+      sessionId: MOCK_SESSION_ID,
+      className,
+      code: `namespace VBGone.Generated;\n\npublic class ${className} : I${className}\n{\n    // retry implementation\n}`,
+      mode: 'CLAUDE',
     }
   },
 
@@ -384,6 +402,19 @@ const realApi = {
     return data
   },
 
+  async retryImplement(
+    sessionId: string,
+    className: string,
+    failingTests: string[],
+  ): Promise<ImplementResult> {
+    const { data } = await api.post<ImplementResult>('/retry-implement', {
+      sessionId,
+      className,
+      failingTests,
+    })
+    return data
+  },
+
   async raisePR(
     sessionId: string,
     repoOwner: string,
@@ -416,6 +447,7 @@ export const generateStub = active.generateStub
 export const build = active.build
 export const implement = active.implement
 export const buildAfterImplement = active.buildAfterImplement
+export const retryImplement = active.retryImplement
 export const raisePR = active.raisePR
 export const fetchCost = active.fetchCost
 

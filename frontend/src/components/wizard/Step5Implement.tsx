@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { WizardState } from './WizardShell'
-import { implement, buildAfterImplement } from '../../api/migrateApi'
+import { implement, buildAfterImplement, retryImplement, build } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CodeBlock } from './CodeBlock'
 
@@ -10,12 +10,15 @@ interface Props {
   onReady: () => void
 }
 
+const MAX_ATTEMPTS = 3
+
 export function Step5Implement({ state, update, onReady }: Props) {
   const [mode, setMode] = useState<'STUB' | 'CLAUDE' | null>(null)
   const [loading, setLoading] = useState(false)
   const [phase, setPhase] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pendingMode, setPendingMode] = useState<'STUB' | 'CLAUDE' | null>(null)
+  const [attempts, setAttempts] = useState(1)
 
   const className = state.analysis?.classes[0]?.name ?? ''
   const sessionId = state.analysis?.sessionId ?? ''
@@ -46,10 +49,37 @@ export function Step5Implement({ state, update, onReady }: Props) {
       update({ greenBuild: buildResult })
 
       setLoading(false)
-      onReady()
+      if (buildResult.buildStatus === 'GREEN') {
+        onReady()
+      }
     } catch (err) {
       setLoading(false)
       setError(err instanceof Error ? err.message : 'Implementation failed')
+    }
+  }
+
+  const retry = async () => {
+    const failingTests = state.greenBuild?.failedTests ?? []
+    setLoading(true)
+    setError(null)
+    setAttempts((a) => a + 1)
+
+    try {
+      setPhase('Claude is retrying implementation...')
+      const implResult = await retryImplement(sessionId, className, failingTests)
+      update({ implementResult: implResult })
+
+      setPhase('Running dotnet test...')
+      const buildResult = await build(sessionId)
+      update({ greenBuild: buildResult })
+
+      setLoading(false)
+      if (buildResult.buildStatus === 'GREEN') {
+        onReady()
+      }
+    } catch (err) {
+      setLoading(false)
+      setError(err instanceof Error ? err.message : 'Retry failed')
     }
   }
 
@@ -67,12 +97,17 @@ export function Step5Implement({ state, update, onReady }: Props) {
   if (state.greenBuild && state.implementResult) {
     const b = state.greenBuild
     const isGreen = b.buildStatus === 'GREEN'
+    const isRed = b.buildStatus === 'RED'
+    const isClaude = state.implementResult.mode === 'CLAUDE'
+    const canRetry = isRed && isClaude && attempts < MAX_ATTEMPTS
+    const exhausted = isRed && isClaude && attempts >= MAX_ATTEMPTS
 
     return (
       <div>
         <h2 className="step-title">Implementation</h2>
         <p className="step-subtitle">
-          Mode: {state.implementResult.mode === 'CLAUDE' ? 'AI' : 'Manual'}
+          Mode: {isClaude ? 'AI' : 'Manual'}
+          {attempts > 1 && ` (attempt ${attempts} of ${MAX_ATTEMPTS})`}
         </p>
 
         <div className={`build-status ${isGreen ? 'build-green' : 'build-red'}`}>
@@ -81,16 +116,29 @@ export function Step5Implement({ state, update, onReady }: Props) {
             : isGreen
               ? `\uD83D\uDFE2 ${b.passed} / ${b.total} tests passing`
               : `\uD83D\uDD34 ${b.failed} / ${b.total} tests failing — review the implementation`}
-          {b.buildStatus === 'RED' && b.errors.length > 0 && (
+          {isRed && b.failedTests.length > 0 && (
             <ul
               style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: '0.85rem', fontWeight: 400 }}
             >
-              {b.errors.map((err, i) => (
-                <li key={i}>{err}</li>
+              {b.failedTests.map((name, i) => (
+                <li key={i}>{name}</li>
               ))}
             </ul>
           )}
         </div>
+
+        {canRetry && (
+          <button className="btn-plex" style={{ marginBottom: 16 }} onClick={retry}>
+            Retry with Claude ({MAX_ATTEMPTS - attempts} {MAX_ATTEMPTS - attempts === 1 ? 'attempt' : 'attempts'} remaining)
+          </button>
+        )}
+
+        {exhausted && (
+          <div className="build-status build-red" style={{ marginBottom: 16 }}>
+            Claude was unable to make all tests pass after {MAX_ATTEMPTS} attempts. Download the
+            stub and implement manually.
+          </div>
+        )}
 
         <h3 style={{ marginBottom: 8 }}>Implementation</h3>
         <CodeBlock code={state.implementResult.code} />

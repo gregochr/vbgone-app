@@ -11,6 +11,8 @@ vi.mock('../../api/migrateApi', async () => {
     ...actual,
     implement: vi.fn(),
     buildAfterImplement: vi.fn(),
+    retryImplement: vi.fn(),
+    build: vi.fn(),
   }
 })
 
@@ -45,7 +47,7 @@ const mockGreenBuild: api.BuildResult = {
   total: 10,
   passed: 10,
   failed: 0,
-  errors: [],
+  errors: [], failedTests: [],
 }
 
 describe('Step5Implement', () => {
@@ -86,7 +88,7 @@ describe('Step5Implement', () => {
       total: 10,
       passed: 0,
       failed: 10,
-      errors: [],
+      errors: [], failedTests: [],
     }
     vi.mocked(api.implement).mockResolvedValue(mockStubImpl)
     vi.mocked(api.buildAfterImplement).mockResolvedValue(mockRedBuild)
@@ -118,7 +120,7 @@ describe('Step5Implement', () => {
         total: 10,
         passed: 0,
         failed: 10,
-        errors: [],
+        errors: [], failedTests: [],
       },
     }
     render(<Step5Implement state={stubState} update={vi.fn()} onReady={vi.fn()} />)
@@ -142,7 +144,7 @@ describe('Step5Implement', () => {
         total: 10,
         passed: 8,
         failed: 2,
-        errors: [],
+        errors: [], failedTests: [],
       },
     }
     render(<Step5Implement state={partialState} update={vi.fn()} onReady={vi.fn()} />)
@@ -166,6 +168,7 @@ describe('Step5Implement', () => {
         passed: 0,
         failed: 0,
         errors: ['CS0246: type not found'],
+        failedTests: [],
       },
     }
     render(<Step5Implement state={errorState} update={vi.fn()} onReady={vi.fn()} />)

@@ -47,7 +47,7 @@ const mockBuild: api.BuildResult = {
   total: 10,
   passed: 0,
   failed: 10,
-  errors: [],
+  errors: [], failedTests: [],
 }
 
 describe('Step4Tests', () => {
@@ -81,6 +81,7 @@ describe('Step4Tests', () => {
       passed: 0,
       failed: 0,
       errors: ['CS1002: ; expected', 'CS0246: type not found'],
+      failedTests: [],
     }
     const errorState = { ...baseState, tests: mockTests, redBuild: errorBuild }
     render(<Step4Tests state={errorState} update={vi.fn()} onReady={vi.fn()} />)

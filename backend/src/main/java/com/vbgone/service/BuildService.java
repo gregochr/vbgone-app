@@ -90,7 +90,7 @@ public class BuildService {
             BuildResult result;
             if (output.exitCode() != 0 && !Files.exists(trxPath)) {
                 List<String> errors = parseCompilationErrors(output.stderr());
-                result = new BuildResult(sessionId, BuildStatus.ERROR, 0, 0, 0, errors);
+                result = new BuildResult(sessionId, BuildStatus.ERROR, 0, 0, 0, errors, List.of());
             } else {
                 String trxContent = Files.readString(trxPath);
                 result = parseTrx(sessionId, trxContent);
@@ -160,8 +160,17 @@ public class BuildService {
             int passed = Integer.parseInt(counters.getAttribute("passed"));
             int failed = Integer.parseInt(counters.getAttribute("failed"));
 
+            List<String> failedTests = new java.util.ArrayList<>();
+            var results = doc.getElementsByTagName("UnitTestResult");
+            for (int i = 0; i < results.getLength(); i++) {
+                var el = (org.w3c.dom.Element) results.item(i);
+                if ("Failed".equals(el.getAttribute("outcome"))) {
+                    failedTests.add(el.getAttribute("testName"));
+                }
+            }
+
             BuildStatus status = (failed == 0) ? BuildStatus.GREEN : BuildStatus.RED;
-            return new BuildResult(sessionId, status, total, passed, failed, List.of());
+            return new BuildResult(sessionId, status, total, passed, failed, List.of(), failedTests);
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse .trx results: " + e.getMessage(), e);

@@ -8,5 +8,6 @@ public record BuildResult(
         int total,
         int passed,
         int failed,
-        List<String> errors
+        List<String> errors,
+        List<String> failedTests
 ) {}
