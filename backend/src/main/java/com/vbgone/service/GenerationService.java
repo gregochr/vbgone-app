@@ -50,6 +50,10 @@ public class GenerationService {
             then the implementation MUST be 'public double Divide(int a, int b)'. Changing a return \
             type will cause compilation errors.
 
+            When implementing Divide methods, always check for division by zero and throw \
+            DivideByZeroException: if (b == 0) throw new DivideByZeroException("Cannot divide by zero."); \
+            Never rely on implicit division by zero behaviour — always throw explicitly.
+
             Return only raw C# code. No markdown. No backticks. No explanation.""";
 
     private final ClaudeClient claudeClient;
