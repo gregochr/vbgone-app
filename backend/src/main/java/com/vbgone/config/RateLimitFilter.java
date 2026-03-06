@@ -38,13 +38,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType("application/json");
             response.getWriter().write(
-                    "{\"error\":\"Rate limit exceeded. VBGone allows 10 migrations per hour per IP address.\"}");
+                    "{\"error\":\"Rate limit exceeded. VBGone allows 100 migrations per hour per IP address.\"}");
         }
     }
 
     private Bucket createBucket() {
         return Bucket.builder()
-                .addLimit(Bandwidth.simple(10, Duration.ofHours(1)))
+                .addLimit(Bandwidth.simple(100, Duration.ofHours(1)))
                 .build();
     }
 }

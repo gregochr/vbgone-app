@@ -36,7 +36,7 @@ class RateLimitFilterTest {
 
     @Test
     void returns429AfterLimitExceeded() throws ServletException, IOException {
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 100; i++) {
             MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/migrate/analyse");
             MockHttpServletResponse response = new MockHttpServletResponse();
             filter.doFilter(request, response, filterChain);
@@ -49,13 +49,13 @@ class RateLimitFilterTest {
 
         assertThat(response.getStatus()).isEqualTo(429);
         assertThat(response.getContentAsString()).contains("Rate limit exceeded");
-        assertThat(response.getContentAsString()).contains("10 migrations per hour per IP address");
+        assertThat(response.getContentAsString()).contains("100 migrations per hour per IP address");
     }
 
     @Test
     void tracksSeparateBucketsPerIP() throws ServletException, IOException {
         // Exhaust limit for IP 1
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 100; i++) {
             MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/migrate/analyse");
             request.setRemoteAddr("192.168.1.1");
             filter.doFilter(request, new MockHttpServletResponse(), filterChain);
@@ -83,7 +83,7 @@ class RateLimitFilterTest {
 
     @Test
     void returns429WithJsonContentType() throws ServletException, IOException {
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 100; i++) {
             filter.doFilter(
                     new MockHttpServletRequest("POST", "/api/migrate/analyse"),
                     new MockHttpServletResponse(), filterChain);

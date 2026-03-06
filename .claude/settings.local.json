@@ -12,7 +12,13 @@
       "Bash(git stash:*)",
       "Bash(./mvnw dependency:resolve -q)",
       "Bash(jar tf:*)",
-      "Bash(javap:*)"
+      "Bash(javap:*)",
+      "Bash(git push:*)",
+      "Bash(dotnet:*)",
+      "Bash(rm:*)",
+      "Bash(sed:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
