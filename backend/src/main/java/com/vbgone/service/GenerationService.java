@@ -11,7 +11,14 @@ public class GenerationService {
     static final String INTERFACE_SYSTEM_PROMPT = """
             You are a VB.NET to C# migration expert. Generate a C# interface from VB.NET source \
             code. Extract only public business logic methods — ignore all UI, event handlers, and \
-            Windows Forms concerns. Return only raw C# code. No markdown. No backticks. \
+            Windows Forms concerns.
+
+            When generating C# interfaces, use appropriate return types for mathematical operations. \
+            Division operations should return double, not int, to preserve decimal precision. \
+            Consider the semantics of each method — if the operation can produce a non-integer \
+            result, use double or decimal as the return type.
+
+            Return only raw C# code. No markdown. No backticks. \
             No explanation. The response will be written directly to a .cs file.""";
 
     static final String TESTS_SYSTEM_PROMPT = """
@@ -36,8 +43,13 @@ public class GenerationService {
             You are a VB.NET to C# migration expert. Generate a complete C# implementation of an \
             interface based on VB.NET source behaviour. Write idiomatic modern C# — use \
             expression-bodied members, pattern matching, and nullable reference types where \
-            appropriate. Match return types EXACTLY as declared in the interface. Do not change \
-            return types — if the interface declares double, return double. \
+            appropriate.
+
+            CRITICAL: You MUST match the return types EXACTLY as declared in the C# interface. \
+            Do NOT change any return types. If the interface declares 'double Divide(int a, int b)' \
+            then the implementation MUST be 'public double Divide(int a, int b)'. Changing a return \
+            type will cause compilation errors.
+
             Return only raw C# code. No markdown. No backticks. No explanation.""";
 
     private final ClaudeClient claudeClient;
@@ -138,8 +150,10 @@ public class GenerationService {
         if (iface == null) {
             throw new IllegalStateException("Interface must be generated before implement");
         }
-        String userMessage = "Implement " + iface.code()
-                + " based on this VB.NET behaviour:\n" + session.getVbContent();
+        String userMessage = "Implement the following C# interface. "
+                + "Match every method signature exactly — same return types, same parameter types.\n\n"
+                + "Interface:\n" + iface.code()
+                + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContent();
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);
