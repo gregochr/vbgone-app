@@ -718,3 +718,413 @@
   border-radius: 0 0 8px 8px;
   margin: 0;
 }
+
+/* ── Upload mode toggle ── */
+
+.upload-mode-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 8px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.upload-mode-tab {
+  padding: 10px 24px;
+  border: none;
+  background: var(--bg-secondary);
+  color: var(--grey);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.upload-mode-tab:hover {
+  color: var(--white);
+}
+
+.upload-mode-tab.active {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+/* ── Zip summary ── */
+
+.zip-summary {
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.zip-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.zip-icon {
+  font-size: 2rem;
+}
+
+.zip-meta {
+  color: var(--grey);
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.zip-file-tree {
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.zip-file-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.zip-file-entry:last-child {
+  border-bottom: none;
+}
+
+.zip-file-icon {
+  flex-shrink: 0;
+}
+
+.zip-file-path {
+  flex: 1;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  color: var(--accent);
+}
+
+.zip-file-size {
+  color: var(--grey);
+  font-size: 0.8rem;
+}
+
+/* ── Project queue ── */
+
+.project-queue-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-queue {
+  flex: 1;
+  padding: 32px;
+  padding-bottom: 100px;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.queue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.queue-summary {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.queue-stat {
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 16px 24px;
+  text-align: center;
+  flex: 1;
+}
+
+.queue-stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.queue-stat-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--grey);
+  margin-top: 4px;
+}
+
+/* ── Progress bar ── */
+
+.queue-progress {
+  margin-bottom: 24px;
+}
+
+.queue-progress-bar {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.queue-progress-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.queue-progress-text {
+  font-size: 0.85rem;
+  color: var(--grey);
+}
+
+/* ── Queue cards ── */
+
+.queue-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.queue-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 20px;
+  transition: border-color 0.2s;
+}
+
+.queue-card-in-progress {
+  border-color: var(--accent);
+}
+
+.queue-card-complete,
+.queue-card-pr-raised {
+  border-color: var(--green);
+}
+
+.queue-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.queue-card-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.queue-card-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.queue-card-deps {
+  font-size: 0.85rem;
+  color: var(--grey);
+  margin-bottom: 12px;
+}
+
+.queue-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.queue-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.queue-status-pending {
+  color: var(--grey);
+}
+
+.queue-status-in-progress {
+  color: var(--accent);
+}
+
+.queue-status-complete,
+.queue-status-pr-raised {
+  color: var(--green);
+}
+
+.btn-migrate {
+  padding: 8px 20px;
+  font-size: 0.85rem;
+}
+
+/* ── Project wizard wrapper ── */
+
+.project-wizard-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* ── Project context banner ── */
+
+.project-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 32px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.project-banner-text {
+  flex: 1;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--grey);
+}
+
+/* ── Collapsible cards ── */
+
+.collapsible-cards {
+  margin-bottom: 24px;
+}
+
+.collapsible-cards-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px 8px 0 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
+  color: var(--white);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: left;
+}
+
+.collapsible-cards-header:hover {
+  background: var(--bg-tertiary);
+}
+
+.collapsible-cards-body {
+  overflow: hidden;
+  transition:
+    max-height 0.3s ease,
+    opacity 0.25s ease;
+}
+
+.collapsible-cards-body .queue-cards {
+  padding-top: 12px;
+}
+
+/* ── Queue PR section ── */
+
+.queue-pr-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  justify-content: flex-end;
+}
+
+.btn-raise-pr {
+  font-size: 0.95rem;
+  padding: 10px 24px;
+}
+
+.queue-pr-error {
+  color: var(--red);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.queue-pr-result {
+  margin-top: 24px;
+}
+
+/* ── Dependency graph ── */
+
+.dep-graph-container {
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.dep-graph-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.dep-graph-legend {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 12px;
+  font-size: 0.8rem;
+  color: var(--grey);
+}
+
+.dep-graph-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dep-graph-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dep-graph-svg {
+  width: 100%;
+  height: 300px;
+}
+
+.dep-graph-hint {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--grey);
+  margin: 8px 0 0;
+  opacity: 0.7;
+}
+
+@keyframes dep-pulse {
+  0% {
+    r: 22;
+    stroke-opacity: 0.6;
+  }
+  50% {
+    r: 30;
+    stroke-opacity: 0;
+  }
+  100% {
+    r: 22;
+    stroke-opacity: 0.6;
+  }
+}
+
+.dep-graph-pulse {
+  animation: dep-pulse 2s ease-in-out infinite;
+}

@@ -6,9 +6,12 @@ import com.vbgone.service.BuildService;
 import com.vbgone.service.CostService;
 import com.vbgone.service.GenerationService;
 import com.vbgone.service.GitHubService;
+import com.vbgone.service.ZipExtractorService;
 import com.vbgone.session.SessionStore;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
@@ -20,6 +23,7 @@ public class MigrationController {
     private final BuildService buildService;
     private final GitHubService gitHubService;
     private final CostService costService;
+    private final ZipExtractorService zipExtractorService;
     private final SessionStore sessionStore;
 
     public MigrationController(AnalysisService analysisService,
@@ -27,12 +31,14 @@ public class MigrationController {
                                BuildService buildService,
                                GitHubService gitHubService,
                                CostService costService,
+                               ZipExtractorService zipExtractorService,
                                SessionStore sessionStore) {
         this.analysisService = analysisService;
         this.generationService = generationService;
         this.buildService = buildService;
         this.gitHubService = gitHubService;
         this.costService = costService;
+        this.zipExtractorService = zipExtractorService;
         this.sessionStore = sessionStore;
     }
 
@@ -48,6 +54,12 @@ public class MigrationController {
                     "Only .vb and .zip files are supported. Received: " + filename);
         }
         return analysisService.analyse(filename, request.content());
+    }
+
+    @PostMapping(value = "/upload-project", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ProjectAnalysis uploadProject(@RequestParam("file") MultipartFile file) {
+        ZipManifest manifest = zipExtractorService.extract(file);
+        return analysisService.analyseProject(manifest);
     }
 
     @PostMapping("/interface")
@@ -90,5 +102,11 @@ public class MigrationController {
     @GetMapping("/cost/{sessionId}")
     public CostResult getCost(@PathVariable String sessionId) {
         return costService.getCost(sessionId);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public java.util.Map<String, String> handleIllegalArgument(IllegalArgumentException ex) {
+        return java.util.Map.of("error", ex.getMessage());
     }
 }

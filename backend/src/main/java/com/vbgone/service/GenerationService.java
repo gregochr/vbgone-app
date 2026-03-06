@@ -67,7 +67,7 @@ public class GenerationService {
     public InterfaceResult generateInterface(String sessionId, String className) {
         MigrationSession session = getSession(sessionId);
         String userMessage = "Generate a C# interface named I" + className
-                + " for this VB.NET:\n" + session.getVbContent();
+                + " for this VB.NET:\n" + session.getVbContentForClass(className);
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 INTERFACE_SYSTEM_PROMPT, userMessage, Model.CLAUDE_HAIKU_4_5, 4096L);
@@ -85,7 +85,7 @@ public class GenerationService {
     public TestsResult generateTests(String sessionId, String className) {
         MigrationSession session = getSession(sessionId);
         String userMessage = "Generate NUnit tests for I" + className
-                + " based on this VB.NET:\n" + session.getVbContent()
+                + " based on this VB.NET:\n" + session.getVbContentForClass(className)
                 + "\n\nThe implementation class name is " + className
                 + ", the interface is I" + className + "."
                 + "\n\nThe test file should follow this structure exactly:\n"
@@ -157,7 +157,7 @@ public class GenerationService {
         String userMessage = "Implement the following C# interface. "
                 + "Match every method signature exactly — same return types, same parameter types.\n\n"
                 + "Interface:\n" + iface.code()
-                + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContent();
+                + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContentForClass(className);
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);
@@ -188,7 +188,7 @@ public class GenerationService {
         String userMessage = "The following tests are failing. Fix the implementation to make them pass: "
                 + failingList + "\n\nCurrent failing implementation:\n" + previous.code()
                 + "\n\nInterface:\n" + iface.code()
-                + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContent();
+                + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContentForClass(className);
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);

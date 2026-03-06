@@ -16,11 +16,14 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import org.springframework.mock.web.MockMultipartFile;
+
+import java.util.Map;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -48,6 +51,9 @@ class MigrationControllerTest {
 
     @MockitoBean
     private CostService costService;
+
+    @MockitoBean
+    private ZipExtractorService zipExtractorService;
 
     @MockitoBean
     private SessionStore sessionStore;
@@ -235,6 +241,93 @@ class MigrationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new AnalyseRequest("project.zip", "content"))))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void uploadProject_returns200WithProjectAnalysis() throws Exception {
+        ZipManifest manifest = new ZipManifest(SESSION_ID, List.of(
+                new VbSourceFile("Form1.vb", "Form1.vb", "Public Class Form1...")),
+                1);
+        when(zipExtractorService.extract(any())).thenReturn(manifest);
+        when(analysisService.analyseProject(any())).thenReturn(new ProjectAnalysis(
+                SESSION_ID,
+                List.of(new ClassInfo("Form1", List.of("Add"), List.of(), Complexity.LOW)),
+                List.of("Form1"),
+                Map.of("Form1", List.of()),
+                "One class found."
+        ));
+
+        MockMultipartFile zipFile = new MockMultipartFile(
+                "file", "project.zip", "application/zip", new byte[]{1, 2, 3});
+
+        mockMvc.perform(multipart("/api/migrate/upload-project").file(zipFile))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sessionId").value(SESSION_ID))
+                .andExpect(jsonPath("$.classes[0].name").value("Form1"))
+                .andExpect(jsonPath("$.suggestedMigrationOrder[0]").value("Form1"))
+                .andExpect(jsonPath("$.dependencyGraph").isMap())
+                .andExpect(jsonPath("$.summary").value("One class found."));
+    }
+
+    @Test
+    void uploadProject_returns400WhenZipExtractorThrows() throws Exception {
+        when(zipExtractorService.extract(any()))
+                .thenThrow(new IllegalArgumentException("Zip file contains no .vb files."));
+
+        MockMultipartFile zipFile = new MockMultipartFile(
+                "file", "project.zip", "application/zip", new byte[]{1, 2, 3});
+
+        mockMvc.perform(multipart("/api/migrate/upload-project").file(zipFile))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void uploadProject_returns400WhenNoFileProvided() throws Exception {
+        mockMvc.perform(multipart("/api/migrate/upload-project"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void uploadProject_callsZipExtractorThenAnalysis() throws Exception {
+        ZipManifest manifest = new ZipManifest(SESSION_ID, List.of(
+                new VbSourceFile("Calc.vb", "Calc.vb", "code")), 1);
+        when(zipExtractorService.extract(any())).thenReturn(manifest);
+        when(analysisService.analyseProject(manifest)).thenReturn(new ProjectAnalysis(
+                SESSION_ID, List.of(), List.of(), Map.of(), "Summary"));
+
+        MockMultipartFile zipFile = new MockMultipartFile(
+                "file", "project.zip", "application/zip", new byte[]{1});
+
+        mockMvc.perform(multipart("/api/migrate/upload-project").file(zipFile))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sessionId").value(SESSION_ID));
+    }
+
+    @Test
+    void uploadProject_returnsMultipleClasses() throws Exception {
+        ZipManifest manifest = new ZipManifest(SESSION_ID, List.of(
+                new VbSourceFile("Calc.vb", "Calc.vb", "code1"),
+                new VbSourceFile("Report.vb", "Report.vb", "code2")),
+                2);
+        when(zipExtractorService.extract(any())).thenReturn(manifest);
+        when(analysisService.analyseProject(any())).thenReturn(new ProjectAnalysis(
+                SESSION_ID,
+                List.of(
+                        new ClassInfo("Calculator", List.of("Add"), List.of(), Complexity.LOW),
+                        new ClassInfo("Report", List.of("Generate"), List.of("Calculator"), Complexity.MEDIUM)
+                ),
+                List.of("Calculator", "Report"),
+                Map.of("Calculator", List.of(), "Report", List.of("Calculator")),
+                "Two classes."
+        ));
+
+        MockMultipartFile zipFile = new MockMultipartFile(
+                "file", "project.zip", "application/zip", new byte[]{1});
+
+        mockMvc.perform(multipart("/api/migrate/upload-project").file(zipFile))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.classes.length()").value(2))
+                .andExpect(jsonPath("$.dependencyGraph.Report[0]").value("Calculator"));
     }
 
     @Test

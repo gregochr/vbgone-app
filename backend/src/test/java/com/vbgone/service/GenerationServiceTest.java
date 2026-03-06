@@ -89,6 +89,43 @@ class GenerationServiceTest {
                 .hasMessageContaining("Session not found");
     }
 
+    @Test
+    void generateInterface_usesClassSpecificSourceWhenAvailable() {
+        MigrationSession session = new MigrationSession("s1");
+        session.setVbContent("Public Class Foo...\nPublic Class Bar...");
+        session.putClassSource("Foo", "Public Class Foo...");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse("public interface IFoo { }"));
+
+        service.generateInterface("s1", "Foo");
+
+        // Should send only Foo's source, not the combined content
+        verify(claudeClient).sendWithCachedSystemPrompt(
+                eq(GenerationService.INTERFACE_SYSTEM_PROMPT),
+                argThat(msg -> msg.contains("Public Class Foo...") && !msg.contains("Public Class Bar...")),
+                eq(Model.CLAUDE_HAIKU_4_5),
+                eq(4096L));
+    }
+
+    @Test
+    void generateInterface_fallsBackToFullContentWhenNoClassSource() {
+        MigrationSession session = new MigrationSession("s1");
+        session.setVbContent("Public Class Form1...");
+        // No classSources set — single file mode
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse("public interface IForm1 { }"));
+
+        service.generateInterface("s1", "Form1");
+
+        verify(claudeClient).sendWithCachedSystemPrompt(
+                eq(GenerationService.INTERFACE_SYSTEM_PROMPT),
+                contains("Public Class Form1..."),
+                eq(Model.CLAUDE_HAIKU_4_5),
+                eq(4096L));
+    }
+
     // ── generateTests ──
 
     @Test

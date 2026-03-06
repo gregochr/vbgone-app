@@ -233,12 +233,52 @@ const BACK_TITLES = [
   'Back to implementation',
 ]
 
-export function WizardShell() {
-  const [step, setStep] = useState(0)
-  const [state, setState] = useState<WizardState>(initialState)
+export interface ProjectMode {
+  sessionId: string
+  className: string
+  classIndex: number
+  totalClasses: number
+  onComplete: (raised: boolean) => void
+  onBackToQueue: () => void
+}
+
+interface WizardShellProps {
+  projectMode?: ProjectMode
+  onProjectAnalysed?: (analysis: import('../../api/migrateApi').ProjectAnalysis) => void
+}
+
+export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps = {}) {
+  // In project mode, start at step 2 (Interface) since analysis is already done
+  const startStep = projectMode ? 2 : 0
+  const [step, setStep] = useState(startStep)
+  const [state, setState] = useState<WizardState>(() => {
+    if (projectMode) {
+      return {
+        ...initialState,
+        filename: `${projectMode.className}.vb`,
+        content: '',
+        analysis: {
+          sessionId: projectMode.sessionId,
+          classes: [
+            {
+              name: projectMode.className,
+              methods: [],
+              dependencies: [],
+              complexity: 'LOW' as const,
+            },
+          ],
+          suggestedMigrationOrder: [projectMode.className],
+          summary: `Migrating ${projectMode.className} from project queue`,
+        },
+      }
+    }
+    return initialState
+  })
   const [stepReady, setStepReady] = useState(false)
   const [totalCost, setTotalCost] = useState(0)
-  const sessionIdRef = useRef<string | undefined>(undefined)
+  const sessionIdRef = useRef<string | undefined>(
+    projectMode ? projectMode.sessionId : undefined,
+  )
 
   const update = (partial: Partial<WizardState>) => {
     setState((prev) => {
@@ -260,13 +300,23 @@ export function WizardShell() {
     refreshCost()
   }, [step, refreshCost])
 
+  // Notify project queue when class migration is complete
+  useEffect(() => {
+    if (projectMode && step === 5) {
+      // In project mode, mark Complete (not PR Raised) — PR is raised from the queue
+      projectMode.onComplete(false)
+    }
+  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const minStep = projectMode ? 2 : 0
+
   const next = () => {
     setStepReady(false)
     setStep((s) => Math.min(s + 1, 5))
   }
   const back = () => {
     setStepReady(false)
-    setStep((s) => Math.max(s - 1, 0))
+    setStep((s) => Math.max(s - 1, minStep))
   }
 
   const onReady = () => {
@@ -275,12 +325,18 @@ export function WizardShell() {
   }
 
   const steps = [
-    <Step1Upload key={0} state={state} update={update} onReady={() => setStepReady(true)} />,
+    <Step1Upload
+      key={0}
+      state={state}
+      update={update}
+      onReady={() => setStepReady(true)}
+      onProjectAnalysed={onProjectAnalysed}
+    />,
     <Step2Analysis key={1} state={state} update={update} onReady={onReady} />,
     <Step3Interface key={2} state={state} update={update} onReady={onReady} />,
     <Step4Tests key={3} state={state} update={update} onReady={onReady} />,
     <Step5Implement key={4} state={state} update={update} onReady={onReady} />,
-    <Step6PR key={5} state={state} update={update} onReady={onReady} />,
+    <Step6PR key={5} state={state} update={update} onReady={onReady} projectMode={projectMode} />,
   ]
 
   return (
@@ -317,10 +373,22 @@ export function WizardShell() {
         )}
       </nav>
 
+      {projectMode && (
+        <div className="project-banner" data-testid="project-banner">
+          <button className="btn-plex" onClick={projectMode.onBackToQueue}>
+            {'\u2190'} Back to Queue
+          </button>
+          <span className="project-banner-text">
+            Migrating class {projectMode.classIndex} of {projectMode.totalClasses} —{' '}
+            <strong>{projectMode.className}</strong>
+          </span>
+        </div>
+      )}
+
       <div className="wizard-content">{steps[step]}</div>
 
       <div className={`wizard-nav ${step === 5 ? 'wizard-nav-final' : ''}`}>
-        <button className="btn-back" onClick={back} disabled={step === 0} title={BACK_TITLES[step]}>
+        <button className="btn-back" onClick={back} disabled={step <= minStep} title={BACK_TITLES[step]}>
           Back
         </button>
         <span className="coffee-text">

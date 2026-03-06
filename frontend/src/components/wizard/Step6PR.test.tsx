@@ -1,7 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Step6PR } from './Step6PR'
 import type { WizardState } from './WizardShell'
+import type { ProjectMode } from './WizardShell'
 import * as api from '../../api/migrateApi'
 
 vi.mock('../../api/migrateApi', async () => {
@@ -34,7 +36,7 @@ const mockPR: api.PullRequestResult = {
   filesCommitted: ['Foo/IFoo.cs', 'Foo/Foo.cs', 'Foo.Tests/FooTests.cs'],
 }
 
-describe('Step6PR', () => {
+describe('Step6PR — single file mode', () => {
   it('renders correctly with PR data already in state', () => {
     const doneState = { ...baseState, prResult: mockPR }
     render(<Step6PR state={doneState} update={vi.fn()} onReady={vi.fn()} />)
@@ -86,5 +88,72 @@ describe('Step6PR', () => {
       expect(update).toHaveBeenCalledWith({ prResult: mockPR })
       expect(onReady).toHaveBeenCalled()
     })
+  })
+})
+
+describe('Step6PR — project mode', () => {
+  beforeEach(() => {
+    vi.mocked(api.raisePR).mockClear()
+  })
+
+  const projectMode: ProjectMode = {
+    sessionId: 'test-session',
+    className: 'ValidationHelper',
+    classIndex: 1,
+    totalClasses: 4,
+    onComplete: vi.fn(),
+    onBackToQueue: vi.fn(),
+  }
+
+  it('shows completion message instead of PR', () => {
+    render(
+      <Step6PR state={baseState} update={vi.fn()} onReady={vi.fn()} projectMode={projectMode} />,
+    )
+    expect(screen.getByText('Migration Complete')).toBeInTheDocument()
+    expect(screen.getByText('ValidationHelper')).toBeInTheDocument()
+  })
+
+  it('shows "Return to queue" message', () => {
+    render(
+      <Step6PR state={baseState} update={vi.fn()} onReady={vi.fn()} projectMode={projectMode} />,
+    )
+    expect(screen.getByText(/Return to queue/)).toBeInTheDocument()
+  })
+
+  it('shows Back to Queue button', () => {
+    render(
+      <Step6PR state={baseState} update={vi.fn()} onReady={vi.fn()} projectMode={projectMode} />,
+    )
+    expect(screen.getByText(/Back to Queue/)).toBeInTheDocument()
+  })
+
+  it('clicking Back to Queue calls onBackToQueue', async () => {
+    const onBackToQueue = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <Step6PR
+        state={baseState}
+        update={vi.fn()}
+        onReady={vi.fn()}
+        projectMode={{ ...projectMode, onBackToQueue }}
+      />,
+    )
+    await user.click(screen.getByText(/Back to Queue/))
+    expect(onBackToQueue).toHaveBeenCalled()
+  })
+
+  it('does NOT call raisePR API', () => {
+    render(
+      <Step6PR state={baseState} update={vi.fn()} onReady={vi.fn()} projectMode={projectMode} />,
+    )
+    expect(api.raisePR).not.toHaveBeenCalled()
+  })
+
+  it('does NOT show PR link or PR Raised button', () => {
+    render(
+      <Step6PR state={baseState} update={vi.fn()} onReady={vi.fn()} projectMode={projectMode} />,
+    )
+    expect(screen.queryByText('Pull Request Raised')).not.toBeInTheDocument()
+    expect(screen.queryByText(/PR Raised/)).not.toBeInTheDocument()
   })
 })

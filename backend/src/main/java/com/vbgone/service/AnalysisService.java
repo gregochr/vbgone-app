@@ -6,7 +6,8 @@ import com.vbgone.model.*;
 import com.vbgone.session.SessionStore;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class AnalysisService {
@@ -27,6 +28,29 @@ public class AnalysisService {
               "suggestedMigrationOrder": ["string"],
               "summary": "string"
             }""";
+
+    static final String PROJECT_SYSTEM_PROMPT = """
+            You are a VB.NET to C# migration expert. You are given multiple VB.NET source files \
+            from the same project. Analyse ALL files together and identify every class, their \
+            public methods, dependencies between classes (including cross-file dependencies), and \
+            complexity. Business logic may be embedded in Windows Forms event handlers — extract \
+            the pure logic and ignore all UI concerns. Return your analysis as JSON only, no \
+            preamble, no markdown, matching this exact structure:
+            {
+              "classes": [{
+                "name": "string",
+                "methods": ["string"],
+                "dependencies": ["string"],
+                "complexity": "LOW | MEDIUM | HIGH"
+              }],
+              "suggestedMigrationOrder": ["string"],
+              "dependencyGraph": { "ClassName": ["DependencyName"] },
+              "summary": "string"
+            }
+            The suggestedMigrationOrder should start with the simplest, most self-contained \
+            classes — leaf nodes with no dependencies — and end with the most complex classes \
+            that depend on others. The dependencyGraph maps each class name to the list of \
+            classes it depends on.""";
 
     private final ClaudeClient claudeClient;
     private final SessionStore sessionStore;
@@ -70,6 +94,58 @@ public class AnalysisService {
         }
     }
 
+    public ProjectAnalysis analyseProject(ZipManifest manifest) {
+        MigrationSession session = sessionStore.get(manifest.sessionId())
+                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + manifest.sessionId()));
+
+        String combinedContent = manifest.files().stream()
+                .map(f -> "// === File: " + f.relativePath() + " ===\n" + f.content())
+                .collect(Collectors.joining("\n\n"));
+
+        session.setVbContent(combinedContent);
+
+        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
+                PROJECT_SYSTEM_PROMPT, combinedContent, Model.CLAUDE_SONNET_4_6, 8192L);
+        String json = stripMarkdownFences(response.text());
+
+        String modelId = Model.CLAUDE_SONNET_4_6.asString();
+        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
+        session.addTokenUsage(new TokenUsage("analyse-project", modelId, response.inputTokens(), response.outputTokens(), cost));
+
+        ProjectAnalysis result = parseProjectAnalysis(manifest.sessionId(), json);
+        session.setAnalysisResult(new AnalysisResult(
+                manifest.sessionId(), result.classes(), result.suggestedMigrationOrder(), result.summary()));
+
+        // Map each class name to its individual file source for per-class generation
+        for (ClassInfo cls : result.classes()) {
+            for (VbSourceFile file : manifest.files()) {
+                if (file.content().contains("Class " + cls.name())) {
+                    session.putClassSource(cls.name(), file.content());
+                    break;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private ProjectAnalysis parseProjectAnalysis(String sessionId, String json) {
+        try {
+            ClaudeProjectAnalysis analysis = objectMapper.readValue(json, ClaudeProjectAnalysis.class);
+            Map<String, List<String>> depGraph = analysis.dependencyGraph() != null
+                    ? analysis.dependencyGraph() : Collections.emptyMap();
+            return new ProjectAnalysis(
+                    sessionId,
+                    analysis.classes(),
+                    analysis.suggestedMigrationOrder(),
+                    depGraph,
+                    analysis.summary()
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse Claude response: " + e.getMessage(), e);
+        }
+    }
+
     private String stripMarkdownFences(String text) {
         String trimmed = text.trim();
         if (trimmed.startsWith("```")) {
@@ -81,6 +157,13 @@ public class AnalysisService {
     private record ClaudeAnalysis(
             List<ClassInfo> classes,
             List<String> suggestedMigrationOrder,
+            String summary
+    ) {}
+
+    private record ClaudeProjectAnalysis(
+            List<ClassInfo> classes,
+            List<String> suggestedMigrationOrder,
+            Map<String, List<String>> dependencyGraph,
             String summary
     ) {}
 }

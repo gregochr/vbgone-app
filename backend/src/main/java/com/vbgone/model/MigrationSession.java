@@ -1,12 +1,15 @@
 package com.vbgone.model;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MigrationSession {
     private final String sessionId;
     private String filename;
     private String vbContent;
+    private final Map<String, String> classSources = new HashMap<>();
     private AnalysisResult analysisResult;
     private InterfaceResult interfaceResult;
     private TestsResult testsResult;
@@ -55,4 +58,16 @@ public class MigrationSession {
 
     public List<TokenUsage> getTokenUsages() { return tokenUsages; }
     public void addTokenUsage(TokenUsage usage) { tokenUsages.add(usage); }
+
+    public Map<String, String> getClassSources() { return classSources; }
+    public void putClassSource(String className, String source) { classSources.put(className, source); }
+
+    /**
+     * Returns VB.NET source for a specific class if available (project mode),
+     * otherwise falls back to the full vbContent (single file mode).
+     */
+    public String getVbContentForClass(String className) {
+        String classSource = classSources.get(className);
+        return classSource != null ? classSource : vbContent;
+    }
 }

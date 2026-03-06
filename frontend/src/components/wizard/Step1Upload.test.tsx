@@ -1,8 +1,24 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Step1Upload } from './Step1Upload'
 import type { WizardState } from './WizardShell'
+
+vi.mock('../../api/migrateApi', async () => {
+  const actual = await vi.importActual('../../api/migrateApi')
+  return {
+    ...actual,
+    uploadProject: vi.fn().mockResolvedValue({
+      sessionId: 'mock-uuid-1234',
+      classes: [
+        { name: 'ValidationHelper', methods: ['IsNullOrEmpty'], dependencies: [], complexity: 'LOW' },
+      ],
+      suggestedMigrationOrder: ['ValidationHelper'],
+      dependencyGraph: { ValidationHelper: [] },
+      summary: 'One class found.',
+    }),
+  }
+})
 
 const emptyState: WizardState = {
   filename: '',
@@ -109,5 +125,82 @@ describe('Step1Upload', () => {
     expect(input).toBeTruthy()
     expect(input.accept).toBe('.vb')
     expect(input.hidden).toBe(true)
+  })
+})
+
+describe('Step1Upload — mode toggle', () => {
+  it('shows Single File and Project / Solution tabs', () => {
+    render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('Single File')).toBeInTheDocument()
+    expect(screen.getByText('Project / Solution')).toBeInTheDocument()
+  })
+
+  it('Single File is active by default', () => {
+    render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('Single File')).toHaveClass('active')
+    expect(screen.getByText('Project / Solution')).not.toHaveClass('active')
+  })
+
+  it('switches to project mode on tab click', async () => {
+    const user = userEvent.setup()
+    render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
+
+    await user.click(screen.getByText('Project / Solution'))
+    expect(screen.getByText('Project / Solution')).toHaveClass('active')
+    expect(screen.getByText(/drop a .zip file/i)).toBeInTheDocument()
+  })
+
+  it('shows Load demo project button in project mode', async () => {
+    const user = userEvent.setup()
+    render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
+
+    await user.click(screen.getByText('Project / Solution'))
+    expect(screen.getByText('Load demo project')).toBeInTheDocument()
+  })
+
+  it('project mode has hidden file input that accepts .zip', async () => {
+    const user = userEvent.setup()
+    render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
+
+    await user.click(screen.getByText('Project / Solution'))
+    const inputs = document.querySelectorAll('input[type="file"]')
+    const zipInput = Array.from(inputs).find((i) => (i as HTMLInputElement).accept === '.zip')
+    expect(zipInput).toBeTruthy()
+  })
+
+  it('Load demo project calls onProjectAnalysed', async () => {
+    const user = userEvent.setup()
+    const onProjectAnalysed = vi.fn()
+    render(
+      <Step1Upload
+        state={emptyState}
+        update={vi.fn()}
+        onReady={vi.fn()}
+        onProjectAnalysed={onProjectAnalysed}
+      />,
+    )
+
+    await user.click(screen.getByText('Project / Solution'))
+    await user.click(screen.getByText('Load demo project'))
+
+    await waitFor(() => {
+      expect(onProjectAnalysed).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: 'mock-uuid-1234',
+          classes: expect.any(Array),
+        }),
+      )
+    })
+  })
+
+  it('hides mode toggle when file is already loaded', () => {
+    const stateWithFile: WizardState = {
+      ...emptyState,
+      filename: 'Test.vb',
+      content: 'Public Class Test\nEnd Class',
+    }
+    render(<Step1Upload state={stateWithFile} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.queryByText('Single File')).not.toBeInTheDocument()
+    expect(screen.queryByText('Project / Solution')).not.toBeInTheDocument()
   })
 })

@@ -63,6 +63,26 @@ export interface PullRequestResult {
   filesCommitted: string[]
 }
 
+export interface VbSourceFile {
+  relativePath: string
+  filename: string
+  content: string
+}
+
+export interface ZipManifest {
+  sessionId: string
+  files: VbSourceFile[]
+  totalFiles: number
+}
+
+export interface ProjectAnalysis {
+  sessionId: string
+  classes: ClassInfo[]
+  suggestedMigrationOrder: string[]
+  dependencyGraph: Record<string, string[]>
+  summary: string
+}
+
 export interface TokenUsage {
   step: string
   model: string
@@ -355,6 +375,53 @@ public class ${className} : I${className}
     }
   },
 
+  async uploadProject(_file: File): Promise<ProjectAnalysis> {
+    await delay(2000)
+    return {
+      sessionId: MOCK_SESSION_ID,
+      classes: [
+        {
+          name: 'ValidationHelper',
+          methods: ['IsNullOrEmpty', 'IsValidEmail', 'IsInRange'],
+          dependencies: [],
+          complexity: 'LOW',
+        },
+        {
+          name: 'StringHelper',
+          methods: ['Capitalize', 'TruncateWithEllipsis', 'RemoveWhitespace', 'CountWords'],
+          dependencies: [],
+          complexity: 'LOW',
+        },
+        {
+          name: 'DateHelper',
+          methods: ['IsWeekday', 'GetBusinessDaysBetween', 'FormatFriendly'],
+          dependencies: ['ValidationHelper'],
+          complexity: 'MEDIUM',
+        },
+        {
+          name: 'Calculator',
+          methods: ['Add', 'Subtract', 'Multiply', 'Divide', 'Power', 'CalculateCompound'],
+          dependencies: ['StringHelper', 'DateHelper'],
+          complexity: 'HIGH',
+        },
+      ],
+      suggestedMigrationOrder: [
+        'ValidationHelper',
+        'StringHelper',
+        'DateHelper',
+        'Calculator',
+      ],
+      dependencyGraph: {
+        ValidationHelper: [],
+        StringHelper: [],
+        DateHelper: ['ValidationHelper'],
+        Calculator: ['StringHelper', 'DateHelper'],
+      },
+      summary:
+        'Four classes found across the project. ValidationHelper and StringHelper are leaf nodes with no dependencies. DateHelper depends on ValidationHelper. Calculator depends on StringHelper and DateHelper. Recommended migration order starts with the two independent helpers.',
+    }
+  },
+
   async fetchCost(_sessionId: string): Promise<CostResult> {
     return { sessionId: MOCK_SESSION_ID, steps: [], totalCost: 0 }
   },
@@ -430,6 +497,15 @@ const realApi = {
     return data
   },
 
+  async uploadProject(file: File): Promise<ProjectAnalysis> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await api.post<ProjectAnalysis>('/upload-project', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
+  },
+
   async fetchCost(sessionId: string): Promise<CostResult> {
     const { data } = await api.get<CostResult>(`/cost/${sessionId}`)
     return data
@@ -449,9 +525,109 @@ export const implement = active.implement
 export const buildAfterImplement = active.buildAfterImplement
 export const retryImplement = active.retryImplement
 export const raisePR = active.raisePR
+export const uploadProject = active.uploadProject
 export const fetchCost = active.fetchCost
 
 /* Export the axios instance for when we wire to real backend */
 export { api }
+
+export const DEMO_PROJECT_FILES: { path: string; content: string }[] = [
+  {
+    path: 'ValidationHelper.vb',
+    content: `Public Class ValidationHelper
+    Public Function IsNullOrEmpty(value As String) As Boolean
+        Return String.IsNullOrEmpty(value)
+    End Function
+
+    Public Function IsValidEmail(email As String) As Boolean
+        If IsNullOrEmpty(email) Then Return False
+        Return email.Contains("@") AndAlso email.Contains(".")
+    End Function
+
+    Public Function IsInRange(value As Integer, min As Integer, max As Integer) As Boolean
+        Return value >= min AndAlso value <= max
+    End Function
+End Class`,
+  },
+  {
+    path: 'StringHelper.vb',
+    content: `Public Class StringHelper
+    Public Function Capitalize(input As String) As String
+        If String.IsNullOrEmpty(input) Then Return input
+        Return input.Substring(0, 1).ToUpper() & input.Substring(1)
+    End Function
+
+    Public Function TruncateWithEllipsis(input As String, maxLength As Integer) As String
+        If input.Length <= maxLength Then Return input
+        Return input.Substring(0, maxLength) & "..."
+    End Function
+
+    Public Function RemoveWhitespace(input As String) As String
+        Return input.Replace(" ", "").Replace(vbTab, "")
+    End Function
+
+    Public Function CountWords(input As String) As Integer
+        If String.IsNullOrEmpty(input) Then Return 0
+        Return input.Split(" "c).Length
+    End Function
+End Class`,
+  },
+  {
+    path: 'DateHelper.vb',
+    content: `Public Class DateHelper
+    Private validator As New ValidationHelper()
+
+    Public Function IsWeekday(d As Date) As Boolean
+        Return d.DayOfWeek <> DayOfWeek.Saturday AndAlso d.DayOfWeek <> DayOfWeek.Sunday
+    End Function
+
+    Public Function GetBusinessDaysBetween(startDate As Date, endDate As Date) As Integer
+        Dim count As Integer = 0
+        Dim current As Date = startDate
+        While current <= endDate
+            If IsWeekday(current) Then count += 1
+            current = current.AddDays(1)
+        End While
+        Return count
+    End Function
+
+    Public Function FormatFriendly(d As Date) As String
+        Return d.ToString("dddd, dd MMMM yyyy")
+    End Function
+End Class`,
+  },
+  {
+    path: 'Calculator.vb',
+    content: `Public Class Calculator
+    Private stringHelper As New StringHelper()
+    Private dateHelper As New DateHelper()
+
+    Public Function Add(a As Integer, b As Integer) As Integer
+        Return a + b
+    End Function
+
+    Public Function Subtract(a As Integer, b As Integer) As Integer
+        Return a - b
+    End Function
+
+    Public Function Multiply(a As Integer, b As Integer) As Integer
+        Return a * b
+    End Function
+
+    Public Function Divide(a As Integer, b As Integer) As Double
+        If b = 0 Then Throw New DivideByZeroException("Cannot divide by zero.")
+        Return CDbl(a) / CDbl(b)
+    End Function
+
+    Public Function Power(base As Integer, exponent As Integer) As Long
+        Return CLng(Math.Pow(base, exponent))
+    End Function
+
+    Public Function CalculateCompound(principal As Double, rate As Double, years As Integer) As Double
+        Return principal * Math.Pow(1 + rate, years)
+    End Function
+End Class`,
+  },
+]
 
 export { DEMO_VB_CONTENT, DEMO_FILENAME }

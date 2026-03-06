@@ -1,14 +1,46 @@
 import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
+import type { ProjectMode } from './WizardShell'
 import { raisePR } from '../../api/migrateApi'
 
 interface Props {
   state: WizardState
   update: (partial: Partial<WizardState>) => void
   onReady: () => void
+  projectMode?: ProjectMode
 }
 
-export function Step6PR({ state, update, onReady }: Props) {
+export function Step6PR({ state, update, onReady, projectMode }: Props) {
+  // In project mode, show completion screen instead of raising a PR
+  if (projectMode) {
+    return (
+      <div>
+        <h2 className="step-title">Migration Complete</h2>
+        <p className="step-subtitle">
+          Migration complete for <strong>{projectMode.className}</strong> {'\u2713'}
+        </p>
+        <p className="step-subtitle">Return to queue to migrate the next class.</p>
+        <div style={{ marginTop: 24 }}>
+          <button className="btn-plex" onClick={projectMode.onBackToQueue}>
+            {'\u2190'} Back to Queue
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return <Step6PRSingle state={state} update={update} onReady={onReady} />
+}
+
+function Step6PRSingle({
+  state,
+  update,
+  onReady,
+}: {
+  state: WizardState
+  update: (partial: Partial<WizardState>) => void
+  onReady: () => void
+}) {
   const [loading, setLoading] = useState(!state.prResult)
   const [error, setError] = useState<string | null>(null)
 

@@ -104,6 +104,66 @@ describe('WizardShell', () => {
   })
 })
 
+describe('WizardShell project mode banner', () => {
+  const projectMode = {
+    sessionId: 'test-session',
+    className: 'DateHelper',
+    classIndex: 2,
+    totalClasses: 4,
+    onComplete: vi.fn(),
+    onBackToQueue: vi.fn(),
+  }
+
+  it('shows the project banner in project mode', () => {
+    render(<WizardShell projectMode={projectMode} />)
+    expect(screen.getByTestId('project-banner')).toBeInTheDocument()
+  })
+
+  it('displays class position and name', () => {
+    render(<WizardShell projectMode={projectMode} />)
+    expect(screen.getByText(/Migrating class 2 of 4/)).toBeInTheDocument()
+    expect(screen.getByText('DateHelper')).toBeInTheDocument()
+  })
+
+  it('shows Back to Queue button', () => {
+    render(<WizardShell projectMode={projectMode} />)
+    expect(screen.getByText(/Back to Queue/)).toBeInTheDocument()
+  })
+
+  it('Back to Queue calls onBackToQueue', async () => {
+    const onBackToQueue = vi.fn()
+    const user = userEvent.setup()
+    render(<WizardShell projectMode={{ ...projectMode, onBackToQueue }} />)
+
+    await user.click(screen.getByText(/Back to Queue/))
+    expect(onBackToQueue).toHaveBeenCalled()
+  })
+
+  it('does not show the banner in single file mode', () => {
+    render(<WizardShell />)
+    expect(screen.queryByTestId('project-banner')).not.toBeInTheDocument()
+  })
+
+  it('starts at Interface step in project mode', () => {
+    render(<WizardShell projectMode={projectMode} />)
+    const dots = document.querySelectorAll('.wizard-step-dot')
+    // Step 3 (index 2) should be active
+    expect(dots[2]).toHaveClass('active')
+  })
+
+  it('Back button is disabled at Interface step in project mode', () => {
+    render(<WizardShell projectMode={projectMode} />)
+    expect(screen.getByText('Back')).toBeDisabled()
+  })
+
+  it('banner text is centred', () => {
+    render(<WizardShell projectMode={projectMode} />)
+    const bannerText = document.querySelector('.project-banner-text') as HTMLElement
+    expect(bannerText).toBeTruthy()
+    expect(bannerText.className).toContain('project-banner-text')
+  })
+})
+
 describe('WizardShell navigation', () => {
   it('advances to Step 2 after loading demo file', async () => {
     const user = userEvent.setup()
