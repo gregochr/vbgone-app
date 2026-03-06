@@ -77,10 +77,19 @@ export function Step5Implement({ state, update, onReady }: Props) {
 
         <div className={`build-status ${isGreen ? 'build-green' : 'build-red'}`}>
           {b.buildStatus === 'ERROR'
-            ? `\uD83D\uDD34 Build error — generated code did not compile`
+            ? '\uD83D\uDD34 Build error — generated code did not compile'
             : isGreen
               ? `\uD83D\uDFE2 ${b.passed} / ${b.total} tests passing`
-              : `\uD83D\uDD34 ${b.failed} / ${b.total} tests failing`}
+              : `\uD83D\uDD34 ${b.failed} / ${b.total} tests failing — review the implementation`}
+          {b.buildStatus === 'RED' && b.errors.length > 0 && (
+            <ul
+              style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: '0.85rem', fontWeight: 400 }}
+            >
+              {b.errors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <h3 style={{ marginBottom: 8 }}>Implementation</h3>

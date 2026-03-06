@@ -36,7 +36,9 @@ public class GenerationService {
             You are a VB.NET to C# migration expert. Generate a complete C# implementation of an \
             interface based on VB.NET source behaviour. Write idiomatic modern C# — use \
             expression-bodied members, pattern matching, and nullable reference types where \
-            appropriate. Return only raw C# code. No markdown. No backticks. No explanation.""";
+            appropriate. Match return types EXACTLY as declared in the interface. Do not change \
+            return types — if the interface declares double, return double. \
+            Return only raw C# code. No markdown. No backticks. No explanation.""";
 
     private final ClaudeClient claudeClient;
     private final SessionStore sessionStore;

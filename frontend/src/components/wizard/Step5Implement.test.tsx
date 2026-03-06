@@ -123,7 +123,31 @@ describe('Step5Implement', () => {
     }
     render(<Step5Implement state={stubState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText(/10 \/ 10 tests failing/)).toBeInTheDocument()
+    expect(screen.getByText(/review the implementation/)).toBeInTheDocument()
     expect(screen.getByText(/Manual/)).toBeInTheDocument()
+  })
+
+  it('displays partial failure with review message for CLAUDE mode', () => {
+    const partialState = {
+      ...baseState,
+      implementResult: {
+        sessionId: 'session-1',
+        className: 'Foo',
+        code: 'public class Foo : IFoo { }',
+        mode: 'CLAUDE' as const,
+      },
+      greenBuild: {
+        sessionId: 'session-1',
+        buildStatus: 'RED' as const,
+        total: 10,
+        passed: 8,
+        failed: 2,
+        errors: [],
+      },
+    }
+    render(<Step5Implement state={partialState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText(/2 \/ 10 tests failing/)).toBeInTheDocument()
+    expect(screen.getByText(/review the implementation/)).toBeInTheDocument()
   })
 
   it('displays build error when build status is ERROR', () => {
