@@ -22,6 +22,24 @@
   gap: 4px;
 }
 
+.wizard-step-box {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--grey);
+  transition: border-color 0.2s;
+}
+
+.wizard-step-box.active {
+  border-color: var(--accent);
+}
+
+.wizard-step-box.completed {
+  border-color: var(--green);
+}
+
 .wizard-step-dot {
   width: 32px;
   height: 32px;
@@ -63,12 +81,14 @@
 .wizard-step-connector {
   flex: 0 0 24px;
   height: 2px;
-  background: var(--bg-tertiary);
+  background: var(--grey);
+  opacity: 0.4;
   margin: 0 4px;
 }
 
 .wizard-step-connector.completed {
   background: var(--green);
+  opacity: 1;
 }
 
 /* ── Content area ── */
