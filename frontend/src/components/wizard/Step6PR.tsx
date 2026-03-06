@@ -62,6 +62,10 @@ export function Step6PR({ state, update, onReady }: Props) {
       <h2 className="step-title">Pull Request Raised</h2>
       <p className="step-subtitle">Migration complete! Your PR is ready for review.</p>
 
+      <button className="btn-pr-success" disabled>
+        {'\u2713'} PR Raised
+      </button>
+
       <div className="info-card">
         <div style={{ marginBottom: 16 }}>
           <a className="pr-link" href={pr.prUrl} target="_blank" rel="noopener noreferrer">

@@ -381,7 +381,31 @@
   color: var(--grey);
 }
 
+/* ── Final step nav ── */
+
+.wizard-nav-final {
+  justify-content: center;
+  gap: 24px;
+}
+
 /* ── PR result ── */
+
+.btn-pr-success {
+  padding: 10px 24px;
+  border-radius: 6px;
+  border: none;
+  background: var(--green);
+  color: var(--bg-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: default;
+  margin-bottom: 20px;
+  opacity: 1;
+}
+
+.btn-pr-success:disabled {
+  opacity: 1;
+}
 
 .pr-link {
   display: inline-block;

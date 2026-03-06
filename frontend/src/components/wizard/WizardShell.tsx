@@ -319,7 +319,7 @@ export function WizardShell() {
 
       <div className="wizard-content">{steps[step]}</div>
 
-      <div className="wizard-nav">
+      <div className={`wizard-nav ${step === 5 ? 'wizard-nav-final' : ''}`}>
         <button className="btn-back" onClick={back} disabled={step === 0} title={BACK_TITLES[step]}>
           Back
         </button>

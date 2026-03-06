@@ -42,6 +42,14 @@ describe('Step6PR', () => {
     expect(screen.getByText(/Migration complete/)).toBeInTheDocument()
   })
 
+  it('shows green PR Raised button on success', () => {
+    const doneState = { ...baseState, prResult: mockPR }
+    render(<Step6PR state={doneState} update={vi.fn()} onReady={vi.fn()} />)
+    const btn = screen.getByRole('button', { name: /PR Raised/ })
+    expect(btn).toBeDisabled()
+    expect(btn).toHaveClass('btn-pr-success')
+  })
+
   it('displays mocked API response data', () => {
     const doneState = { ...baseState, prResult: mockPR }
     render(<Step6PR state={doneState} update={vi.fn()} onReady={vi.fn()} />)
