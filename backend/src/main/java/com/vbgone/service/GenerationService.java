@@ -18,12 +18,19 @@ public class GenerationService {
             You are a VB.NET to C# migration expert and TDD practitioner. Generate a comprehensive \
             NUnit test suite in C# based on VB.NET source code behaviour. Tests must cover happy \
             path, edge cases, and error conditions including divide by zero, null inputs, and \
-            boundary values. Return only raw C# code. No markdown. No backticks. No explanation.""";
+            boundary values.
+
+            Generate ONLY the NUnit test class. Do NOT include the interface definition or any \
+            implementation class in the test file. The tests should use the interface type for \
+            the field declaration and instantiate the real implementation class in the [SetUp] method.
+
+            Return only raw C# code. No markdown. No backticks. No explanation.""";
 
     static final String STUB_SYSTEM_PROMPT = """
-            You are a C# developer. Generate a C# class that implements a given interface with \
-            stub methods that throw NotImplementedException. Return only raw C# code. No markdown. \
-            No backticks. No explanation.""";
+            You are a C# developer. Generate a C# class that implements a given interface. \
+            Every method body must be: throw new NotImplementedException(); \
+            Do NOT implement any logic — every single method must throw NotImplementedException. \
+            Return only raw C# code. No markdown. No backticks. No explanation.""";
 
     static final String IMPLEMENT_SYSTEM_PROMPT = """
             You are a VB.NET to C# migration expert. Generate a complete C# implementation of an \
@@ -60,7 +67,22 @@ public class GenerationService {
     public TestsResult generateTests(String sessionId, String className) {
         MigrationSession session = getSession(sessionId);
         String userMessage = "Generate NUnit tests for I" + className
-                + " based on this VB.NET:\n" + session.getVbContent();
+                + " based on this VB.NET:\n" + session.getVbContent()
+                + "\n\nThe implementation class name is " + className
+                + ", the interface is I" + className + "."
+                + "\n\nThe test file should follow this structure exactly:\n"
+                + "using NUnit.Framework;\n"
+                + "// other using statements\n\n"
+                + "namespace " + className + "Tests\n{\n"
+                + "    [TestFixture]\n"
+                + "    public class " + className + "Tests\n    {\n"
+                + "        private I" + className + " _sut;\n\n"
+                + "        [SetUp]\n"
+                + "        public void SetUp()\n        {\n"
+                + "            _sut = new " + className + "();\n"
+                + "        }\n\n"
+                + "        // test methods only\n"
+                + "    }\n}";
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 TESTS_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);
