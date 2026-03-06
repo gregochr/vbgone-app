@@ -38,7 +38,7 @@ describe('Step1Upload', () => {
     render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText('Upload VB.NET Source')).toBeInTheDocument()
     expect(screen.getByText(/drop a .vb file/i)).toBeInTheDocument()
-    expect(screen.getByText('Load demo file')).toBeInTheDocument()
+    expect(screen.getByText('Load Demo File (Simple)')).toBeInTheDocument()
   })
 
   it('displays mocked data after loading demo file', async () => {
@@ -48,7 +48,7 @@ describe('Step1Upload', () => {
 
     render(<Step1Upload state={emptyState} update={update} onReady={onReady} />)
 
-    await user.click(screen.getByText('Load demo file'))
+    await user.click(screen.getByText('Load Demo File (Simple)'))
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
         filename: 'Form1.vb',
@@ -68,7 +68,7 @@ describe('Step1Upload', () => {
     expect(screen.getByText('Test.vb')).toBeInTheDocument()
     expect(screen.getByText('Preview')).toBeInTheDocument()
     expect(screen.getByText(/Public Class Test/)).toBeInTheDocument()
-    expect(screen.queryByText('Load demo file')).not.toBeInTheDocument()
+    expect(screen.queryByText('Load Demo File (Simple)')).not.toBeInTheDocument()
   })
 
   it('calls onReady on mount when file is already in state', () => {
@@ -191,6 +191,59 @@ describe('Step1Upload — mode toggle', () => {
         }),
       )
     })
+  })
+
+  it('shows Load Demo File (Complex) button in single file mode', () => {
+    render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('Load Demo File (Complex)')).toBeInTheDocument()
+  })
+
+  it('Load Demo File (Complex) loads OrderProcessor.vb', async () => {
+    const user = userEvent.setup()
+    const update = vi.fn()
+    const onReady = vi.fn()
+
+    render(<Step1Upload state={emptyState} update={update} onReady={onReady} />)
+
+    await user.click(screen.getByText('Load Demo File (Complex)'))
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filename: 'OrderProcessor.vb',
+        content: expect.stringContaining('Public Class OrderProcessor'),
+      }),
+    )
+    expect(onReady).toHaveBeenCalled()
+  })
+
+  it('complex demo content includes typical code smells', async () => {
+    const user = userEvent.setup()
+    const update = vi.fn()
+
+    render(<Step1Upload state={emptyState} update={update} onReady={vi.fn()} />)
+
+    await user.click(screen.getByText('Load Demo File (Complex)'))
+    const content = update.mock.calls[0][0].content as string
+    expect(content).toContain('On Error Resume Next')
+    expect(content).toContain('GoTo')
+    expect(content).toContain('SqlConnection')
+    expect(content).toContain('MsgBox')
+  })
+
+  it('both demo buttons have InfoTip panels', () => {
+    render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('About the simple demo')).toBeInTheDocument()
+    expect(screen.getByText('About the complex demo')).toBeInTheDocument()
+  })
+
+  it('complex demo InfoTip lists code smells', async () => {
+    const user = userEvent.setup()
+    render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
+
+    await user.click(screen.getByText('About the complex demo'))
+    expect(screen.getAllByText(/God class/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Magic numbers/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Deep nesting/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/SQL injection/).length).toBeGreaterThan(0)
   })
 
   it('hides mode toggle when file is already loaded', () => {

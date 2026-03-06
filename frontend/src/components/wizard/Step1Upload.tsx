@@ -4,6 +4,8 @@ import type { WizardState } from './WizardShell'
 import {
   DEMO_VB_CONTENT,
   DEMO_FILENAME,
+  DEMO_COMPLEX_CONTENT,
+  DEMO_COMPLEX_FILENAME,
   DEMO_PROJECT_FILES,
   uploadProject,
 } from '../../api/migrateApi'
@@ -85,6 +87,11 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
 
   const loadDemo = () => {
     update({ filename: DEMO_FILENAME, content: DEMO_VB_CONTENT })
+    onReady()
+  }
+
+  const loadComplexDemo = () => {
+    update({ filename: DEMO_COMPLEX_FILENAME, content: DEMO_COMPLEX_CONTENT })
     onReady()
   }
 
@@ -200,9 +207,9 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
             <div style={{ textAlign: 'center', marginTop: 20 }}>
               <div className="demo-button-group">
                 <button className="btn-plex" onClick={loadDemo}>
-                  Load demo file
+                  Load Demo File (Simple)
                 </button>
-                <InfoTip label="About this demo">
+                <InfoTip label="About the simple demo">
                   <p>
                     <strong>
                       The demo uses a genuine VB.NET Windows Forms project sourced directly from
@@ -245,6 +252,70 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
                     <dt>Last Updated</dt>
                     <dd>18 August 2022</dd>
                   </dl>
+                </InfoTip>
+              </div>
+              <div className="demo-button-group" style={{ marginTop: 10 }}>
+                <button className="btn-plex" onClick={loadComplexDemo}>
+                  Load Demo File (Complex)
+                </button>
+                <InfoTip label="About the complex demo">
+                  <p>
+                    <strong>
+                      This demo loads a realistic legacy VB.NET &ldquo;God class&rdquo;
+                    </strong>{' '}
+                    — a single file that handles order processing, refunds, reporting, validation,
+                    database access, email sending, and file I/O all in one place. It is the kind of
+                    class that accumulates over years of maintenance by multiple developers with no
+                    code review.
+                  </p>
+                  <p>
+                    <strong>Code smells Claude will identify:</strong>
+                  </p>
+                  <ul>
+                    <li>
+                      <strong>God class</strong> — too many responsibilities in a single 200+ line
+                      file
+                    </li>
+                    <li>
+                      <strong>Magic numbers</strong> — hardcoded tax rates, discount thresholds,
+                      shipping costs
+                    </li>
+                    <li>
+                      <strong>Deep nesting</strong> — 5 levels of nested If statements for discount
+                      calculation
+                    </li>
+                    <li>
+                      <strong>Mixed concerns</strong> — business logic, UI, database, file I/O, and
+                      email in one class
+                    </li>
+                    <li>
+                      <strong>Poor naming</strong> — single-letter variables (n, a, q, t, r),
+                      Hungarian notation (txtN, btnS)
+                    </li>
+                    <li>
+                      <strong>On Error Resume Next</strong> — silently swallows all exceptions
+                    </li>
+                    <li>
+                      <strong>GoTo statements</strong> — used for flow control instead of
+                      If/ElseIf
+                    </li>
+                    <li>
+                      <strong>SQL injection</strong> — string concatenation for SQL queries
+                    </li>
+                    <li>
+                      <strong>Copy-paste duplication</strong> — discount and shipping logic
+                      duplicated across methods
+                    </li>
+                    <li>
+                      <strong>Hardcoded paths and connection strings</strong> — C:\OrderLog,
+                      PROD-DB-01
+                    </li>
+                  </ul>
+                  <p>
+                    This is a <strong>much harder migration target</strong> than the simple demo.
+                    Claude will need to separate the business logic from the infrastructure concerns
+                    and generate a comprehensive test suite covering all the branching paths.
+                  </p>
                 </InfoTip>
               </div>
             </div>

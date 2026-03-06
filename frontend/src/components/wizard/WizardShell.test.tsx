@@ -169,7 +169,7 @@ describe('WizardShell navigation', () => {
     const user = userEvent.setup()
     render(<WizardShell />)
 
-    await user.click(screen.getByText('Load demo file'))
+    await user.click(screen.getByText('Load Demo File (Simple)'))
     await user.click(screen.getByText('Next'))
     // Step 2 shows confirm dialog first
     await user.click(screen.getByText('Continue'))
@@ -181,7 +181,7 @@ describe('WizardShell navigation', () => {
     render(<WizardShell />)
 
     // Load demo to enable Next
-    await user.click(screen.getByText('Load demo file'))
+    await user.click(screen.getByText('Load Demo File (Simple)'))
     expect(screen.getByText('Next')).toBeEnabled()
 
     // Advance to step 2 — confirm then wait for analysis
@@ -200,7 +200,7 @@ describe('WizardShell navigation', () => {
     render(<WizardShell />)
 
     // Advance to step 2
-    await user.click(screen.getByText('Load demo file'))
+    await user.click(screen.getByText('Load Demo File (Simple)'))
     await user.click(screen.getByText('Next'))
     await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
@@ -214,7 +214,7 @@ describe('WizardShell navigation', () => {
     const user = userEvent.setup()
     render(<WizardShell />)
 
-    await user.click(screen.getByText('Load demo file'))
+    await user.click(screen.getByText('Load Demo File (Simple)'))
     await user.click(screen.getByText('Next'))
     await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
@@ -235,7 +235,7 @@ describe('WizardShell navigation', () => {
 
     expect(screen.getByText('Back')).toBeDisabled()
 
-    await user.click(screen.getByText('Load demo file'))
+    await user.click(screen.getByText('Load Demo File (Simple)'))
     await user.click(screen.getByText('Next'))
 
     await waitFor(() => expect(screen.getByText('Back')).toBeEnabled())
@@ -246,7 +246,7 @@ describe('WizardShell navigation', () => {
     render(<WizardShell />)
 
     // Step 1 → load demo
-    await user.click(screen.getByText('Load demo file'))
+    await user.click(screen.getByText('Load Demo File (Simple)'))
     await user.click(screen.getByText('Next'))
 
     // Step 2 → confirm then wait for analysis
