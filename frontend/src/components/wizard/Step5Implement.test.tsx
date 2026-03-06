@@ -121,7 +121,7 @@ describe('Step5Implement', () => {
       },
     }
     render(<Step5Implement state={stubState} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText(/0 \/ 10 tests passing/)).toBeInTheDocument()
+    expect(screen.getByText(/10 \/ 10 tests failing/)).toBeInTheDocument()
     expect(screen.getByText(/Manual/)).toBeInTheDocument()
   })
 
