@@ -109,12 +109,20 @@ cd backend && ./mvnw test
 
 ## Phase 2 Roadmap
 
-- Zip/solution upload (multiple .vb files)
-- Migration queue UI
-- Session persistence (PostgreSQL)
-- GitHub OAuth (replace Cloudflare Access)
+**P1 — Must have:**
+- Zip/solution upload — extract all .vb files, analyse whole solution, build dependency graph, migration queue
+- Migration queue UI — class list with status per class (Pending/In Progress/Green/PR Raised), progress bar
+- Session persistence — PostgreSQL, survive page refresh, resume migration session
+
+**P2 — Should have:**
+- GitHub OAuth — replace Cloudflare Access, PR against user's own repo
 - Configurable output repo
-- Docker Java SDK (replace ProcessBuilder)
+- Retry loop — 3 attempts before stub download fallback
+
+**P3 — Nice to have:**
+- Stryker results display — mutation score in UI
+- Migration report — PDF summary
+- Cost report — total tokens and cost across migration
 
 ## Licence
 
