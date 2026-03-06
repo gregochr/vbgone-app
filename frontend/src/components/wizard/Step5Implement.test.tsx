@@ -71,7 +71,7 @@ describe('Step5Implement', () => {
     render(<Step5Implement state={doneState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getAllByText('Implementation')).toHaveLength(2)
     expect(screen.getByText(/Mode:.*AI/)).toBeInTheDocument()
-    expect(screen.getByText(/10 \/ 10 tests passing/)).toBeInTheDocument()
+    expect(screen.getByText(/10 \/ 10 tests passing — this is the GREEN phase of Red-Green TDD/)).toBeInTheDocument()
     expect(screen.getByText(mockImpl.code)).toBeInTheDocument()
   })
 

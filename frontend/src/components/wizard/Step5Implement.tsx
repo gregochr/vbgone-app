@@ -114,7 +114,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
           {b.buildStatus === 'ERROR'
             ? '\uD83D\uDD34 Build error — generated code did not compile'
             : isGreen
-              ? `\uD83D\uDFE2 ${b.passed} / ${b.total} tests passing`
+              ? `\uD83D\uDFE2 ${b.passed} / ${b.total} tests passing — this is the GREEN phase of Red-Green TDD.`
               : `\uD83D\uDD34 ${b.failed} / ${b.total} tests failing — review the implementation`}
           {isRed && b.failedTests.length > 0 && (
             <ul

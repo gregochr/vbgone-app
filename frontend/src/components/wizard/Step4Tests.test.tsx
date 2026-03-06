@@ -85,7 +85,7 @@ describe('Step4Tests', () => {
     const doneState = { ...baseState, tests: mockTests, redBuild: mockBuild }
     render(<Step4Tests state={doneState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText(/All failing against the stub/)).toBeInTheDocument()
-    expect(screen.getByText(/exactly what we expect/)).toBeInTheDocument()
+    expect(screen.getByText(/RED phase of Red-Green TDD/)).toBeInTheDocument()
   })
 
   it('shows compilation errors when build status is ERROR', () => {

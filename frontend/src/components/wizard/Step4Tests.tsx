@@ -132,7 +132,7 @@ export function Step4Tests({ state, update, onReady }: Props) {
         {state.tests?.testCount} NUnit tests generated.
         {state.redBuild?.buildStatus === 'ERROR'
           ? ' Build failed — see compilation errors below.'
-          : ' All failing against the stub — exactly what we expect.'}
+          : ' All failing against the stub — this is the RED phase of Red-Green TDD.'}
       </p>
 
       {state.redBuild?.buildStatus === 'ERROR' ? (
