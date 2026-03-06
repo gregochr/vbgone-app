@@ -129,7 +129,8 @@ export function Step5Implement({ state, update, onReady }: Props) {
 
         {canRetry && (
           <button className="btn-plex" style={{ marginBottom: 16 }} onClick={retry}>
-            Retry with Claude ({MAX_ATTEMPTS - attempts} {MAX_ATTEMPTS - attempts === 1 ? 'attempt' : 'attempts'} remaining)
+            Retry with Claude ({MAX_ATTEMPTS - attempts}{' '}
+            {MAX_ATTEMPTS - attempts === 1 ? 'attempt' : 'attempts'} remaining)
           </button>
         )}
 

@@ -668,7 +668,7 @@
 .collapsible-chevron {
   display: inline-block;
   font-size: 0.7rem;
-  color: #E5A00D;
+  color: #e5a00d;
   transition: transform 0.25s ease;
 }
 
@@ -678,7 +678,9 @@
 
 .collapsible-body {
   overflow: hidden;
-  transition: max-height 0.3s ease, opacity 0.25s ease;
+  transition:
+    max-height 0.3s ease,
+    opacity 0.25s ease;
 }
 
 .collapsible-content {

@@ -18,7 +18,9 @@ describe('CollapsibleCode', () => {
     render(<CollapsibleCode title="Tests" code="test code" />)
     const header = screen.getByRole('button', { name: /Tests/ })
     expect(header).toHaveAttribute('aria-expanded', 'false')
-    const body = header.closest('.collapsible-code')!.querySelector('.collapsible-body') as HTMLElement
+    const body = header
+      .closest('.collapsible-code')!
+      .querySelector('.collapsible-body') as HTMLElement
     expect(body.style.maxHeight).toBe('0px')
     expect(body.style.opacity).toBe('0')
   })

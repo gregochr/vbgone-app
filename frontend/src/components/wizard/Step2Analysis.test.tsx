@@ -92,9 +92,7 @@ describe('Step2Analysis', () => {
   it('migration order has descriptive subtext', () => {
     const stateWithAnalysis = { ...baseState, analysis: mockAnalysis }
     render(<Step2Analysis state={stateWithAnalysis} update={vi.fn()} onReady={vi.fn()} />)
-    expect(
-      screen.getByText(/Simplest and least dependent first/),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Simplest and least dependent first/)).toBeInTheDocument()
   })
 
   it('calls update and onReady after successful API call', async () => {

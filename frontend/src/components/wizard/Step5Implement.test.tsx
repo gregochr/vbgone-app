@@ -47,7 +47,8 @@ const mockGreenBuild: api.BuildResult = {
   total: 10,
   passed: 10,
   failed: 0,
-  errors: [], failedTests: [],
+  errors: [],
+  failedTests: [],
 }
 
 describe('Step5Implement', () => {
@@ -88,7 +89,8 @@ describe('Step5Implement', () => {
       total: 10,
       passed: 0,
       failed: 10,
-      errors: [], failedTests: [],
+      errors: [],
+      failedTests: [],
     }
     vi.mocked(api.implement).mockResolvedValue(mockStubImpl)
     vi.mocked(api.buildAfterImplement).mockResolvedValue(mockRedBuild)
@@ -120,7 +122,8 @@ describe('Step5Implement', () => {
         total: 10,
         passed: 0,
         failed: 10,
-        errors: [], failedTests: [],
+        errors: [],
+        failedTests: [],
       },
     }
     render(<Step5Implement state={stubState} update={vi.fn()} onReady={vi.fn()} />)
@@ -144,7 +147,8 @@ describe('Step5Implement', () => {
         total: 10,
         passed: 8,
         failed: 2,
-        errors: [], failedTests: [],
+        errors: [],
+        failedTests: [],
       },
     }
     render(<Step5Implement state={partialState} update={vi.fn()} onReady={vi.fn()} />)

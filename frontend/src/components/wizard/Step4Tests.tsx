@@ -91,8 +91,8 @@ export function Step4Tests({ state, update, onReady }: Props) {
             beyond the request.
           </p>
           <p>
-            {'\uD83D\uDCB0'} Prompt caching is enabled across both calls — system prompts are
-            cached and reused, reducing input token costs by up to 90% at scale.
+            {'\uD83D\uDCB0'} Prompt caching is enabled across both calls — system prompts are cached
+            and reused, reducing input token costs by up to 90% at scale.
           </p>
           <p>
             After both calls, dotnet test runs automatically. Expect all tests to fail — this is the
@@ -139,7 +139,9 @@ export function Step4Tests({ state, update, onReady }: Props) {
         <div className="build-status build-red">
           {'\uD83D\uDD34'} Build error — generated code did not compile
           {state.redBuild.errors.length > 0 && (
-            <ul style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: '0.85rem', fontWeight: 400 }}>
+            <ul
+              style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: '0.85rem', fontWeight: 400 }}
+            >
               {state.redBuild.errors.map((err, i) => (
                 <li key={i}>{err}</li>
               ))}
@@ -160,9 +162,7 @@ export function Step4Tests({ state, update, onReady }: Props) {
         />
       )}
 
-      {state.stubResult && (
-        <CollapsibleCode title="Generated Stub" code={state.stubResult.code} />
-      )}
+      {state.stubResult && <CollapsibleCode title="Generated Stub" code={state.stubResult.code} />}
     </div>
   )
 }

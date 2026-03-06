@@ -288,7 +288,9 @@ export function WizardShell() {
       <nav className="wizard-steps">
         {STEPS.map(({ label, tip }, i) => (
           <div className="wizard-step-item" key={label}>
-            <div className={`wizard-step-box ${i === step ? 'active' : i < step ? 'completed' : ''}`}>
+            <div
+              className={`wizard-step-box ${i === step ? 'active' : i < step ? 'completed' : ''}`}
+            >
               <div
                 className={`wizard-step-dot ${i === step ? 'active' : i < step ? 'completed' : ''}`}
               >

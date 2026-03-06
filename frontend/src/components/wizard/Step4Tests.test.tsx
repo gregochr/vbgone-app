@@ -47,7 +47,8 @@ const mockBuild: api.BuildResult = {
   total: 10,
   passed: 0,
   failed: 10,
-  errors: [], failedTests: [],
+  errors: [],
+  failedTests: [],
 }
 
 describe('Step4Tests', () => {
