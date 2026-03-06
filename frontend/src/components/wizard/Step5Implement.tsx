@@ -57,6 +57,13 @@ export function Step5Implement({ state, update, onReady }: Props) {
     setPendingMode(chosen)
   }
 
+  const handleCancel = () => {
+    setPendingMode(null)
+    setMode(null)
+    setLoading(false)
+    setError(null)
+  }
+
   if (state.greenBuild && state.implementResult) {
     const b = state.greenBuild
     const isGreen = b.buildStatus === 'GREEN'
@@ -84,7 +91,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
     return (
       <div>
         <h2 className="step-title">Choose Implementation</h2>
-        <ConfirmDialog onConfirm={() => run(pendingMode)} onCancel={() => setPendingMode(null)}>
+        <ConfirmDialog onConfirm={() => run(pendingMode)} onCancel={handleCancel}>
           {pendingMode === 'CLAUDE' ? (
             <>
               <p>
