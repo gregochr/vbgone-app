@@ -40,8 +40,9 @@ export function Step4Tests({ state, update, onReady }: Props) {
         update({ tests: testsResult })
 
         setPhase('stub')
-        await generateStub(sessionId, className)
+        const stubResult = await generateStub(sessionId, className)
         if (cancelled) return
+        update({ stubResult })
 
         setPhase('build')
         const buildResult = await build(sessionId)
@@ -141,6 +142,13 @@ export function Step4Tests({ state, update, onReady }: Props) {
         <>
           <h3 style={{ marginBottom: 8 }}>Generated Tests</h3>
           <CodeBlock code={state.tests.code} />
+        </>
+      )}
+
+      {state.stubResult && (
+        <>
+          <h3 style={{ marginBottom: 8, marginTop: 24 }}>Generated Stub</h3>
+          <CodeBlock code={state.stubResult.code} />
         </>
       )}
     </div>

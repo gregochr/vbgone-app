@@ -26,6 +26,7 @@ const baseState: WizardState = {
   },
   interfaceResult: null,
   tests: null,
+  stubResult: null,
   redBuild: null,
   implementResult: null,
   greenBuild: null,

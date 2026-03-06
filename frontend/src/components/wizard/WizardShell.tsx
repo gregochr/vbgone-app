@@ -12,6 +12,7 @@ import type {
   AnalysisResult,
   InterfaceResult,
   TestsResult,
+  StubResult,
   BuildResult,
   ImplementResult,
   PullRequestResult,
@@ -191,6 +192,7 @@ export interface WizardState {
   analysis: AnalysisResult | null
   interfaceResult: InterfaceResult | null
   tests: TestsResult | null
+  stubResult: StubResult | null
   redBuild: BuildResult | null
   implementResult: ImplementResult | null
   greenBuild: BuildResult | null
@@ -203,6 +205,7 @@ const initialState: WizardState = {
   analysis: null,
   interfaceResult: null,
   tests: null,
+  stubResult: null,
   redBuild: null,
   implementResult: null,
   greenBuild: null,
