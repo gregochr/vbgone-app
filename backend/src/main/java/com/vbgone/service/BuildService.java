@@ -49,13 +49,16 @@ public class BuildService {
 
     private final SessionStore sessionStore;
     private final Path workspacePath;
+    private final String containerName;
     private final ProcessRunner processRunner;
 
     public BuildService(SessionStore sessionStore,
                         @Value("${vbgone.workspace:/workspace}") String workspacePath,
+                        @Value("${dotnet.runner.container:vbgone-app-dotnet-runner-1}") String containerName,
                         ProcessRunner processRunner) {
         this.sessionStore = sessionStore;
         this.workspacePath = Path.of(workspacePath);
+        this.containerName = containerName;
         this.processRunner = processRunner;
     }
 
@@ -140,7 +143,7 @@ public class BuildService {
             throws IOException, InterruptedException {
         String containerTestPath = "/workspace/" + sessionId + "/" + className + ".Tests";
         return processRunner.run(List.of(
-                "docker", "exec", "dotnet-runner",
+                "docker", "exec", containerName,
                 "dotnet", "test", containerTestPath,
                 "--logger", "trx;LogFileName=results.trx"
         ));

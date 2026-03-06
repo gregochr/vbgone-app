@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 
 interface Props {
   children: React.ReactNode
+  label?: string
 }
 
-export function InfoTip({ children }: Props) {
+export function InfoTip({ children, label = '\u24D8' }: Props) {
   const [open, setOpen] = useState(false)
   const tipRef = useRef<HTMLDivElement>(null)
 
@@ -30,7 +31,7 @@ export function InfoTip({ children }: Props) {
         aria-label="More info"
         type="button"
       >
-        About this demo
+        {label}
       </button>
       {open && (
         <div className="infotip-popover">

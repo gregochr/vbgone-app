@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Step4Tests } from './Step4Tests'
 import type { WizardState } from './WizardShell'
 import * as api from '../../api/migrateApi'
@@ -71,22 +72,34 @@ describe('Step4Tests', () => {
     expect(screen.getByText(/exactly what we expect/)).toBeInTheDocument()
   })
 
-  it('shows loading state while API calls are in progress', () => {
-    vi.mocked(api.generateTests).mockReturnValue(new Promise(() => {}))
+  it('shows confirm dialog before making API calls', () => {
     render(<Step4Tests state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText('Tests + Red Build')).toBeInTheDocument()
+    expect(screen.getByText(/claude-sonnet-4-6/)).toBeInTheDocument()
+    expect(screen.getByText(/claude-haiku-4-5/)).toBeInTheDocument()
+    expect(screen.getByText('Continue')).toBeInTheDocument()
+  })
+
+  it('shows loading state after clicking Continue', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.generateTests).mockReturnValue(new Promise(() => {}))
+    render(<Step4Tests state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Continue'))
     expect(screen.getByText(/Generating NUnit tests for Foo/)).toBeInTheDocument()
   })
 
   it('shows error state if API call fails', async () => {
+    const user = userEvent.setup()
     vi.mocked(api.generateTests).mockRejectedValue(new Error('Generation failed'))
     render(<Step4Tests state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(screen.getByText('Generation failed')).toBeInTheDocument()
     })
   })
 
   it('calls update and onReady after all phases complete', async () => {
+    const user = userEvent.setup()
     vi.mocked(api.generateTests).mockResolvedValue(mockTests)
     vi.mocked(api.generateStub).mockResolvedValue({
       sessionId: 'session-1',
@@ -98,6 +111,7 @@ describe('Step4Tests', () => {
     const update = vi.fn()
     const onReady = vi.fn()
     render(<Step4Tests state={baseState} update={update} onReady={onReady} />)
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(update).toHaveBeenCalledWith({ tests: mockTests })
       expect(update).toHaveBeenCalledWith({ redBuild: mockBuild })

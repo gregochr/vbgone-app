@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
 import { raisePR } from '../../api/migrateApi'
-import { InfoTip } from './InfoTip'
 
 interface Props {
   state: WizardState
@@ -22,7 +21,7 @@ export function Step6PR({ state, update, onReady }: Props) {
       onReady()
       return
     }
-    raisePR(sessionId, 'chrisgregory', 'vbgone-output', branchName)
+    raisePR(sessionId, 'gregochr', 'vbgone-output', branchName)
       .then((result) => {
         update({ prResult: result })
         setLoading(false)
@@ -60,20 +59,7 @@ export function Step6PR({ state, update, onReady }: Props) {
 
   return (
     <div>
-      <h2 className="step-title">
-        Pull Request Raised
-        <span className="step-infotip">
-          <InfoTip>
-            <p>
-              <strong>The generated C# files have been committed to a new branch and a PR raised against vbgone-output.</strong>{' '}
-              The PR triggers the GitHub Actions CI pipeline which runs Roslynator, Coverlet, Stryker, and CodeQL.
-            </p>
-            <p>
-              Review the PR, check the CI results, and merge when ready.
-            </p>
-          </InfoTip>
-        </span>
-      </h2>
+      <h2 className="step-title">Pull Request Raised</h2>
       <p className="step-subtitle">Migration complete! Your PR is ready for review.</p>
 
       <div className="info-card">

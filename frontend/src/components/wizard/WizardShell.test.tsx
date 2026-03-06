@@ -63,7 +63,7 @@ vi.mock('../../api/migrateApi', async () => {
     fetchCost: vi.fn().mockResolvedValue({
       sessionId: 'test-session',
       steps: [],
-      totalCost: 0,
+      totalCost: 0.0088,
     }),
   }
 })
@@ -109,6 +109,8 @@ describe('WizardShell navigation', () => {
 
     await user.click(screen.getByText('Load demo file'))
     await user.click(screen.getByText('Next'))
+    // Step 2 shows confirm dialog first
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
   })
 
@@ -120,12 +122,14 @@ describe('WizardShell navigation', () => {
     await user.click(screen.getByText('Load demo file'))
     expect(screen.getByText('Next')).toBeEnabled()
 
-    // Advance to step 2 — mock resolves instantly so we see completed state
+    // Advance to step 2 — confirm then wait for analysis
     await user.click(screen.getByText('Next'))
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
 
-    // Advance to step 3
+    // Advance to step 3 — confirm then wait for interface
     await user.click(screen.getByText('Next'))
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
   })
 
@@ -136,11 +140,31 @@ describe('WizardShell navigation', () => {
     // Advance to step 2
     await user.click(screen.getByText('Load demo file'))
     await user.click(screen.getByText('Next'))
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
 
     // Go back to step 1
     await user.click(screen.getByText('Back'))
     expect(screen.getByText('Upload VB.NET Source')).toBeInTheDocument()
+  })
+
+  it('shows cost in USD and GBP after analysis completes', async () => {
+    const user = userEvent.setup()
+    render(<WizardShell />)
+
+    await user.click(screen.getByText('Load demo file'))
+    await user.click(screen.getByText('Next'))
+    await user.click(screen.getByText('Continue'))
+    await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+
+    const costDisplay = screen.getByTestId('cost-display')
+    expect(costDisplay).toHaveTextContent('$0.0088')
+    expect(costDisplay).toHaveTextContent('£0.0070')
+  })
+
+  it('cost display is not visible before analysis', () => {
+    render(<WizardShell />)
+    expect(screen.queryByTestId('cost-display')).not.toBeInTheDocument()
   })
 
   it('Back button becomes enabled after advancing past Step 1', async () => {
@@ -152,7 +176,7 @@ describe('WizardShell navigation', () => {
     await user.click(screen.getByText('Load demo file'))
     await user.click(screen.getByText('Next'))
 
-    expect(screen.getByText('Back')).toBeEnabled()
+    await waitFor(() => expect(screen.getByText('Back')).toBeEnabled())
   })
 
   it('Next button is not visible on Step 6', async () => {
@@ -163,20 +187,24 @@ describe('WizardShell navigation', () => {
     await user.click(screen.getByText('Load demo file'))
     await user.click(screen.getByText('Next'))
 
-    // Step 2 → wait for analysis
+    // Step 2 → confirm then wait for analysis
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
     await user.click(screen.getByText('Next'))
 
-    // Step 3 → wait for interface
+    // Step 3 → confirm then wait for interface
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
     await user.click(screen.getByText('Next'))
 
-    // Step 4 → wait for tests + build
+    // Step 4 → confirm then wait for tests + build
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText(/tests failing/)).toBeInTheDocument())
     await user.click(screen.getByText('Next'))
 
-    // Step 5 → click Claude Implements, wait for result
+    // Step 5 → click Claude Implements, confirm, wait for result
     await user.click(screen.getByText('Claude Implements'))
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
     await user.click(screen.getByText('Next'))
 

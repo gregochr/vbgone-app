@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import type { WizardState } from './WizardShell'
 import { implement, buildAfterImplement } from '../../api/migrateApi'
-import { ConfirmDialog, shouldSkipConfirm } from './ConfirmDialog'
-import { InfoTip } from './InfoTip'
+import { ConfirmDialog } from './ConfirmDialog'
+import { CodeBlock } from './CodeBlock'
 
 interface Props {
   state: WizardState
@@ -54,11 +54,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
   }
 
   const handleChoice = (chosen: 'STUB' | 'CLAUDE') => {
-    if (chosen === 'CLAUDE' && !shouldSkipConfirm()) {
-      setPendingMode(chosen)
-    } else {
-      run(chosen)
-    }
+    setPendingMode(chosen)
   }
 
   if (state.greenBuild && state.implementResult) {
@@ -67,17 +63,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
 
     return (
       <div>
-        <h2 className="step-title">
-          Implementation
-          <span className="step-infotip">
-            <InfoTip>
-              <p>
-                <strong>The implementation is tested against the NUnit suite generated in Step 4.</strong>{' '}
-                Claude mode uses Sonnet to generate a complete implementation. Manual mode gives you the stub to implement yourself.
-              </p>
-            </InfoTip>
-          </span>
-        </h2>
+        <h2 className="step-title">Implementation</h2>
         <p className="step-subtitle">
           Mode: {state.implementResult.mode === 'CLAUDE' ? 'AI' : 'Manual'}
         </p>
@@ -87,7 +73,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
         </div>
 
         <h3 style={{ marginBottom: 8 }}>Implementation</h3>
-        <div className="code-block">{state.implementResult.code}</div>
+        <CodeBlock code={state.implementResult.code} />
       </div>
     )
   }
@@ -96,11 +82,54 @@ export function Step5Implement({ state, update, onReady }: Props) {
     return (
       <div>
         <h2 className="step-title">Choose Implementation</h2>
-        <ConfirmDialog
-          message={`This will call Claude (Sonnet) to generate a full implementation of ${className}. Proceed?`}
-          onConfirm={() => run(pendingMode)}
-          onCancel={() => setPendingMode(null)}
-        />
+        <ConfirmDialog onConfirm={() => run(pendingMode)} onCancel={() => setPendingMode(null)}>
+          {pendingMode === 'CLAUDE' ? (
+            <>
+              <p>
+                This will make an API call to Claude Sonnet (claude-sonnet-4-6) via the Anthropic
+                Java SDK.
+              </p>
+              <p>
+                {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored by
+                Anthropic beyond the request.
+              </p>
+              <p>
+                {'\uD83D\uDCB0'} Prompt caching is enabled — the system prompt is cached and reused
+                across calls, reducing input token costs by up to 90% at scale.
+              </p>
+              <p>
+                {'\u26A1'} Model: claude-sonnet-4-6 — chosen for its ability to write correct,
+                idiomatic modern C#. The implementation will use expression-bodied members, pattern
+                matching, and nullable reference types where appropriate.
+              </p>
+              <p>
+                After the implementation is generated, dotnet test runs automatically. All tests
+                should pass — if any fail, the implementation will need review.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>You have chosen to implement the C# yourself.</p>
+              <p>
+                {'\uD83D\uDCE5'} The stub will be downloaded — a C# class that implements the
+                interface with NotImplementedException on every method.
+              </p>
+              <p>
+                {'\uD83E\uDDEA'} Open the stub in Rider or Visual Studio alongside the NUnit test
+                suite. Your goal is to make every test pass — the tests define the correct behaviour
+                based on the original VB.NET source.
+              </p>
+              <p>
+                {'\uD83D\uDCA1'} This is the recommended path for production migrations. The
+                developer who implements the class reads the original VB.NET, understands the
+                business logic, and owns every line of the C# replacement. No AI shortcut — just TDD
+                discipline.
+              </p>
+              <p>No API call will be made at this step.</p>
+            </>
+          )}
+          <p>Proceed?</p>
+        </ConfirmDialog>
       </div>
     )
   }
@@ -128,17 +157,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
 
   return (
     <div>
-      <h2 className="step-title">
-        Choose Implementation
-        <span className="step-infotip">
-          <InfoTip>
-            <p>
-              <strong>Choose how to implement the class.</strong>{' '}
-              Claude Implements uses Sonnet to generate a full implementation that passes all tests. Manual gives you the stub to complete in your IDE.
-            </p>
-          </InfoTip>
-        </span>
-      </h2>
+      <h2 className="step-title">Choose Implementation</h2>
       <p className="step-subtitle">
         Let Claude implement the class, or download the stub and implement it yourself.
       </p>

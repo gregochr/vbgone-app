@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Step3Interface } from './Step3Interface'
 import type { WizardState } from './WizardShell'
 import * as api from '../../api/migrateApi'
@@ -47,16 +48,26 @@ describe('Step3Interface', () => {
     expect(screen.getByText('public interface IFoo { int Bar(); }')).toBeInTheDocument()
   })
 
-  it('shows loading state while API call is in progress', () => {
-    vi.mocked(api.generateInterface).mockReturnValue(new Promise(() => {}))
+  it('shows confirm dialog before making API call', () => {
     render(<Step3Interface state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText('Generating C# Interface')).toBeInTheDocument()
+    expect(screen.getAllByText(/claude-haiku-4-5/).length).toBeGreaterThan(0)
+    expect(screen.getByText('Continue')).toBeInTheDocument()
+  })
+
+  it('shows loading state after clicking Continue', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.generateInterface).mockReturnValue(new Promise(() => {}))
+    render(<Step3Interface state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Continue'))
     expect(screen.getByText(/Claude is generating the interface for Foo/)).toBeInTheDocument()
   })
 
   it('shows error state if API call fails', async () => {
+    const user = userEvent.setup()
     vi.mocked(api.generateInterface).mockRejectedValue(new Error('Timeout'))
     render(<Step3Interface state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(screen.getByText('Interface Generation Failed')).toBeInTheDocument()
       expect(screen.getByText('Timeout')).toBeInTheDocument()
@@ -64,10 +75,12 @@ describe('Step3Interface', () => {
   })
 
   it('calls update and onReady after successful API call', async () => {
+    const user = userEvent.setup()
     vi.mocked(api.generateInterface).mockResolvedValue(mockInterface)
     const update = vi.fn()
     const onReady = vi.fn()
     render(<Step3Interface state={baseState} update={update} onReady={onReady} />)
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(update).toHaveBeenCalledWith({ interfaceResult: mockInterface })
       expect(onReady).toHaveBeenCalled()

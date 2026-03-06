@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
 import { analyse } from '../../api/migrateApi'
-import { ConfirmDialog, shouldSkipConfirm } from './ConfirmDialog'
-import { InfoTip } from './InfoTip'
+import { ConfirmDialog } from './ConfirmDialog'
 
 interface Props {
   state: WizardState
@@ -20,11 +19,7 @@ export function Step2Analysis({ state, update, onReady }: Props) {
       onReady()
       return
     }
-    if (shouldSkipConfirm()) {
-      runAnalysis()
-    } else {
-      setShowConfirm(true)
-    }
+    setShowConfirm(true)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const runAnalysis = () => {
@@ -46,11 +41,25 @@ export function Step2Analysis({ state, update, onReady }: Props) {
     return (
       <div>
         <h2 className="step-title">Analysing VB.NET Source</h2>
-        <ConfirmDialog
-          message="This will send your VB.NET source to Claude (Sonnet) for analysis. Proceed?"
-          onConfirm={runAnalysis}
-          onCancel={() => setShowConfirm(false)}
-        />
+        <ConfirmDialog onConfirm={runAnalysis} onCancel={() => setShowConfirm(false)}>
+          <p>
+            This will make an API call to Claude Sonnet (claude-sonnet-4-6) via the Anthropic Java
+            SDK.
+          </p>
+          <p>
+            {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored by Anthropic
+            beyond the request.
+          </p>
+          <p>
+            {'\uD83D\uDCB0'} Prompt caching is enabled — the system prompt is cached and reused
+            across calls, reducing input token costs by up to 90% at scale.
+          </p>
+          <p>
+            {'\u26A1'} Model: claude-sonnet-4-6 — chosen for its ability to reason about code
+            structure and extract business logic from Windows Forms UI noise.
+          </p>
+          <p>Proceed?</p>
+        </ConfirmDialog>
       </div>
     )
   }
@@ -81,20 +90,7 @@ export function Step2Analysis({ state, update, onReady }: Props) {
 
   return (
     <div>
-      <h2 className="step-title">
-        Analysis Complete
-        <span className="step-infotip">
-          <InfoTip>
-            <p>
-              <strong>Claude analyses the VB.NET source and identifies classes, methods, dependencies, and complexity.</strong>{' '}
-              This uses Claude Sonnet to extract business logic from UI event handlers.
-            </p>
-            <p>
-              Complexity is rated LOW, MEDIUM, or HIGH based on the number of methods, branching logic, and dependencies between classes.
-            </p>
-          </InfoTip>
-        </span>
-      </h2>
+      <h2 className="step-title">Analysis Complete</h2>
       <p className="step-subtitle">{analysis.summary}</p>
 
       {analysis.classes.map((cls) => (
@@ -108,7 +104,12 @@ export function Step2Analysis({ state, update, onReady }: Props) {
             }}
           >
             <h3>{cls.name}</h3>
-            <span className={`badge badge-${cls.complexity.toLowerCase()}`}>{cls.complexity}</span>
+            <span
+              className={`badge badge-${cls.complexity.toLowerCase()}`}
+              title="Complexity is rated by Claude based on method count, branching logic, and dependencies"
+            >
+              {cls.complexity}
+            </span>
           </div>
 
           <div style={{ color: 'var(--grey)', fontSize: '0.85rem', marginBottom: 8 }}>
@@ -127,7 +128,19 @@ export function Step2Analysis({ state, update, onReady }: Props) {
       ))}
 
       <div className="info-card">
-        <h4 style={{ marginBottom: 8 }}>Migration Order</h4>
+        <h4 style={{ marginBottom: 0 }}>Migration Order</h4>
+        <p
+          style={{
+            color: '#9b9b9b',
+            fontSize: '0.75rem',
+            marginTop: '4px',
+            marginBottom: '8px',
+            fontStyle: 'italic',
+          }}
+        >
+          Simplest and least dependent first — building confidence and test coverage before tackling
+          complex classes
+        </p>
         <ol style={{ paddingLeft: 20, color: 'var(--grey)' }}>
           {analysis.suggestedMigrationOrder.map((name) => (
             <li key={name}>{name}</li>

@@ -1,47 +1,28 @@
-import { useState } from 'react'
-
 interface Props {
-  message: string
+  message?: string
+  children?: React.ReactNode
   onConfirm: () => void
   onCancel: () => void
 }
 
-export function ConfirmDialog({ message, onConfirm, onCancel }: Props) {
-  const [dontShow, setDontShow] = useState(false)
-
+export function ConfirmDialog({ message, children, onConfirm, onCancel }: Props) {
   return (
     <div className="confirm-overlay" onClick={onCancel}>
       <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
-        <p className="confirm-message">{message}</p>
-        <label className="confirm-checkbox-label">
-          <input
-            type="checkbox"
-            checked={dontShow}
-            onChange={(e) => setDontShow(e.target.checked)}
-          />
-          Don&apos;t show again this session
-        </label>
+        {children ? (
+          <div className="confirm-message">{children}</div>
+        ) : (
+          <p className="confirm-message">{message}</p>
+        )}
         <div className="confirm-actions">
-          <button className="btn-back" onClick={onCancel}>
+          <button className="btn-plex" onClick={onCancel}>
             Cancel
           </button>
-          <button
-            className="btn-next"
-            onClick={() => {
-              if (dontShow) {
-                sessionStorage.setItem('vbgone-skip-confirm', 'true')
-              }
-              onConfirm()
-            }}
-          >
+          <button className="btn-plex confirm-continue" onClick={onConfirm}>
             Continue
           </button>
         </div>
       </div>
     </div>
   )
-}
-
-export function shouldSkipConfirm(): boolean {
-  return sessionStorage.getItem('vbgone-skip-confirm') === 'true'
 }

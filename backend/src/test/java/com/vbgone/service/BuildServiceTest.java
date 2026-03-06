@@ -52,7 +52,7 @@ class BuildServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new BuildService(sessionStore, tempDir.toString(), processRunner);
+        service = new BuildService(sessionStore, tempDir.toString(), "dotnet-runner", processRunner);
     }
 
     private MigrationSession fullSession(String sessionId) {

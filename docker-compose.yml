@@ -1,0 +1,30 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - DOTNET_RUNNER_CONTAINER=${DOTNET_RUNNER_CONTAINER:-vbgone-app-dotnet-runner-1}
+    depends_on:
+      - dotnet-runner
+    volumes:
+      - generated-code:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  dotnet-runner:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    volumes:
+      - generated-code:/workspace
+    command: tail -f /dev/null
+
+volumes:
+  generated-code:

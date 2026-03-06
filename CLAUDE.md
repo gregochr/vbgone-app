@@ -273,12 +273,15 @@ Results parsed from `.trx` XML file on shared volume. This is the PoC approach �
 
 ## Docker Compose
 
+### Services
 ```yaml
 services:
   frontend:
     build: ./frontend
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
 
   backend:
     build: ./backend
@@ -286,11 +289,14 @@ services:
       - "8080:8080"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+    depends_on:
+      - dotnet-runner
     volumes:
       - generated-code:/workspace
 
   dotnet-runner:
-    image: mcr.microsoft.com/dotnet/sdk:8.0
+    image: mcr.microsoft.com/dotnet/sdk:10.0
     volumes:
       - generated-code:/workspace
     command: tail -f /dev/null
@@ -299,6 +305,39 @@ volumes:
   generated-code:
 ```
 
+### Dockerfile — Backend
+Multi-stage build:
+- Stage 1: Maven + Java 21 — build the JAR
+- Stage 2: Java 21 JRE — run the JAR
+- Exposes port 8080
+
+### Dockerfile — Frontend
+Multi-stage build:
+- Stage 1: Node — npm ci && npm run build
+- Stage 2: nginx — serves the React build
+- nginx.conf proxies /api/* to backend:8080
+- Exposes port 3000
+
+### Environment Variables
+- Copy .env.example to .env and populate before running
+- .env is in .gitignore — never committed
+- .env.example is committed — shows required variables without values
+
+### Running Locally
+```bash
+# First time setup
+cp .env.example .env
+# Edit .env with real values
+
+# Start everything
+docker compose up --build
+
+# Stop everything
+docker compose down
+```
+
+### .NET SDK Version
+Use mcr.microsoft.com/dotnet/sdk:10.0 — matches Mac Mini installation.
 ## Deployment Intent
 
 VBGone will be publicly accessible via Cloudflare Tunnel from a Mac Mini (Intel, 32GB RAM) running Docker Desktop. A cheap domain (£1 via Fasthosts) will be pointed at Cloudflare, which tunnels to the Mac Mini without exposing inbound ports — the same pattern used for PhotoCast.
@@ -381,27 +420,29 @@ public ResponseEntity<AnalysisResult> analyse(...) { }
 - [x] GitHub Actions CI — Vitest, ESLint, Prettier, Codecov
 
 ### Phase 2 — Spring Boot Backend
-- [ ] MigrationController with all endpoints
-- [ ] AnalysisService — Anthropic Java SDK integration
-- [ ] GenerationService — interface, tests, stub, implement
-- [ ] BuildService — ProcessBuilder + .trx parsing
-- [ ] GitHubService — commit and raise PR
-- [ ] SessionStore — in memory ConcurrentHashMap
-- [ ] Add Bucket4j Maven dependency — configure in Phase 3
-- [ ] Wire React to real backend
+- [x] MigrationController with all endpoints
+- [x] AnalysisService — Anthropic Java SDK integration
+- [x] GenerationService — interface, tests, stub, implement
+- [x] BuildService — ProcessBuilder + .trx parsing
+- [x] GitHubService — commit and raise PR
+- [x] SessionStore — in memory ConcurrentHashMap
+- [x] Add Bucket4j Maven dependency — configure in Phase 3
+- [x] Wire React to real backend
 
 ### Phase 3 — Docker Compose + First Public Deployment
-- [ ] Dockerfile for backend
-- [ ] Dockerfile for frontend
-- [ ] docker-compose.yml with .NET sidecar
-- [ ] Single `docker compose up` starts everything
-- [ ] **Security — implement before going public:**
-    - [ ] Bucket4j rate limiting active on all `/api/migrate/*` endpoints
-    - [ ] CORS locked to VBGone domain
-    - [ ] Secrets in environment variables — never hardcoded
-    - [ ] `.env` in `.gitignore`
-    - [ ] Cloudflare Tunnel configured on Mac Mini
-    - [ ] Cloudflare Access — Google or GitHub OAuth
+- [ ] backend/Dockerfile — multi-stage Java 21 build
+- [ ] frontend/Dockerfile — multi-stage Node/nginx build
+- [ ] nginx.conf — serves React, proxies /api/* to backend
+- [ ] docker-compose.yml — all three services + shared volume
+- [ ] .env.example — template with placeholder values
+- [ ] .env in .gitignore confirmed
+- [ ] docker compose up --build — single command start
+- [ ] End-to-end test — real Claude calls, Red/Green build, PR raised
+- [ ] Security — implement before going public:
+  - [ ] Bucket4j rate limiting
+  - [ ] CORS locked to vbgone domain
+  - [ ] Cloudflare Tunnel configured
+  - [ ] Cloudflare Access — Google or GitHub OAuth
 - [ ] £1 domain purchased via Fasthosts
 - [ ] DNS pointed at Cloudflare
 - [ ] First public URL shared

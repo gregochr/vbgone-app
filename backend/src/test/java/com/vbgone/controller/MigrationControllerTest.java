@@ -1,12 +1,15 @@
 package com.vbgone.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vbgone.config.RateLimitFilter;
 import com.vbgone.model.*;
 import com.vbgone.service.*;
 import com.vbgone.session.SessionStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -21,7 +24,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(MigrationController.class)
+@WebMvcTest(value = MigrationController.class,
+        excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RateLimitFilter.class))
 class MigrationControllerTest {
 
     @Autowired
@@ -170,6 +174,52 @@ class MigrationControllerTest {
                 .andExpect(jsonPath("$.branchName").value("migrate/form1"))
                 .andExpect(jsonPath("$.filesCommitted").isArray())
                 .andExpect(jsonPath("$.filesCommitted.length()").value(3));
+    }
+
+    @Test
+    void analyse_returns400ForEmptyFilename() throws Exception {
+        mockMvc.perform(post("/api/migrate/analyse")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AnalyseRequest("", "content"))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void analyse_returns400ForNullFilename() throws Exception {
+        mockMvc.perform(post("/api/migrate/analyse")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AnalyseRequest(null, "content"))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void analyse_returns400ForUnsupportedFileExtension() throws Exception {
+        mockMvc.perform(post("/api/migrate/analyse")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AnalyseRequest("Form1.cs", "content"))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void analyse_accepts_vbFiles() throws Exception {
+        when(analysisService.analyse(any(), any()))
+                .thenReturn(new AnalysisResult(SESSION_ID, List.of(), List.of(), "OK"));
+
+        mockMvc.perform(post("/api/migrate/analyse")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AnalyseRequest("Form1.vb", "content"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void analyse_accepts_zipFiles() throws Exception {
+        when(analysisService.analyse(any(), any()))
+                .thenReturn(new AnalysisResult(SESSION_ID, List.of(), List.of(), "OK"));
+
+        mockMvc.perform(post("/api/migrate/analyse")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AnalyseRequest("project.zip", "content"))))
+                .andExpect(status().isOk());
     }
 
     @Test

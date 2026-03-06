@@ -87,7 +87,7 @@ export function Step1Upload({ state, update, onReady }: Props) {
             <button className="btn-plex" onClick={loadDemo}>
               Load demo file
             </button>
-            <InfoTip>
+            <InfoTip label="About this demo">
               <p>
                 <strong>
                   The demo uses a genuine VB.NET Windows Forms project sourced directly from GitHub.

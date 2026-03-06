@@ -4,7 +4,15 @@
       "Bash(./mvnw test:*)",
       "Bash(npm run:*)",
       "Bash(npx vitest:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npx prettier:*)",
+      "Bash(docker compose:*)",
+      "Bash(curl:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git stash:*)",
+      "Bash(./mvnw dependency:resolve -q)",
+      "Bash(jar tf:*)",
+      "Bash(javap:*)"
     ]
   }
 }

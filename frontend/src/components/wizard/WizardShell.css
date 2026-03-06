@@ -171,6 +171,16 @@
   font-size: 0.85rem;
   line-height: 1.6;
   white-space: pre;
+  margin: 0;
+}
+
+.code-edit-textarea {
+  width: 100%;
+  min-height: 300px;
+  resize: vertical;
+  color: var(--white);
+  font-family: 'Courier New', Courier, monospace;
+  border-color: var(--accent);
 }
 
 .info-card {
@@ -447,7 +457,7 @@
 
 .infotip-popover {
   position: absolute;
-  bottom: calc(100% + 12px);
+  top: calc(100% + 12px);
   left: 50%;
   transform: translateX(-50%);
   width: 640px;
@@ -466,11 +476,11 @@
 .infotip-popover::after {
   content: '';
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
   border: 8px solid transparent;
-  border-top-color: var(--bg-tertiary);
+  border-bottom-color: var(--bg-tertiary);
 }
 
 .infotip-close {
@@ -570,20 +580,19 @@
   line-height: 1.5;
 }
 
-.confirm-checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--grey);
-  font-size: 0.8rem;
-  margin-bottom: 20px;
-  cursor: pointer;
-}
-
 .confirm-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.confirm-continue {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.confirm-continue:hover {
+  background: var(--accent-hover);
 }
 
 /* ── Cost display ── */

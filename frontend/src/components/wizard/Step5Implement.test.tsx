@@ -71,7 +71,7 @@ describe('Step5Implement', () => {
     expect(screen.getByText(mockImpl.code)).toBeInTheDocument()
   })
 
-  it('selecting STUB calls implement with STUB mode and updates state', async () => {
+  it('selecting STUB shows confirm then calls implement with STUB mode', async () => {
     const user = userEvent.setup()
     const mockStubImpl: api.ImplementResult = {
       sessionId: 'session-1',
@@ -94,6 +94,8 @@ describe('Step5Implement', () => {
     render(<Step5Implement state={baseState} update={update} onReady={vi.fn()} />)
 
     await user.click(screen.getByText('Manual (Stub)'))
+    expect(screen.getByText(/You have chosen to implement the C# yourself/)).toBeInTheDocument()
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(update).toHaveBeenCalledWith({ implementResult: mockStubImpl })
       expect(update).toHaveBeenCalledWith({ greenBuild: mockRedBuild })
@@ -130,6 +132,7 @@ describe('Step5Implement', () => {
     render(<Step5Implement state={baseState} update={vi.fn()} onReady={vi.fn()} />)
 
     await user.click(screen.getByText('Claude Implements'))
+    await user.click(screen.getByText('Continue'))
     expect(screen.getByText(/Claude is implementing/)).toBeInTheDocument()
   })
 
@@ -140,6 +143,7 @@ describe('Step5Implement', () => {
     render(<Step5Implement state={baseState} update={vi.fn()} onReady={vi.fn()} />)
 
     await user.click(screen.getByText('Claude Implements'))
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(screen.getByText('Implementation Failed')).toBeInTheDocument()
       expect(screen.getByText('Server error')).toBeInTheDocument()
@@ -156,6 +160,7 @@ describe('Step5Implement', () => {
     render(<Step5Implement state={baseState} update={update} onReady={onReady} />)
 
     await user.click(screen.getByText('Claude Implements'))
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(update).toHaveBeenCalledWith({ implementResult: mockImpl })
       expect(update).toHaveBeenCalledWith({ greenBuild: mockGreenBuild })

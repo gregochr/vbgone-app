@@ -7,7 +7,9 @@ import com.vbgone.service.CostService;
 import com.vbgone.service.GenerationService;
 import com.vbgone.service.GitHubService;
 import com.vbgone.session.SessionStore;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/migrate")
@@ -36,7 +38,16 @@ public class MigrationController {
 
     @PostMapping("/analyse")
     public AnalysisResult analyse(@RequestBody AnalyseRequest request) {
-        return analysisService.analyse(request.filename(), request.content());
+        String filename = request.filename();
+        if (filename == null || filename.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Filename must not be empty.");
+        }
+        String lower = filename.toLowerCase();
+        if (!lower.endsWith(".vb") && !lower.endsWith(".zip")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only .vb and .zip files are supported. Received: " + filename);
+        }
+        return analysisService.analyse(filename, request.content());
     }
 
     @PostMapping("/interface")
