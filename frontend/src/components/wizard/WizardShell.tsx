@@ -337,7 +337,11 @@ export function WizardShell() {
             className="btn-next"
             onClick={next}
             disabled={!stepReady}
-            title={NEXT_TITLES[step]}
+            title={
+              step === 4 && state.greenBuild && state.greenBuild.buildStatus !== 'GREEN'
+                ? 'Fix failing tests before raising a PR'
+                : NEXT_TITLES[step]
+            }
           >
             Next
           </button>

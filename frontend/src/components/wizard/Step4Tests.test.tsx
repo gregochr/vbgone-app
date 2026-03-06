@@ -62,8 +62,22 @@ describe('Step4Tests', () => {
     const doneState = { ...baseState, tests: mockTests, redBuild: mockBuild }
     render(<Step4Tests state={doneState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText(/10 \/ 10 tests failing/)).toBeInTheDocument()
-    expect(screen.getByText('Generated Tests')).toBeInTheDocument()
+    expect(screen.getByText('Generated Tests (10 tests)')).toBeInTheDocument()
     expect(screen.getByText('[TestFixture] public class FooTests { }')).toBeInTheDocument()
+  })
+
+  it('code viewers are collapsed by default', () => {
+    const doneState = {
+      ...baseState,
+      tests: mockTests,
+      stubResult: { sessionId: 'session-1', className: 'Foo', code: 'stub code' },
+      redBuild: mockBuild,
+    }
+    render(<Step4Tests state={doneState} update={vi.fn()} onReady={vi.fn()} />)
+    const testsHeader = screen.getByRole('button', { name: /Generated Tests/ })
+    const stubHeader = screen.getByRole('button', { name: /Generated Stub/ })
+    expect(testsHeader).toHaveAttribute('aria-expanded', 'false')
+    expect(stubHeader).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('shows expected failure subtitle message', () => {

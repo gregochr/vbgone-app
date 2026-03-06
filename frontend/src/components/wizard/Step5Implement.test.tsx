@@ -201,6 +201,61 @@ describe('Step5Implement', () => {
     })
   })
 
+  it('shows retry button when CLAUDE build is RED with failing tests', () => {
+    const redState = {
+      ...baseState,
+      implementResult: {
+        sessionId: 'session-1',
+        className: 'Foo',
+        code: 'public class Foo : IFoo { }',
+        mode: 'CLAUDE' as const,
+      },
+      greenBuild: {
+        sessionId: 'session-1',
+        buildStatus: 'RED' as const,
+        total: 10,
+        passed: 8,
+        failed: 2,
+        errors: [],
+        failedTests: ['Add_ReturnsSum', 'Subtract_ReturnsDiff'],
+      },
+    }
+    render(<Step5Implement state={redState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText(/Retry with Claude/)).toBeInTheDocument()
+    expect(screen.getByText('Add_ReturnsSum')).toBeInTheDocument()
+    expect(screen.getByText('Subtract_ReturnsDiff')).toBeInTheDocument()
+  })
+
+  it('implementation code viewer is collapsed by default', () => {
+    const doneState = { ...baseState, implementResult: mockImpl, greenBuild: mockGreenBuild }
+    render(<Step5Implement state={doneState} update={vi.fn()} onReady={vi.fn()} />)
+    const header = screen.getByRole('button', { name: /Implementation/ })
+    expect(header).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('does not show retry button for STUB mode RED build', () => {
+    const stubRedState = {
+      ...baseState,
+      implementResult: {
+        sessionId: 'session-1',
+        className: 'Foo',
+        code: 'public class Foo : IFoo { throw new NotImplementedException(); }',
+        mode: 'STUB' as const,
+      },
+      greenBuild: {
+        sessionId: 'session-1',
+        buildStatus: 'RED' as const,
+        total: 10,
+        passed: 0,
+        failed: 10,
+        errors: [],
+        failedTests: [],
+      },
+    }
+    render(<Step5Implement state={stubRedState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.queryByText(/Retry with Claude/)).not.toBeInTheDocument()
+  })
+
   it('calls update and onReady after successful implementation', async () => {
     const user = userEvent.setup()
     vi.mocked(api.implement).mockResolvedValue(mockImpl)

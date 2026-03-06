@@ -211,6 +211,53 @@ class GenerationServiceTest {
                 .hasMessageContaining("Stub must be generated");
     }
 
+    // ── retryImplement ──
+
+    @Test
+    void retryImplement_callsSonnetWithFailingTestsAndPreviousCode() {
+        MigrationSession session = sessionWithInterface("s1");
+        session.setImplementResult(new ImplementResult(
+                "s1", "Form1", "public class Form1 : IForm1 { /* broken */ }", ImplementMode.CLAUDE));
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse("public class Form1 : IForm1 { public int Add(int a, int b) => a + b; }"));
+
+        ImplementResult result = service.retryImplement("s1", "Form1",
+                java.util.List.of("Add_ReturnsSum", "Subtract_ReturnsDiff"));
+
+        assertThat(result.sessionId()).isEqualTo("s1");
+        assertThat(result.className()).isEqualTo("Form1");
+        assertThat(result.mode()).isEqualTo(ImplementMode.CLAUDE);
+        assertThat(result.code()).contains("a + b");
+        assertThat(session.getImplementResult()).isEqualTo(result);
+
+        verify(claudeClient).sendWithCachedSystemPrompt(
+                eq(GenerationService.IMPLEMENT_SYSTEM_PROMPT),
+                argThat(msg -> msg.contains("Add_ReturnsSum") && msg.contains("broken")),
+                eq(Model.CLAUDE_SONNET_4_6),
+                eq(8192L));
+    }
+
+    @Test
+    void retryImplement_throwsWhenNoInterface() {
+        MigrationSession session = sessionWithVb("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> service.retryImplement("s1", "Form1", java.util.List.of()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Interface must be generated");
+    }
+
+    @Test
+    void retryImplement_throwsWhenNoPreviousImplementation() {
+        MigrationSession session = sessionWithInterface("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> service.retryImplement("s1", "Form1", java.util.List.of()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Previous implementation must exist");
+    }
+
     // ── stripCodeFences ──
 
     @Test

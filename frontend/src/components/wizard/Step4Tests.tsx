@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
 import { generateTests, generateStub, build } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
-import { CodeBlock } from './CodeBlock'
+import { CollapsibleCode } from './CollapsibleCode'
 
 interface Props {
   state: WizardState
@@ -154,17 +154,14 @@ export function Step4Tests({ state, update, onReady }: Props) {
       )}
 
       {state.tests && (
-        <>
-          <h3 style={{ marginBottom: 8 }}>Generated Tests</h3>
-          <CodeBlock code={state.tests.code} />
-        </>
+        <CollapsibleCode
+          title={`Generated Tests (${state.tests.testCount} tests)`}
+          code={state.tests.code}
+        />
       )}
 
       {state.stubResult && (
-        <>
-          <h3 style={{ marginBottom: 8, marginTop: 24 }}>Generated Stub</h3>
-          <CodeBlock code={state.stubResult.code} />
-        </>
+        <CollapsibleCode title="Generated Stub" code={state.stubResult.code} />
       )}
     </div>
   )

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import type { WizardState } from './WizardShell'
 import { implement, buildAfterImplement, retryImplement, build } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
-import { CodeBlock } from './CodeBlock'
+import { CollapsibleCode } from './CollapsibleCode'
 
 interface Props {
   state: WizardState
@@ -24,7 +24,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
   const sessionId = state.analysis?.sessionId ?? ''
 
   useEffect(() => {
-    if (state.greenBuild && state.implementResult) {
+    if (state.greenBuild && state.implementResult && state.greenBuild.buildStatus === 'GREEN') {
       onReady()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -140,8 +140,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
           </div>
         )}
 
-        <h3 style={{ marginBottom: 8 }}>Implementation</h3>
-        <CodeBlock code={state.implementResult.code} />
+        <CollapsibleCode title="Implementation" code={state.implementResult.code} />
       </div>
     )
   }

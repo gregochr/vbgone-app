@@ -271,6 +271,34 @@ class BuildServiceTest {
     }
 
     @Test
+    void parseTrx_extractsFailedTestNames() {
+        String trxWithFailures = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+                  <ResultSummary outcome="Failed">
+                    <Counters total="3" executed="3" passed="1" failed="2" error="0" />
+                  </ResultSummary>
+                  <Results>
+                    <UnitTestResult testName="Add_ReturnsSum" outcome="Passed" />
+                    <UnitTestResult testName="Subtract_ReturnsDiff" outcome="Failed" />
+                    <UnitTestResult testName="Divide_ByZero_Throws" outcome="Failed" />
+                  </Results>
+                </TestRun>""";
+
+        BuildResult result = service.parseTrx("s1", trxWithFailures);
+
+        assertThat(result.buildStatus()).isEqualTo(BuildStatus.RED);
+        assertThat(result.failedTests()).containsExactly("Subtract_ReturnsDiff", "Divide_ByZero_Throws");
+    }
+
+    @Test
+    void parseTrx_emptyFailedTestsWhenAllPass() {
+        BuildResult result = service.parseTrx("s1", GREEN_TRX);
+
+        assertThat(result.failedTests()).isEmpty();
+    }
+
+    @Test
     void parseTrx_throwsOnInvalidXml() {
         assertThatThrownBy(() -> service.parseTrx("s1", "not xml"))
                 .isInstanceOf(RuntimeException.class)

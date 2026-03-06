@@ -155,6 +155,21 @@ class MigrationControllerTest {
     }
 
     @Test
+    void retryImplement_returns200WithImplementResult() throws Exception {
+        when(generationService.retryImplement(eq(SESSION_ID), eq("Form1"), any()))
+                .thenReturn(new ImplementResult(SESSION_ID, "Form1", "public class Form1 { ... }", ImplementMode.CLAUDE));
+
+        mockMvc.perform(post("/api/migrate/retry-implement")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new RetryRequest(SESSION_ID, "Form1", List.of("Add_ReturnsSum")))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sessionId").value(SESSION_ID))
+                .andExpect(jsonPath("$.className").value("Form1"))
+                .andExpect(jsonPath("$.mode").value("CLAUDE"));
+    }
+
+    @Test
     void raisePR_returns200WithPullRequestResult() throws Exception {
         when(gitHubService.raisePR(SESSION_ID, "chrisgregory", "vbgone-output", "migrate/form1"))
                 .thenReturn(new PullRequestResult(
