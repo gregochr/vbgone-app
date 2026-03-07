@@ -31,6 +31,10 @@ const mockAnalysis: api.AnalysisResult = {
       methods: ['Add', 'Subtract'],
       dependencies: [],
       complexity: 'LOW',
+      codeQuality: 'FAIR',
+      codeSmells: ['Mixed concerns — UI logic mixed with business logic'],
+      refactoringSuggestions: ['Extract arithmetic operations into a separate service class'],
+      vbAntiPatterns: ['Implicit type conversions via Int()'],
     },
   ],
   suggestedMigrationOrder: ['ArithmeticOperations'],
@@ -106,5 +110,53 @@ describe('Step2Analysis', () => {
       expect(update).toHaveBeenCalledWith({ analysis: mockAnalysis })
       expect(onReady).toHaveBeenCalled()
     })
+  })
+
+  it('shows code quality section when quality is FAIR', () => {
+    const stateWithAnalysis = { ...baseState, analysis: mockAnalysis }
+    render(<Step2Analysis state={stateWithAnalysis} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('Code Quality')).toBeInTheDocument()
+    expect(screen.getByText('FAIR')).toBeInTheDocument()
+  })
+
+  it('shows code smells', () => {
+    const stateWithAnalysis = { ...baseState, analysis: mockAnalysis }
+    render(<Step2Analysis state={stateWithAnalysis} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('Code Smells')).toBeInTheDocument()
+    expect(screen.getByText('Mixed concerns — UI logic mixed with business logic')).toBeInTheDocument()
+  })
+
+  it('shows refactoring suggestions', () => {
+    const stateWithAnalysis = { ...baseState, analysis: mockAnalysis }
+    render(<Step2Analysis state={stateWithAnalysis} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('Refactoring Suggestions')).toBeInTheDocument()
+    expect(screen.getByText('Extract arithmetic operations into a separate service class')).toBeInTheDocument()
+  })
+
+  it('shows VB.NET anti-patterns', () => {
+    const stateWithAnalysis = { ...baseState, analysis: mockAnalysis }
+    render(<Step2Analysis state={stateWithAnalysis} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('VB.NET Anti-Patterns')).toBeInTheDocument()
+    expect(screen.getByText('Implicit type conversions via Int()')).toBeInTheDocument()
+  })
+
+  it('hides code quality section when quality is GOOD', () => {
+    const goodAnalysis = {
+      ...mockAnalysis,
+      classes: [{ ...mockAnalysis.classes[0], codeQuality: 'GOOD' as const }],
+    }
+    const stateWithAnalysis = { ...baseState, analysis: goodAnalysis }
+    render(<Step2Analysis state={stateWithAnalysis} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.queryByText('Code Quality')).not.toBeInTheDocument()
+  })
+
+  it('hides code quality section when quality is undefined', () => {
+    const noQualityAnalysis = {
+      ...mockAnalysis,
+      classes: [{ ...mockAnalysis.classes[0], codeQuality: undefined }],
+    }
+    const stateWithAnalysis = { ...baseState, analysis: noQualityAnalysis }
+    render(<Step2Analysis state={stateWithAnalysis} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.queryByText('Code Quality')).not.toBeInTheDocument()
   })
 })

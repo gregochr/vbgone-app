@@ -65,7 +65,7 @@ class MigrationControllerTest {
         when(analysisService.analyse(any(), any()))
                 .thenReturn(new AnalysisResult(
                         SESSION_ID,
-                        List.of(new ClassInfo("Form1", List.of("Add", "Subtract"), List.of(), Complexity.LOW)),
+                        List.of(new ClassInfo("Form1", List.of("Add", "Subtract"), List.of(), Complexity.LOW, null, null, null, null)),
                         List.of("Form1"),
                         "One class found."
                 ));
@@ -251,7 +251,7 @@ class MigrationControllerTest {
         when(zipExtractorService.extract(any())).thenReturn(manifest);
         when(analysisService.analyseProject(any())).thenReturn(new ProjectAnalysis(
                 SESSION_ID,
-                List.of(new ClassInfo("Form1", List.of("Add"), List.of(), Complexity.LOW)),
+                List.of(new ClassInfo("Form1", List.of("Add"), List.of(), Complexity.LOW, null, null, null, null)),
                 List.of("Form1"),
                 Map.of("Form1", List.of()),
                 "One class found."
@@ -313,8 +313,8 @@ class MigrationControllerTest {
         when(analysisService.analyseProject(any())).thenReturn(new ProjectAnalysis(
                 SESSION_ID,
                 List.of(
-                        new ClassInfo("Calculator", List.of("Add"), List.of(), Complexity.LOW),
-                        new ClassInfo("Report", List.of("Generate"), List.of("Calculator"), Complexity.MEDIUM)
+                        new ClassInfo("Calculator", List.of("Add"), List.of(), Complexity.LOW, null, null, null, null),
+                        new ClassInfo("Report", List.of("Generate"), List.of("Calculator"), Complexity.MEDIUM, null, null, null, null)
                 ),
                 List.of("Calculator", "Report"),
                 Map.of("Calculator", List.of(), "Report", List.of("Calculator")),

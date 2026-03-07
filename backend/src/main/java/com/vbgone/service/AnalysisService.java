@@ -16,14 +16,22 @@ public class AnalysisService {
             You are a VB.NET to C# migration expert. Analyse VB.NET source code and identify all \
             classes, their public methods, dependencies between classes, and complexity. Business \
             logic may be embedded in Windows Forms event handlers — extract the pure logic and \
-            ignore all UI concerns. Return your analysis as JSON only, no preamble, no markdown, \
-            matching this exact structure:
+            ignore all UI concerns. For each class, also assess code quality as POOR, FAIR, or GOOD. \
+            Identify code smells such as God class, mixed concerns, deep nesting, magic numbers, \
+            and poor naming. Suggest specific refactoring opportunities. Flag VB.NET-specific \
+            anti-patterns including On Error Resume Next, GoTo statements, implicit type conversions, \
+            Hungarian notation, and magic numbers. Return your analysis as JSON only, no preamble, \
+            no markdown, matching this exact structure:
             {
               "classes": [{
                 "name": "string",
                 "methods": ["string"],
                 "dependencies": ["string"],
-                "complexity": "LOW | MEDIUM | HIGH"
+                "complexity": "LOW | MEDIUM | HIGH",
+                "codeQuality": "POOR | FAIR | GOOD",
+                "codeSmells": ["string"],
+                "refactoringSuggestions": ["string"],
+                "vbAntiPatterns": ["string"]
               }],
               "suggestedMigrationOrder": ["string"],
               "summary": "string"
@@ -34,14 +42,22 @@ public class AnalysisService {
             from the same project. Analyse ALL files together and identify every class, their \
             public methods, dependencies between classes (including cross-file dependencies), and \
             complexity. Business logic may be embedded in Windows Forms event handlers — extract \
-            the pure logic and ignore all UI concerns. Return your analysis as JSON only, no \
-            preamble, no markdown, matching this exact structure:
+            the pure logic and ignore all UI concerns. For each class, also assess code quality \
+            as POOR, FAIR, or GOOD. Identify code smells such as God class, mixed concerns, deep \
+            nesting, magic numbers, and poor naming. Suggest specific refactoring opportunities. \
+            Flag VB.NET-specific anti-patterns including On Error Resume Next, GoTo statements, \
+            implicit type conversions, Hungarian notation, and magic numbers. Return your analysis \
+            as JSON only, no preamble, no markdown, matching this exact structure:
             {
               "classes": [{
                 "name": "string",
                 "methods": ["string"],
                 "dependencies": ["string"],
-                "complexity": "LOW | MEDIUM | HIGH"
+                "complexity": "LOW | MEDIUM | HIGH",
+                "codeQuality": "POOR | FAIR | GOOD",
+                "codeSmells": ["string"],
+                "refactoringSuggestions": ["string"],
+                "vbAntiPatterns": ["string"]
               }],
               "suggestedMigrationOrder": ["string"],
               "dependencyGraph": { "ClassName": ["DependencyName"] },

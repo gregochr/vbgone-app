@@ -1128,3 +1128,75 @@
 .dep-graph-pulse {
   animation: dep-pulse 2s ease-in-out infinite;
 }
+
+/* ── Code Quality Section ── */
+.code-quality-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.code-quality-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.code-quality-label {
+  color: var(--grey);
+  font-size: 0.85rem;
+}
+
+.badge-quality-poor {
+  background: var(--red);
+  color: #fff;
+}
+
+.badge-quality-fair {
+  background: #e5a00d;
+  color: #1a1a2e;
+}
+
+.code-quality-group {
+  margin-bottom: 12px;
+}
+
+.code-quality-group h4 {
+  color: var(--text);
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+.code-quality-group ul {
+  padding-left: 20px;
+  margin: 0;
+  color: var(--grey);
+  font-size: 0.85rem;
+}
+
+.code-quality-group li {
+  margin-bottom: 2px;
+}
+
+/* ── God Class Warning Callout ── */
+.callout-warning {
+  margin-top: 20px;
+  padding: 16px 20px;
+  background: rgba(229, 160, 13, 0.1);
+  border: 1px solid #e5a00d;
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.callout-warning strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+
+.callout-warning p {
+  color: var(--grey);
+  font-size: 0.85rem;
+  margin: 4px 0;
+}

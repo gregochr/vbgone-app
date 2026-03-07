@@ -38,7 +38,11 @@ class AnalysisServiceTest {
                 "name": "Form1",
                 "methods": ["Add", "Subtract", "Multiply"],
                 "dependencies": [],
-                "complexity": "LOW"
+                "complexity": "LOW",
+                "codeQuality": "FAIR",
+                "codeSmells": ["Mixed concerns \u2014 UI logic mixed with business logic"],
+                "refactoringSuggestions": ["Extract arithmetic operations into a separate service class"],
+                "vbAntiPatterns": ["Implicit type conversions via Int()"]
               }],
               "suggestedMigrationOrder": ["Form1"],
               "summary": "One class found with 3 arithmetic methods."
@@ -156,13 +160,21 @@ class AnalysisServiceTest {
                   "name": "Calculator",
                   "methods": ["Add", "Subtract"],
                   "dependencies": [],
-                  "complexity": "LOW"
+                  "complexity": "LOW",
+                  "codeQuality": "GOOD",
+                  "codeSmells": [],
+                  "refactoringSuggestions": [],
+                  "vbAntiPatterns": []
                 },
                 {
                   "name": "Report",
                   "methods": ["Generate"],
                   "dependencies": ["Calculator"],
-                  "complexity": "MEDIUM"
+                  "complexity": "MEDIUM",
+                  "codeQuality": "FAIR",
+                  "codeSmells": ["Mixed concerns"],
+                  "refactoringSuggestions": ["Separate report formatting from data access"],
+                  "vbAntiPatterns": ["On Error Resume Next"]
                 }
               ],
               "suggestedMigrationOrder": ["Calculator", "Report"],
@@ -351,5 +363,46 @@ class AnalysisServiceTest {
         ProjectAnalysis result = analysisService.analyseProject(createManifest("test-session-123"));
 
         assertThat(result.classes()).hasSize(2);
+    }
+
+    @Test
+    void analyse_parsesCodeQualityFields() {
+        MigrationSession session = new MigrationSession("test-session-123");
+        when(sessionStore.create()).thenReturn(session);
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse(CLAUDE_JSON_RESPONSE));
+
+        AnalysisResult result = analysisService.analyse("Form1.vb", "Public Class Form1...");
+
+        assertThat(result.classes().get(0).codeQuality()).isEqualTo(CodeQuality.FAIR);
+        assertThat(result.classes().get(0).codeSmells()).containsExactly("Mixed concerns \u2014 UI logic mixed with business logic");
+        assertThat(result.classes().get(0).refactoringSuggestions()).containsExactly("Extract arithmetic operations into a separate service class");
+        assertThat(result.classes().get(0).vbAntiPatterns()).containsExactly("Implicit type conversions via Int()");
+    }
+
+    @Test
+    void analyse_handlesNullCodeQualityFields() {
+        MigrationSession session = new MigrationSession("test-session-123");
+        when(sessionStore.create()).thenReturn(session);
+        String jsonWithoutCodeQuality = """
+                {
+                  "classes": [{
+                    "name": "Simple",
+                    "methods": ["DoWork"],
+                    "dependencies": [],
+                    "complexity": "LOW"
+                  }],
+                  "suggestedMigrationOrder": ["Simple"],
+                  "summary": "Simple class."
+                }""";
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse(jsonWithoutCodeQuality));
+
+        AnalysisResult result = analysisService.analyse("Simple.vb", "...");
+
+        assertThat(result.classes().get(0).codeQuality()).isNull();
+        assertThat(result.classes().get(0).codeSmells()).isNull();
+        assertThat(result.classes().get(0).refactoringSuggestions()).isNull();
+        assertThat(result.classes().get(0).vbAntiPatterns()).isNull();
     }
 }

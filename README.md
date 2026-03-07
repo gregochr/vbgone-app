@@ -4,7 +4,7 @@
 
 **Live at [vbgone.online](https://vbgone.online)**
 
-VBGone automates the scaffolding of VB.NET to C# migrations using Claude. Upload a `.vb` file, and VBGone will analyse the code, generate a C# interface, write a comprehensive NUnit test suite, build and run the tests, optionally implement the class with AI, and raise a Pull Request — all through a guided 6-step wizard.
+VBGone automates the scaffolding of VB.NET to C# migrations using Claude. Upload a `.vb` file or a `.zip` containing an entire VB.NET project, and VBGone will analyse the code, generate a C# interface, write a comprehensive NUnit test suite, build and run the tests, optionally implement the class with AI, and raise a Pull Request — all through a guided 6-step wizard.
 
 ## Architecture
 
@@ -31,11 +31,14 @@ Mac Mini -- Docker Compose
 
 ## Features
 
-- **Claude Sonnet** analyses VB.NET source — identifies classes, methods, dependencies, complexity
+- **Claude Sonnet** analyses VB.NET source — identifies classes, methods, dependencies, complexity, code quality, code smells, and VB.NET anti-patterns
 - **Claude Haiku** generates C# interfaces and stub implementations
 - **Claude Sonnet** generates comprehensive NUnit test suites and full implementations
 - **Red-Green TDD** — stub fails all tests (RED), implementation passes them (GREEN)
 - **Retry with Claude** — up to 3 attempts if tests fail, sending failing test names for targeted fixes
+- **Zip/project upload** — analyse entire VB.NET projects, build dependency graph, migration queue with status tracking
+- **D3 dependency graph** — interactive force-directed graph with status-aware node rendering and dependency-gated migration
+- **Code quality analysis** — rates each class POOR/FAIR/GOOD, identifies code smells, suggests refactoring, flags VB.NET anti-patterns
 - **Prompt caching** — system prompts cached across calls, reducing input token costs by up to 90%
 - **Token tracking** — real-time cost display in USD and GBP
 - **Collapsible code viewers** — syntax-highlighted with prism-react-renderer
@@ -87,18 +90,18 @@ See `.env.example` for the template.
 ## Tests
 
 ```bash
-# Frontend (91 tests)
+# Frontend (203 tests)
 cd frontend && npm run test
 
-# Backend (89 tests)
+# Backend (122 tests)
 cd backend && ./mvnw test
 ```
 
 ## Wizard Flow
 
-1. **Upload** — Upload a `.vb` file or load the built-in demo
-2. **Analysis** — Claude Sonnet identifies classes, methods, and migration order
-3. **Interface** — Claude Haiku generates the C# interface (editable)
+1. **Upload** — Upload a `.vb` file, `.zip` project, or load a built-in demo (simple or complex)
+2. **Analysis** — Claude Sonnet identifies classes, methods, migration order, code quality, and anti-patterns
+3. **Interface** — Claude Haiku generates the C# interface (editable) — warns about God classes
 4. **Tests + Red Build** — Claude Sonnet generates NUnit tests, Haiku generates stub, `dotnet test` runs — all tests fail (RED phase)
 5. **Implementation** — Choose AI or manual implementation, `dotnet test` runs — tests pass (GREEN phase)
 6. **Raise PR** — Files committed and PR raised against vbgone-output
@@ -109,9 +112,10 @@ cd backend && ./mvnw test
 
 ## Phase 2 Roadmap
 
-**P1 — Must have:**
-- Zip/solution upload — extract all .vb files, analyse whole solution, build dependency graph, migration queue
-- Migration queue UI — class list with status per class (Pending/In Progress/Green/PR Raised), progress bar
+**P1 — Complete:**
+- ~~Zip/solution upload — extract all .vb files, analyse whole solution, build dependency graph, migration queue~~
+- ~~Migration queue UI — class list with status per class, D3 dependency graph, progress bar~~
+- ~~Code quality analysis — POOR/FAIR/GOOD rating, code smells, refactoring suggestions, VB.NET anti-patterns~~
 - Session persistence — PostgreSQL, survive page refresh, resume migration session
 
 **P2 — Should have:**

@@ -124,6 +124,47 @@ export function Step2Analysis({ state, update, onReady }: Props) {
               </span>
             ))}
           </div>
+
+          {(cls.codeQuality === 'POOR' || cls.codeQuality === 'FAIR') && (
+            <div className="code-quality-section">
+              <div className="code-quality-header">
+                <span className={`badge badge-quality-${cls.codeQuality.toLowerCase()}`}>
+                  {cls.codeQuality}
+                </span>
+                <span className="code-quality-label">Code Quality</span>
+              </div>
+              {cls.codeSmells && cls.codeSmells.length > 0 && (
+                <div className="code-quality-group">
+                  <h4>Code Smells</h4>
+                  <ul>
+                    {cls.codeSmells.map((smell, i) => (
+                      <li key={i}>{smell}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {cls.refactoringSuggestions && cls.refactoringSuggestions.length > 0 && (
+                <div className="code-quality-group">
+                  <h4>Refactoring Suggestions</h4>
+                  <ul>
+                    {cls.refactoringSuggestions.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {cls.vbAntiPatterns && cls.vbAntiPatterns.length > 0 && (
+                <div className="code-quality-group">
+                  <h4>VB.NET Anti-Patterns</h4>
+                  <ul>
+                    {cls.vbAntiPatterns.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ))}
 

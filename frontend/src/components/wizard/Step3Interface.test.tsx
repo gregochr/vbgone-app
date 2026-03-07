@@ -87,4 +87,51 @@ describe('Step3Interface', () => {
       expect(onReady).toHaveBeenCalled()
     })
   })
+
+  it('shows god class warning when complexity is HIGH', () => {
+    const highState: WizardState = {
+      ...baseState,
+      analysis: {
+        ...baseState.analysis!,
+        classes: [{ ...baseState.analysis!.classes[0], complexity: 'HIGH' }],
+      },
+      interfaceResult: mockInterface,
+    }
+    render(<Step3Interface state={highState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByTestId('god-class-warning')).toBeInTheDocument()
+    expect(screen.getByText(/Complex class detected/)).toBeInTheDocument()
+    expect(screen.getByText(/Strangler Fig pattern/)).toBeInTheDocument()
+  })
+
+  it('shows god class warning when code quality is POOR', () => {
+    const poorState: WizardState = {
+      ...baseState,
+      analysis: {
+        ...baseState.analysis!,
+        classes: [{ ...baseState.analysis!.classes[0], codeQuality: 'POOR' }],
+      },
+      interfaceResult: mockInterface,
+    }
+    render(<Step3Interface state={poorState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByTestId('god-class-warning')).toBeInTheDocument()
+  })
+
+  it('does not show god class warning for LOW complexity GOOD quality', () => {
+    const goodState: WizardState = {
+      ...baseState,
+      analysis: {
+        ...baseState.analysis!,
+        classes: [{ ...baseState.analysis!.classes[0], complexity: 'LOW', codeQuality: 'GOOD' }],
+      },
+      interfaceResult: mockInterface,
+    }
+    render(<Step3Interface state={goodState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.queryByTestId('god-class-warning')).not.toBeInTheDocument()
+  })
+
+  it('does not show god class warning when quality is undefined and complexity is LOW', () => {
+    const stateWithIface = { ...baseState, interfaceResult: mockInterface }
+    render(<Step3Interface state={stateWithIface} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.queryByTestId('god-class-warning')).not.toBeInTheDocument()
+  })
 })

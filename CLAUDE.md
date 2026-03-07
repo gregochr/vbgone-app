@@ -109,7 +109,21 @@ vbgone-app/
 ### POST /api/migrate/analyse
 ```json
 { "filename": "Form1.vb", "content": "Public Class Form1..." }
-→ { "sessionId": "uuid", "classes": [...], "suggestedMigrationOrder": [...], "summary": "..." }
+→ {
+    "sessionId": "uuid",
+    "classes": [{
+      "name": "Form1",
+      "methods": ["Add", "Subtract"],
+      "dependencies": [],
+      "complexity": "LOW | MEDIUM | HIGH",
+      "codeQuality": "POOR | FAIR | GOOD",
+      "codeSmells": ["God class", "Mixed concerns"],
+      "refactoringSuggestions": ["Extract arithmetic into service class"],
+      "vbAntiPatterns": ["On Error Resume Next", "GoTo statements"]
+    }],
+    "suggestedMigrationOrder": ["Form1"],
+    "summary": "..."
+  }
 ```
 
 ### POST /api/migrate/interface
@@ -163,8 +177,10 @@ vbgone-app/
 
 ```
 Step 1 — Upload            User uploads .vb file or uses demo
-Step 2 — Analysis          Claude Sonnet analyses classes, methods, dependencies
+Step 2 — Analysis          Claude Sonnet analyses classes, methods, dependencies, code quality,
+                           code smells, refactoring suggestions, and VB.NET anti-patterns
 Step 3 — Interface         Claude Haiku generates C# interface (editable)
+                           Shows God class warning callout when complexity=HIGH or codeQuality=POOR
 Step 4 — Tests + Red       Claude Sonnet generates NUnit tests, Haiku generates stub, dotnet test → RED
 Step 5 — Implementation    CLAUDE (AI implements) or STUB (human implements), dotnet test → GREEN
                            Retry with Claude (max 3 attempts) if tests fail
@@ -206,8 +222,8 @@ docker compose up --build
 
 ## Test Coverage
 
-- **Backend**: 89 tests (JUnit 5 + Mockito + MockMvc)
-- **Frontend**: 91 tests (Vitest + React Testing Library)
+- **Backend**: 122 tests (JUnit 5 + Mockito + MockMvc)
+- **Frontend**: 203 tests (Vitest + React Testing Library)
 - **CI**: GitHub Actions — Vitest, ESLint, Prettier, Codecov
 
 ## Current Phase
@@ -228,14 +244,22 @@ docker compose up --build
 - [x] Docker Compose deployment
 - [x] Cloudflare Tunnel + Access
 - [x] Bucket4j rate limiting
-- [x] 89 backend + 91 frontend tests
+- [x] 122 backend + 203 frontend tests
 - [x] Live at vbgone.online
 
-### Phase 2 — Planned
+### Phase 2 — In Progress
 
-**P1 — Must have:**
-- [ ] Zip/solution upload — extract all .vb files, analyse whole solution, build dependency graph, migration queue
-- [ ] Migration queue UI — class list with status per class (Pending/In Progress/Green/PR Raised), progress bar
+**P1 — Complete:**
+- [x] Zip/solution upload — extract all .vb files, analyse whole solution, build dependency graph, migration queue
+- [x] Migration queue UI — class list with status per class (Pending/In Progress/Complete/PR Raised), progress bar
+- [x] D3 dependency graph with status-aware rendering, dependency-gated migration
+- [x] Per-class VB.NET source isolation for generation
+- [x] Project mode PR — single combined PR from queue when all classes complete
+- [x] Code quality analysis — POOR/FAIR/GOOD rating, code smells, refactoring suggestions, VB.NET anti-patterns
+- [x] God class warning callout in Step 3 (Interface) for HIGH complexity or POOR quality
+- [x] Simple and complex demo files with InfoTip panels
+
+**P1 — Remaining:**
 - [ ] Session persistence — PostgreSQL, survive page refresh, resume migration session
 
 **P2 — Should have:**

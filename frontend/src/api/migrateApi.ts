@@ -9,6 +9,10 @@ export interface ClassInfo {
   methods: string[]
   dependencies: string[]
   complexity: 'LOW' | 'MEDIUM' | 'HIGH'
+  codeQuality?: 'POOR' | 'FAIR' | 'GOOD'
+  codeSmells?: string[]
+  refactoringSuggestions?: string[]
+  vbAntiPatterns?: string[]
 }
 
 export interface AnalysisResult {
@@ -165,6 +169,10 @@ const mockApi = {
           ],
           dependencies: [],
           complexity: 'LOW',
+          codeQuality: 'FAIR' as const,
+          codeSmells: ['Mixed concerns — UI logic mixed with business logic'],
+          refactoringSuggestions: ['Extract arithmetic operations into a separate service class'],
+          vbAntiPatterns: ['Implicit type conversions via Int()'],
         },
       ],
       suggestedMigrationOrder: ['Form1'],

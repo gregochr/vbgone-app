@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] — Phase 2 P1
+
+### Added
+- Zip/solution upload — extract all .vb files, analyse whole solution as a project
+- Migration queue UI — class cards with status (Pending/In Progress/Complete/PR Raised), collapsible card list
+- D3 force-directed dependency graph — interactive, status-aware node rendering, dependency-gated migration
+- Per-class VB.NET source isolation — each class generates from its own source, not the combined project
+- Project mode PR — single combined PR raised from queue when all classes are complete
+- Code quality analysis — Claude rates each class POOR/FAIR/GOOD
+- Code smells detection — God class, mixed concerns, deep nesting, magic numbers, poor naming
+- Refactoring suggestions — Claude suggests specific improvements per class
+- VB.NET anti-pattern detection — On Error Resume Next, GoTo, implicit type conversions, Hungarian notation
+- Code Quality Issues section in Step 2 (Analysis) — shown for POOR or FAIR classes
+- God class warning callout in Step 3 (Interface) — shown for HIGH complexity or POOR quality
+- Complex demo file (OrderProcessor.vb) — 200+ line God class with realistic code smells
+- Simple and complex demo buttons with InfoTip panels explaining each demo
+- CodeQuality enum (POOR/FAIR/GOOD) in backend model
+- ClassInfo record extended with codeQuality, codeSmells, refactoringSuggestions, vbAntiPatterns
+- 122 backend tests (+33), 203 frontend tests (+112)
+
 ## [1.0.0] - 2026-03-06
 
 ### Added
