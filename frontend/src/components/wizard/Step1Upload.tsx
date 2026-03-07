@@ -148,7 +148,9 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
     <div>
       <h2 className="step-title">Upload VB.NET Source</h2>
       <p className="step-subtitle">
-        Upload a single .vb file or a .zip containing your VB.NET project.
+        {mode === 'single'
+          ? 'Upload a single .vb class file. VBGone will migrate the business logic to modern, tested C#.'
+          : 'Upload a .zip containing your VB.NET solution. VBGone will analyse all classes, build a dependency graph, and guide you through migrating each class in the optimal order.'}
       </p>
 
       {/* Mode toggle */}

@@ -141,6 +141,20 @@ describe('Step1Upload — mode toggle', () => {
     expect(screen.getByText('Project / Solution')).not.toHaveClass('active')
   })
 
+  it('shows single file subtitle by default', () => {
+    render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText(/Upload a single .vb class file/)).toBeInTheDocument()
+  })
+
+  it('shows project subtitle when project mode selected', async () => {
+    const user = userEvent.setup()
+    render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
+
+    await user.click(screen.getByText('Project / Solution'))
+    expect(screen.getByText(/Upload a .zip containing your VB.NET solution/)).toBeInTheDocument()
+    expect(screen.queryByText(/Upload a single .vb class file/)).not.toBeInTheDocument()
+  })
+
   it('switches to project mode on tab click', async () => {
     const user = userEvent.setup()
     render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
