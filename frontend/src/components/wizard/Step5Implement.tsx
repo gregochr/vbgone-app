@@ -19,6 +19,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [pendingMode, setPendingMode] = useState<'STUB' | 'CLAUDE' | null>(null)
   const [attempts, setAttempts] = useState(1)
+  const [showRetryConfirm, setShowRetryConfirm] = useState(false)
 
   const className =
     state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
@@ -62,6 +63,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
   }
 
   const retry = async () => {
+    setShowRetryConfirm(false)
     const failingTests = state.greenBuild?.failedTests ?? []
     setLoading(true)
     setError(null)
@@ -130,11 +132,40 @@ export function Step5Implement({ state, update, onReady }: Props) {
           )}
         </div>
 
-        {canRetry && (
-          <button className="btn-plex" style={{ marginBottom: 16 }} onClick={retry}>
+        {canRetry && !showRetryConfirm && (
+          <button
+            className="btn-plex"
+            style={{ marginBottom: 16 }}
+            onClick={() => setShowRetryConfirm(true)}
+          >
             Retry with Claude ({MAX_ATTEMPTS - attempts}{' '}
             {MAX_ATTEMPTS - attempts === 1 ? 'attempt' : 'attempts'} remaining)
           </button>
+        )}
+
+        {showRetryConfirm && (
+          <ConfirmDialog onConfirm={retry} onCancel={() => setShowRetryConfirm(false)}>
+            <p>
+              This will make an API call to Claude Sonnet (claude-sonnet-4-6) via the Anthropic Java
+              SDK.
+            </p>
+            <p>
+              {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored by Anthropic
+              beyond the request.
+            </p>
+            <p>
+              {'\uD83E\uDDEA'} The {b.failedTests.length} failing{' '}
+              {b.failedTests.length === 1 ? 'test' : 'tests'} will be extracted from the test suite
+              and sent to Claude alongside the current implementation. This targeted prompt
+              engineering gives Claude the exact assertions it needs to satisfy, rather than just
+              the test names.
+            </p>
+            <p>
+              {'\uD83D\uDCB0'} Prompt caching is enabled — the system prompt is cached and reused
+              across calls, reducing input token costs by up to 90% at scale.
+            </p>
+            <p>Proceed?</p>
+          </ConfirmDialog>
         )}
 
         {exhausted && (

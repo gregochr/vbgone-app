@@ -76,11 +76,12 @@ public class BuildService {
 
         String className = iface.className();
         String implementationCode = getImplementationCode(session);
+        List<String> dependencies = getDependencies(session, className);
 
         Path sessionDir = workspacePath.resolve(sessionId);
 
         try {
-            writeProjectFiles(sessionDir, className, iface, tests, implementationCode);
+            writeProjectFiles(sessionDir, className, iface, tests, implementationCode, dependencies);
 
             ProcessOutput output = executeDotnetTest(sessionId, className);
 
@@ -124,19 +125,50 @@ public class BuildService {
 
     void writeProjectFiles(Path sessionDir, String className,
                            InterfaceResult iface, TestsResult tests,
-                           String implementationCode) throws IOException {
+                           String implementationCode, List<String> dependencies) throws IOException {
         Path mainDir = sessionDir.resolve(className);
         Path testDir = sessionDir.resolve(className + ".Tests");
         Files.createDirectories(mainDir);
         Files.createDirectories(testDir);
 
-        Files.writeString(mainDir.resolve(className + ".csproj"), MAIN_CSPROJ);
+        String mainCsproj = buildMainCsproj(dependencies);
+        Files.writeString(mainDir.resolve(className + ".csproj"), mainCsproj);
         Files.writeString(mainDir.resolve(iface.interfaceName() + ".cs"), iface.code());
         Files.writeString(mainDir.resolve(className + ".cs"), implementationCode);
 
         String testCsproj = String.format(TEST_CSPROJ_TEMPLATE, className, className);
         Files.writeString(testDir.resolve(className + ".Tests.csproj"), testCsproj);
         Files.writeString(testDir.resolve(tests.testClassName() + ".cs"), tests.code());
+    }
+
+    private List<String> getDependencies(MigrationSession session, String className) {
+        AnalysisResult analysis = session.getAnalysisResult();
+        if (analysis == null) return List.of();
+        return analysis.classes().stream()
+                .filter(c -> c.name().equals(className))
+                .findFirst()
+                .map(ClassInfo::dependencies)
+                .orElse(List.of());
+    }
+
+    private String buildMainCsproj(List<String> dependencies) {
+        if (dependencies.isEmpty()) return MAIN_CSPROJ;
+        StringBuilder refs = new StringBuilder();
+        for (String dep : dependencies) {
+            refs.append("    <ProjectReference Include=\"../").append(dep).append("/").append(dep).append(".csproj\" />\n");
+        }
+        return """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net8.0</TargetFramework>
+                    <Nullable>enable</Nullable>
+                    <ImplicitUsings>enable</ImplicitUsings>
+                  </PropertyGroup>
+                  <ItemGroup>
+                """ + refs + """
+                  </ItemGroup>
+                </Project>
+                """;
     }
 
     private ProcessOutput executeDotnetTest(String sessionId, String className)
