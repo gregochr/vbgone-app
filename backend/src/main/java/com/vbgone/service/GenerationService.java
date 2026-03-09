@@ -196,8 +196,10 @@ public class GenerationService {
         }
 
         String failingList = String.join(", ", failingTests);
+        String testSnippets = extractFailingTests(session, failingTests);
         String userMessage = "The following tests are failing. Fix the implementation to make them pass: "
-                + failingList + "\n\nCurrent failing implementation:\n" + previous.code()
+                + failingList + "\n\nFailing test source:\n" + testSnippets
+                + "\n\nCurrent failing implementation:\n" + previous.code()
                 + "\n\nInterface:\n" + iface.code()
                 + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContentForClass(className);
 
@@ -223,6 +225,54 @@ public class GenerationService {
         return (int) code.lines()
                 .filter(line -> line.trim().startsWith("[Test]") || line.trim().startsWith("[TestCase"))
                 .count();
+    }
+
+    /**
+     * Extracts the source code of failing test methods from the full test file.
+     * Matches methods by name and captures everything from the [Test] attribute to the closing brace.
+     */
+    String extractFailingTests(MigrationSession session, java.util.List<String> failingTests) {
+        TestsResult tests = session.getTestsResult();
+        if (tests == null || failingTests.isEmpty()) return "";
+
+        String testCode = tests.code();
+        String[] lines = testCode.split("\n");
+        StringBuilder sb = new StringBuilder();
+
+        for (String testName : failingTests) {
+            // Find the method — look for a line containing the test name
+            for (int i = 0; i < lines.length; i++) {
+                if (lines[i].contains(testName) && (lines[i].contains("void ") || lines[i].contains("int ") || lines[i].contains("double ") || lines[i].contains("string ") || lines[i].contains("bool "))) {
+                    // Walk back to find [Test] or [TestCase attribute
+                    int start = i;
+                    while (start > 0 && !lines[start - 1].trim().startsWith("[Test")) {
+                        start--;
+                    }
+                    if (start > 0) start--; // include the attribute line
+
+                    // Walk forward to find the closing brace (matching depth)
+                    int depth = 0;
+                    int end = i;
+                    for (int j = i; j < lines.length; j++) {
+                        for (char c : lines[j].toCharArray()) {
+                            if (c == '{') depth++;
+                            else if (c == '}') depth--;
+                        }
+                        if (depth <= 0 && j > i) {
+                            end = j;
+                            break;
+                        }
+                    }
+
+                    for (int j = start; j <= end && j < lines.length; j++) {
+                        sb.append(lines[j]).append("\n");
+                    }
+                    sb.append("\n");
+                    break;
+                }
+            }
+        }
+        return sb.toString().trim();
     }
 
     /**

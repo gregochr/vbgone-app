@@ -327,6 +327,42 @@ class GenerationServiceTest {
         assertThat(service.countTests(code)).isEqualTo(4);
     }
 
+    // ── extractFailingTests ──
+
+    @Test
+    void extractFailingTests_extractsMatchingTestMethod() {
+        MigrationSession session = sessionWithInterface("s1");
+        session.setTestsResult(new TestsResult("s1", "Form1", "Form1Tests", """
+                [TestFixture]
+                public class Form1Tests
+                {
+                    [Test]
+                    public void Add_ReturnsSum()
+                    {
+                        Assert.That(_sut.Add(2, 3), Is.EqualTo(5));
+                    }
+
+                    [Test]
+                    public void Subtract_ReturnsDiff()
+                    {
+                        Assert.That(_sut.Subtract(5, 3), Is.EqualTo(2));
+                    }
+                }""", 2));
+
+        String result = service.extractFailingTests(session, java.util.List.of("Subtract_ReturnsDiff"));
+
+        assertThat(result).contains("Subtract_ReturnsDiff");
+        assertThat(result).contains("Is.EqualTo(2)");
+        assertThat(result).doesNotContain("Add_ReturnsSum");
+    }
+
+    @Test
+    void extractFailingTests_returnsEmptyWhenNoTests() {
+        MigrationSession session = sessionWithInterface("s1");
+        String result = service.extractFailingTests(session, java.util.List.of("Foo"));
+        assertThat(result).isEmpty();
+    }
+
     // ── repairTruncatedCSharp ──
 
     @Test
