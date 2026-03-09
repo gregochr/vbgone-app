@@ -276,6 +276,34 @@ class GenerationServiceTest {
     }
 
     @Test
+    void retryImplement_includesFailingTestSourceInPrompt() {
+        MigrationSession session = sessionWithInterface("s1");
+        session.setImplementResult(new ImplementResult(
+                "s1", "Form1", "public class Form1 : IForm1 { }", ImplementMode.CLAUDE));
+        session.setTestsResult(new TestsResult("s1", "Form1", "Form1Tests", """
+                [TestFixture]
+                public class Form1Tests
+                {
+                    [Test]
+                    public void Add_ReturnsSum()
+                    {
+                        Assert.That(_sut.Add(2, 3), Is.EqualTo(5));
+                    }
+                }""", 1));
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse("public class Form1 : IForm1 { public int Add(int a, int b) => a + b; }"));
+
+        service.retryImplement("s1", "Form1", java.util.List.of("Add_ReturnsSum"));
+
+        verify(claudeClient).sendWithCachedSystemPrompt(
+                eq(GenerationService.IMPLEMENT_SYSTEM_PROMPT),
+                argThat(msg -> msg.contains("Failing test source:") && msg.contains("Is.EqualTo(5)")),
+                eq(Model.CLAUDE_SONNET_4_6),
+                eq(16384L));
+    }
+
+    @Test
     void retryImplement_throwsWhenNoInterface() {
         MigrationSession session = sessionWithVb("s1");
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));

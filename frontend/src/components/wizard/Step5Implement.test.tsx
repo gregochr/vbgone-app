@@ -244,6 +244,84 @@ describe('Step5Implement', () => {
     expect(header).toHaveAttribute('aria-expanded', 'false')
   })
 
+  it('retry button shows confirm dialog with prompt engineering explanation', async () => {
+    const user = userEvent.setup()
+    const redState = {
+      ...baseState,
+      implementResult: {
+        sessionId: 'session-1',
+        className: 'Foo',
+        code: 'public class Foo : IFoo { }',
+        mode: 'CLAUDE' as const,
+      },
+      greenBuild: {
+        sessionId: 'session-1',
+        buildStatus: 'RED' as const,
+        total: 10,
+        passed: 8,
+        failed: 2,
+        errors: [],
+        failedTests: ['Add_ReturnsSum', 'Subtract_ReturnsDiff'],
+      },
+    }
+    render(<Step5Implement state={redState} update={vi.fn()} onReady={vi.fn()} />)
+
+    await user.click(screen.getByText(/Retry with Claude/))
+
+    // Confirm dialog should appear with prompt engineering explanation
+    expect(screen.getByText(/Claude Sonnet/)).toBeInTheDocument()
+    expect(screen.getByText(/securely over HTTPS/)).toBeInTheDocument()
+    expect(screen.getByText(/2 failing/)).toBeInTheDocument()
+    expect(screen.getByText(/extracted from the test suite/)).toBeInTheDocument()
+    expect(screen.getByText(/Prompt caching is enabled/)).toBeInTheDocument()
+    expect(screen.getByText('Continue')).toBeInTheDocument()
+  })
+
+  it('retry confirm dialog calls retryImplement and build on confirm', async () => {
+    const user = userEvent.setup()
+    const retryImpl: api.ImplementResult = {
+      sessionId: 'session-1',
+      className: 'Foo',
+      code: 'public class Foo : IFoo { int Bar() => 1; }',
+      mode: 'CLAUDE',
+    }
+    vi.mocked(api.retryImplement).mockResolvedValue(retryImpl)
+    vi.mocked(api.build).mockResolvedValue(mockGreenBuild)
+
+    const redState = {
+      ...baseState,
+      implementResult: {
+        sessionId: 'session-1',
+        className: 'Foo',
+        code: 'public class Foo : IFoo { }',
+        mode: 'CLAUDE' as const,
+      },
+      greenBuild: {
+        sessionId: 'session-1',
+        buildStatus: 'RED' as const,
+        total: 10,
+        passed: 8,
+        failed: 2,
+        errors: [],
+        failedTests: ['Add_ReturnsSum'],
+      },
+    }
+    const update = vi.fn()
+    const onReady = vi.fn()
+    render(<Step5Implement state={redState} update={update} onReady={onReady} />)
+
+    await user.click(screen.getByText(/Retry with Claude/))
+    await user.click(screen.getByText('Continue'))
+
+    await waitFor(() => {
+      expect(api.retryImplement).toHaveBeenCalledWith('session-1', 'Foo', ['Add_ReturnsSum'])
+      expect(api.build).toHaveBeenCalledWith('session-1')
+      expect(update).toHaveBeenCalledWith({ implementResult: retryImpl })
+      expect(update).toHaveBeenCalledWith({ greenBuild: mockGreenBuild })
+      expect(onReady).toHaveBeenCalled()
+    })
+  })
+
   it('does not show retry button for STUB mode RED build', () => {
     const stubRedState = {
       ...baseState,

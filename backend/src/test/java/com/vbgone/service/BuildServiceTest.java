@@ -305,6 +305,37 @@ class BuildServiceTest {
                 .hasMessageContaining("Failed to parse .trx results");
     }
 
+    // ── dependency project references ──
+
+    @Test
+    void build_includesDependencyProjectReferences() throws Exception {
+        MigrationSession session = new MigrationSession("s1");
+        session.setVbContent("Public Class OrderValidator...");
+        session.setAnalysisResult(new AnalysisResult("s1",
+                List.of(new ClassInfo("OrderValidator", List.of("Validate"), List.of("OrderCalculatorService"),
+                        Complexity.MEDIUM, null, null, null, null)),
+                List.of("OrderCalculatorService", "OrderValidator"), "Test"));
+        session.setInterfaceResult(new InterfaceResult("s1", "OrderValidator", "IOrderValidator",
+                "public interface IOrderValidator { }"));
+        session.setTestsResult(new TestsResult("s1", "OrderValidator", "OrderValidatorTests",
+                "[TestFixture] public class OrderValidatorTests { [Test] public void T() {} }", 1));
+        session.setStubResult(new StubResult("s1", "OrderValidator",
+                "public class OrderValidator : IOrderValidator { }"));
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+
+        when(processRunner.run(anyList())).thenAnswer(inv -> {
+            writeTrxFile("s1", "OrderValidator", GREEN_TRX);
+            return new ProcessOutput(0, "", "");
+        });
+
+        service.build("s1");
+
+        // Verify the main .csproj has a project reference to the dependency
+        Path mainCsproj = tempDir.resolve("s1/OrderValidator/OrderValidator.csproj");
+        String csprojContent = Files.readString(mainCsproj);
+        assertThat(csprojContent).contains("../OrderCalculatorService/OrderCalculatorService.csproj");
+    }
+
     // ── parseCompilationErrors unit tests ──
 
     @Test
