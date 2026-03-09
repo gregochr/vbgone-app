@@ -99,6 +99,18 @@ export function Step5Implement({ state, update, onReady }: Props) {
     setError(null)
   }
 
+  if (loading) {
+    return (
+      <div>
+        <h2 className="step-title">Implementation</h2>
+        <p className="loading-text">
+          <span className="spinner" />
+          {phase}
+        </p>
+      </div>
+    )
+  }
+
   if (state.greenBuild && state.implementResult) {
     const b = state.greenBuild
     const isGreen = b.buildStatus === 'GREEN'
@@ -241,18 +253,6 @@ export function Step5Implement({ state, update, onReady }: Props) {
       <div>
         <h2 className="step-title">Implementation Failed</h2>
         <div className="build-status build-red">{error}</div>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div>
-        <h2 className="step-title">Implementation</h2>
-        <p className="loading-text">
-          <span className="spinner" />
-          {phase}
-        </p>
       </div>
     )
   }

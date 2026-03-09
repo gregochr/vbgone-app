@@ -322,6 +322,36 @@ describe('Step5Implement', () => {
     })
   })
 
+  it('shows spinner during retry after confirm', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.retryImplement).mockReturnValue(new Promise(() => {})) // never resolves
+
+    const redState = {
+      ...baseState,
+      implementResult: {
+        sessionId: 'session-1',
+        className: 'Foo',
+        code: 'public class Foo : IFoo { }',
+        mode: 'CLAUDE' as const,
+      },
+      greenBuild: {
+        sessionId: 'session-1',
+        buildStatus: 'RED' as const,
+        total: 10,
+        passed: 8,
+        failed: 2,
+        errors: [],
+        failedTests: ['Add_ReturnsSum'],
+      },
+    }
+    render(<Step5Implement state={redState} update={vi.fn()} onReady={vi.fn()} />)
+
+    await user.click(screen.getByText(/Retry with Claude/))
+    await user.click(screen.getByText('Continue'))
+
+    expect(screen.getByText(/Claude is retrying implementation/)).toBeInTheDocument()
+  })
+
   it('does not show retry button for STUB mode RED build', () => {
     const stubRedState = {
       ...baseState,

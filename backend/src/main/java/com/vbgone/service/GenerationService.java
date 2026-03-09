@@ -50,8 +50,9 @@ public class GenerationService {
 
     static final String IMPLEMENT_SYSTEM_PROMPT = """
             You are a VB.NET to C# migration expert. Generate a complete C# implementation of an \
-            interface based on VB.NET source behaviour. Write idiomatic modern C# — use \
-            expression-bodied members, pattern matching, and nullable reference types where \
+            interface based on VB.NET source behaviour. The class name and interface name are \
+            specified in the user message — use EXACTLY those names. Write idiomatic modern C# — \
+            use expression-bodied members, pattern matching, and nullable reference types where \
             appropriate.
 
             CRITICAL: You MUST match the return types EXACTLY as declared in the C# interface. \
@@ -165,7 +166,8 @@ public class GenerationService {
         if (iface == null) {
             throw new IllegalStateException("Interface must be generated before implement");
         }
-        String userMessage = "Implement the following C# interface. "
+        String userMessage = "Implement a C# class named " + className
+                + " that implements " + iface.interfaceName() + ". "
                 + "Match every method signature exactly — same return types, same parameter types.\n\n"
                 + "Interface:\n" + iface.code()
                 + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContentForClass(className);
@@ -197,7 +199,9 @@ public class GenerationService {
 
         String failingList = String.join(", ", failingTests);
         String testSnippets = extractFailingTests(session, failingTests);
-        String userMessage = "The following tests are failing. Fix the implementation to make them pass: "
+        String userMessage = "The following tests are failing for class " + className
+                + " (which implements " + iface.interfaceName() + "). "
+                + "Fix the implementation to make them pass: "
                 + failingList + "\n\nFailing test source:\n" + testSnippets
                 + "\n\nCurrent failing implementation:\n" + previous.code()
                 + "\n\nInterface:\n" + iface.code()
