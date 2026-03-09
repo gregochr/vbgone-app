@@ -7,7 +7,6 @@ import com.vbgone.session.SessionStore;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -152,14 +151,12 @@ class FixedInputRegressionIT {
                 .build();
         ClaudeClient claudeClient = new ClaudeClient(anthropicClient);
 
-        String workspace = Files.isDirectory(Path.of("/workspace"))
-                ? "/workspace" : tempDir.toString();
-
-        ProcessRunner processRunner = new DefaultProcessRunner();
+        String workspace = tempDir.toString();
+        String containerName = "vbgone-app-dotnet-runner-1";
+        ProcessRunner processRunner = new DockerProcessRunner(containerName, tempDir);
 
         generationService = new GenerationService(claudeClient, sessionStore);
-        buildService = new BuildService(sessionStore, workspace,
-                "vbgone-app-dotnet-runner-1", processRunner);
+        buildService = new BuildService(sessionStore, workspace, containerName, processRunner);
 
         // Create session with fixed interface and tests already set
         MigrationSession session = sessionStore.create();

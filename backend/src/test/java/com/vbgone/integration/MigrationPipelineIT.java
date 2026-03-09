@@ -7,8 +7,6 @@ import com.vbgone.session.SessionStore;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -78,6 +76,7 @@ class MigrationPipelineIT {
     private static GenerationService generationService;
     private static BuildService buildService;
     private static String sessionId;
+    private static String workspace;
 
     @TempDir
     static Path tempDir;
@@ -94,12 +93,10 @@ class MigrationPipelineIT {
                 .build();
         ClaudeClient claudeClient = new ClaudeClient(anthropicClient);
 
-        // Use /workspace if running alongside Docker, otherwise use tempDir
-        String workspace = Files.isDirectory(Path.of("/workspace"))
-                ? "/workspace" : tempDir.toString();
+        workspace = tempDir.toString();
 
         String containerName = "vbgone-app-dotnet-runner-1";
-        ProcessRunner processRunner = new DefaultProcessRunner();
+        ProcessRunner processRunner = new DockerProcessRunner(containerName, tempDir);
 
         generationService = new GenerationService(claudeClient, sessionStore);
         buildService = new BuildService(sessionStore, workspace, containerName, processRunner);
@@ -121,12 +118,16 @@ class MigrationPipelineIT {
         assertThat(result.interfaceName()).isEqualTo("IForm1");
         assertThat(result.code()).contains("IForm1");
 
-        // Must contain the four arithmetic methods
-        String code = result.code();
-        assertThat(code).containsIgnoringCase("Add");
-        assertThat(code).containsIgnoringCase("Subtract");
-        assertThat(code).containsIgnoringCase("Multiply");
-        assertThat(code).containsIgnoringCase("Divide");
+        // Must contain four arithmetic methods (Claude may name them Add/Sum, Subtract/Difference, etc.)
+        String code = result.code().toLowerCase();
+        assertThat(code.contains("add") || code.contains("sum"))
+                .as("Should contain Add or Sum method").isTrue();
+        assertThat(code.contains("subtract") || code.contains("difference"))
+                .as("Should contain Subtract or Difference method").isTrue();
+        assertThat(code.contains("multiply") || code.contains("product"))
+                .as("Should contain Multiply or Product method").isTrue();
+        assertThat(code.contains("divide") || code.contains("quotient"))
+                .as("Should contain Divide or Quotient method").isTrue();
 
         // Should NOT have namespace wrapper
         assertThat(code).doesNotContain("namespace ");
