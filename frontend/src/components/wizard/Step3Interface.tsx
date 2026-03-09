@@ -13,7 +13,7 @@ interface Props {
 export function Step3Interface({ state, update, onReady }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(!state.interfaceResult)
 
   const className =
     state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
@@ -25,9 +25,7 @@ export function Step3Interface({ state, update, onReady }: Props) {
   useEffect(() => {
     if (state.interfaceResult) {
       onReady()
-      return
     }
-    setShowConfirm(true)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const runGeneration = () => {

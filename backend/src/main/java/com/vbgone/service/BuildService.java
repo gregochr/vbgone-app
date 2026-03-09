@@ -89,7 +89,7 @@ public class BuildService {
 
             BuildResult result;
             if (output.exitCode() != 0 && !Files.exists(trxPath)) {
-                List<String> errors = parseCompilationErrors(output.stderr());
+                List<String> errors = parseCompilationErrors(output.stderr(), output.stdout());
                 result = new BuildResult(sessionId, BuildStatus.ERROR, 0, 0, 0, errors, List.of());
             } else {
                 String trxContent = Files.readString(trxPath);
@@ -177,15 +177,16 @@ public class BuildService {
         }
     }
 
-    List<String> parseCompilationErrors(String stderr) {
-        if (stderr == null || stderr.isBlank()) {
+    List<String> parseCompilationErrors(String stderr, String stdout) {
+        String combined = ((stderr != null ? stderr : "") + "\n" + (stdout != null ? stdout : "")).trim();
+        if (combined.isBlank()) {
             return List.of("Build failed with no error output");
         }
-        List<String> errors = Arrays.stream(stderr.split("\n"))
+        List<String> errors = Arrays.stream(combined.split("\n"))
                 .filter(line -> line.contains(": error "))
                 .map(String::trim)
                 .toList();
-        return errors.isEmpty() ? List.of(stderr.trim()) : errors;
+        return errors.isEmpty() ? List.of(combined.substring(0, Math.min(combined.length(), 500))) : errors;
     }
 
     private MigrationSession getSession(String sessionId) {

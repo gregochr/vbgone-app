@@ -262,13 +262,7 @@ function CollapsibleCards({
 }) {
   const [open, setOpen] = useState(true)
   const contentRef = useRef<HTMLDivElement>(null)
-  const [maxHeight, setMaxHeight] = useState<string | undefined>(undefined)
-
-  useEffect(() => {
-    if (contentRef.current) {
-      setMaxHeight(open ? `${contentRef.current.scrollHeight}px` : '0px')
-    }
-  }, [open, statuses])
+  const maxHeight = open ? undefined : '0px'
 
   return (
     <div className="collapsible-cards">

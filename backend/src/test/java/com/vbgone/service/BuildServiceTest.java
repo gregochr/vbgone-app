@@ -309,7 +309,8 @@ class BuildServiceTest {
 
     @Test
     void parseCompilationErrors_extractsErrorLines() {
-        String stderr = """
+        String stderr = "";
+        String stdout = """
                 Microsoft (R) Build Engine version 17.11
                 Build started.
                 Form1.cs(5,20): error CS1002: ; expected
@@ -317,7 +318,7 @@ class BuildServiceTest {
                 Form1.cs(10,1): error CS1513: } expected
                 Build FAILED.""";
 
-        List<String> errors = service.parseCompilationErrors(stderr);
+        List<String> errors = service.parseCompilationErrors(stderr, stdout);
 
         assertThat(errors).hasSize(2);
         assertThat(errors.get(0)).contains("CS1002");
@@ -325,11 +326,27 @@ class BuildServiceTest {
     }
 
     @Test
-    void parseCompilationErrors_returnsFullStderrWhenNoErrorLines() {
+    void parseCompilationErrors_returnsFullOutputWhenNoErrorLines() {
         String stderr = "Unexpected build failure";
 
-        List<String> errors = service.parseCompilationErrors(stderr);
+        List<String> errors = service.parseCompilationErrors(stderr, "");
 
         assertThat(errors).containsExactly("Unexpected build failure");
+    }
+
+    @Test
+    void parseCompilationErrors_extractsFromStdoutWhenStderrEmpty() {
+        String stdout = "OrderValidator.cs(1,39): error CS0246: The type 'IOrderCalculatorService' could not be found";
+
+        List<String> errors = service.parseCompilationErrors("", stdout);
+
+        assertThat(errors).hasSize(1);
+        assertThat(errors.get(0)).contains("CS0246");
+    }
+
+    @Test
+    void parseCompilationErrors_handlesNullInputs() {
+        List<String> errors = service.parseCompilationErrors(null, null);
+        assertThat(errors).containsExactly("Build failed with no error output");
     }
 }

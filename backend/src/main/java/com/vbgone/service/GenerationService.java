@@ -133,7 +133,8 @@ public class GenerationService {
             throw new IllegalStateException("Interface must be generated before stub");
         }
 
-        String userMessage = "Generate a stub implementation of " + iface.code();
+        String userMessage = "Generate a stub class named " + className
+                + " that implements " + iface.interfaceName() + ".\n\nInterface:\n" + iface.code();
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 STUB_SYSTEM_PROMPT, userMessage, Model.CLAUDE_HAIKU_4_5, 4096L);
         String code = stripNamespaceWrapper(stripCodeFences(response.text()));

@@ -167,7 +167,8 @@ export function Step4Tests({ state, update, onReady }: Props) {
       ) : (
         <div className="build-status build-red">
           {'\uD83D\uDD34'} {state.redBuild?.failed} / {state.redBuild?.total} tests failing — stub
-          throws NotImplementedException
+          throws NotImplementedException —{' '}
+          <span style={{ color: 'var(--green)' }}>this is expected</span>
         </div>
       )}
 
