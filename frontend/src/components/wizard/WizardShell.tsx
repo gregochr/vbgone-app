@@ -401,10 +401,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   const arcColourName = allClassesDone ? 'green' : iterationStarted ? 'amber' : 'grey'
 
   useLayoutEffect(() => {
-    if (!isMultiClass || !navRef.current) {
-      setArcPath(null)
-      return
-    }
+    if (!isMultiClass || !navRef.current) return
     const nav = navRef.current
     const interfaceBox = nav.querySelector('[data-step-index="2"]') as HTMLElement | null
     const implementBox = nav.querySelector('[data-step-index="4"]') as HTMLElement | null

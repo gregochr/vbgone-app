@@ -12,14 +12,12 @@ interface Props {
 export function Step2Analysis({ state, update, onReady }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(!state.analysis)
 
   useEffect(() => {
     if (state.analysis) {
       onReady()
-      return
     }
-    setShowConfirm(true)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const runAnalysis = () => {

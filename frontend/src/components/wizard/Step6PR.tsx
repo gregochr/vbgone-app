@@ -43,7 +43,7 @@ function Step6PRSingle({
   onReady: () => void
 }) {
   const isMultiClass = (state.analysis?.suggestedMigrationOrder?.length ?? 1) > 1
-  const [showConfirm, setShowConfirm] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(!state.prResult)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -72,10 +72,7 @@ function Step6PRSingle({
   useEffect(() => {
     if (state.prResult) {
       onReady()
-      return
     }
-    // Always show confirm dialog — never auto-fire PR
-    setShowConfirm(true)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (showConfirm) {

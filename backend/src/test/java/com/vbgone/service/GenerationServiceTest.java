@@ -161,7 +161,7 @@ class GenerationServiceTest {
                 eq(GenerationService.TESTS_SYSTEM_PROMPT),
                 contains("IForm1"),
                 eq(Model.CLAUDE_SONNET_4_6),
-                eq(8192L));
+                eq(16384L));
     }
 
     // ── generateStub ──
@@ -218,7 +218,7 @@ class GenerationServiceTest {
                 eq(GenerationService.IMPLEMENT_SYSTEM_PROMPT),
                 contains("IForm1"),
                 eq(Model.CLAUDE_SONNET_4_6),
-                eq(8192L));
+                eq(16384L));
     }
 
     // ── implement (STUB mode) ──
@@ -272,7 +272,7 @@ class GenerationServiceTest {
                 eq(GenerationService.IMPLEMENT_SYSTEM_PROMPT),
                 argThat(msg -> msg.contains("Add_ReturnsSum") && msg.contains("broken")),
                 eq(Model.CLAUDE_SONNET_4_6),
-                eq(8192L));
+                eq(16384L));
     }
 
     @Test
@@ -325,6 +325,78 @@ class GenerationServiceTest {
                 """;
 
         assertThat(service.countTests(code)).isEqualTo(4);
+    }
+
+    // ── repairTruncatedCSharp ──
+
+    @Test
+    void repairTruncatedCSharp_closesUnclosedBracesAndRemovesIncompleteMethod() {
+        String truncated = """
+                [TestFixture]
+                public class FooTests
+                {
+                    [Test]
+                    public void A() { Assert.Pass(); }
+
+                    [Test]
+                    public void B()
+                    {
+                        Assert.That(_s""";
+
+        String repaired = service.repairTruncatedCSharp(truncated);
+
+        // The incomplete method B should be trimmed and braces closed
+        assertThat(repaired).doesNotContain("Assert.That(_s");
+        assertThat(repaired).endsWith("}");
+        // Count braces — should be balanced
+        long opens = repaired.chars().filter(c -> c == '{').count();
+        long closes = repaired.chars().filter(c -> c == '}').count();
+        assertThat(opens).isEqualTo(closes);
+    }
+
+    @Test
+    void repairTruncatedCSharp_handlesRealTruncatedTestFile() {
+        // Actual truncated output from production — Claude hit 8192 token limit
+        String truncated = """
+                using NUnit.Framework;
+
+                [TestFixture]
+                public class OrderConfigurationTests
+                {
+                    private IOrderConfiguration _sut;
+
+                    [SetUp]
+                    public void SetUp()
+                    {
+                        _sut = new OrderConfiguration();
+                    }
+
+                    [Test]
+                    public void CalculateTotal_SmallOrder_ReturnsCorrectTotal()
+                    {
+                        double result = _sut.CalculateTotal(10.0, 5);
+                        Assert.That(result, Is.EqualTo(60.58).Within(0.01));
+                    }
+
+                    [Test]
+                    public void GetDiscountTier_ReturnsStringNotNull_ForAllTiers()
+                    {
+                        Assert.That(_s""";
+
+        String repaired = service.repairTruncatedCSharp(truncated);
+
+        // Should compile — incomplete method removed, braces balanced
+        assertThat(repaired).doesNotContain("Assert.That(_s");
+        assertThat(repaired).contains("CalculateTotal_SmallOrder_ReturnsCorrectTotal");
+        long opens = repaired.chars().filter(c -> c == '{').count();
+        long closes = repaired.chars().filter(c -> c == '}').count();
+        assertThat(opens).isEqualTo(closes);
+    }
+
+    @Test
+    void repairTruncatedCSharp_leavesBalancedCodeUntouched() {
+        String balanced = "[TestFixture]\npublic class FooTests\n{\n    [Test]\n    public void A() { Assert.Pass(); }\n}";
+        assertThat(service.repairTruncatedCSharp(balanced)).isEqualTo(balanced);
     }
 
     // ── stripNamespaceWrapper ──

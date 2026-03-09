@@ -15,7 +15,7 @@ type Phase = 'tests' | 'stub' | 'build' | 'done'
 export function Step4Tests({ state, update, onReady }: Props) {
   const [phase, setPhase] = useState<Phase>(state.redBuild ? 'done' : 'tests')
   const [error, setError] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(!state.redBuild)
   const [pipelineStarted, setPipelineStarted] = useState(false)
 
   const className =
@@ -27,9 +27,7 @@ export function Step4Tests({ state, update, onReady }: Props) {
   useEffect(() => {
     if (state.redBuild) {
       onReady()
-      return
     }
-    setShowConfirm(true)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const runPipeline = () => {

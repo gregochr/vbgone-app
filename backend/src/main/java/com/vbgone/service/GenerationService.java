@@ -113,8 +113,8 @@ public class GenerationService {
                 + "}";
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
-                TESTS_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);
-        String code = stripNamespaceWrapper(stripCodeFences(response.text()));
+                TESTS_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 16384L);
+        String code = repairTruncatedCSharp(stripNamespaceWrapper(stripCodeFences(response.text())));
 
         String modelId = Model.CLAUDE_SONNET_4_6.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
@@ -170,7 +170,7 @@ public class GenerationService {
                 + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContentForClass(className);
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
-                IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);
+                IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 16384L);
         String code = stripNamespaceWrapper(stripCodeFences(response.text()));
 
         String modelId = Model.CLAUDE_SONNET_4_6.asString();
@@ -201,7 +201,7 @@ public class GenerationService {
                 + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContentForClass(className);
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
-                IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);
+                IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 16384L);
         String code = stripNamespaceWrapper(stripCodeFences(response.text()));
 
         String modelId = Model.CLAUDE_SONNET_4_6.asString();
@@ -222,6 +222,39 @@ public class GenerationService {
         return (int) code.lines()
                 .filter(line -> line.trim().startsWith("[Test]") || line.trim().startsWith("[TestCase"))
                 .count();
+    }
+
+    /**
+     * If Claude's output was truncated mid-token, the C# code will be missing closing braces.
+     * This detects the imbalance and appends enough closing braces to make the file compilable.
+     * Any incomplete method at the end is removed.
+     */
+    String repairTruncatedCSharp(String code) {
+        int opens = 0;
+        for (char c : code.toCharArray()) {
+            if (c == '{') opens++;
+            else if (c == '}') opens--;
+        }
+        if (opens <= 0) return code;
+
+        // Truncation happened — remove the last incomplete method/test
+        // Find the last complete [Test] or [TestCase block ending with }
+        int lastCloseBrace = code.lastIndexOf('}');
+        if (lastCloseBrace > 0) {
+            code = code.substring(0, lastCloseBrace + 1);
+        }
+
+        // Recount and close remaining open braces
+        opens = 0;
+        for (char c : code.toCharArray()) {
+            if (c == '{') opens++;
+            else if (c == '}') opens--;
+        }
+        StringBuilder sb = new StringBuilder(code);
+        for (int i = 0; i < opens; i++) {
+            sb.append("\n}");
+        }
+        return sb.toString();
     }
 
     String stripNamespaceWrapper(String code) {
