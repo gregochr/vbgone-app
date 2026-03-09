@@ -84,9 +84,9 @@ const STEPS: { label: string; tip: React.ReactNode }[] = [
               Strangler Fig migration pattern
             </a>
           </strong>
-          .
-          By defining the contract first — the method signatures, parameter types, and return types
-          — VBGone creates a seam between the legacy VB.NET system and its modern C# replacement.
+          . By defining the contract first — the method signatures, parameter types, and return
+          types — VBGone creates a seam between the legacy VB.NET system and its modern C#
+          replacement.
         </p>
         <p>
           Both implementations satisfy the same interface, which means the legacy code can continue
@@ -144,9 +144,9 @@ const STEPS: { label: string; tip: React.ReactNode }[] = [
           <strong>You have two paths.</strong> The <strong>Claude path</strong> asks Claude Sonnet
           to generate a full C# implementation based on the VB.NET behaviour. It writes idiomatic
           modern C# — expression-bodied members, pattern matching, nullable reference types where
-          appropriate. <strong>.NET test</strong> runs immediately and all tests should pass
-          green. This is fast, useful for straightforward classes, and gives you a solid starting
-          point even if you intend to refine the implementation afterwards.
+          appropriate. <strong>.NET test</strong> runs immediately and all tests should pass green.
+          This is fast, useful for straightforward classes, and gives you a solid starting point
+          even if you intend to refine the implementation afterwards.
         </p>
         <p>
           The <strong>Stub path</strong> downloads the stub and lets you implement the class
@@ -300,9 +300,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   })
   const [stepReady, setStepReady] = useState(false)
   const [totalCost, setTotalCost] = useState(0)
-  const sessionIdRef = useRef<string | undefined>(
-    projectMode ? projectMode.sessionId : undefined,
-  )
+  const sessionIdRef = useRef<string | undefined>(projectMode ? projectMode.sessionId : undefined)
 
   const update = (partial: Partial<WizardState>) => {
     setState((prev) => {
@@ -387,10 +385,19 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
 
   // Loop-back arc measurement for multi-class stepper
   const navRef = useRef<HTMLElement>(null)
-  const [arcPath, setArcPath] = useState<{ d: string; width: number; height: number; left: number } | null>(null)
+  const [arcPath, setArcPath] = useState<{
+    d: string
+    width: number
+    height: number
+    left: number
+  } | null>(null)
   const allClassesDone = state.completedClasses.length >= totalClasses
   const iterationStarted = step > 2 || state.completedClasses.length > 0
-  const arcColour = allClassesDone ? 'var(--green)' : iterationStarted ? 'var(--amber)' : 'var(--grey)'
+  const arcColour = allClassesDone
+    ? 'var(--green)'
+    : iterationStarted
+      ? 'var(--amber)'
+      : 'var(--grey)'
   const arcColourName = allClassesDone ? 'green' : iterationStarted ? 'amber' : 'grey'
 
   useLayoutEffect(() => {
@@ -437,28 +444,34 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
 
   return (
     <div className="wizard">
-      <nav className={`wizard-steps${isMultiClass && arcPath ? ' has-loop-arc' : ''}`} ref={navRef} style={{ position: 'relative' }}>
+      <nav
+        className={`wizard-steps${isMultiClass && arcPath ? ' has-loop-arc' : ''}`}
+        ref={navRef}
+        style={{ position: 'relative' }}
+      >
         {STEPS.map(({ label, tip }, i) => {
           const isCompleted = i < step || (i === 5 && !!state.prResult)
           return (
-          <div className="wizard-step-item" key={label} data-step-index={i}>
-            <div
-              className={`wizard-step-box ${isCompleted ? 'completed' : i === step ? 'active' : ''}`}
-            >
+            <div className="wizard-step-item" key={label} data-step-index={i}>
               <div
-                className={`wizard-step-dot ${isCompleted ? 'completed' : i === step ? 'active' : ''}`}
+                className={`wizard-step-box ${isCompleted ? 'completed' : i === step ? 'active' : ''}`}
               >
-                {isCompleted ? '\u2713' : i + 1}
+                <div
+                  className={`wizard-step-dot ${isCompleted ? 'completed' : i === step ? 'active' : ''}`}
+                >
+                  {isCompleted ? '\u2713' : i + 1}
+                </div>
+                <span className={`wizard-step-label ${isCompleted || i === step ? 'active' : ''}`}>
+                  {label}
+                </span>
+                <span className="step-infotip">
+                  <InfoTip>{tip}</InfoTip>
+                </span>
               </div>
-              <span className={`wizard-step-label ${isCompleted || i === step ? 'active' : ''}`}>{label}</span>
-              <span className="step-infotip">
-                <InfoTip>{tip}</InfoTip>
-              </span>
+              {i < STEPS.length - 1 && (
+                <div className={`wizard-step-connector ${i < step ? 'completed' : ''}`} />
+              )}
             </div>
-            {i < STEPS.length - 1 && (
-              <div className={`wizard-step-connector ${i < step ? 'completed' : ''}`} />
-            )}
-          </div>
           )
         })}
         {totalCost > 0 && (
@@ -540,7 +553,12 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
       <div className="wizard-content">{steps[step]}</div>
 
       <div className={`wizard-nav ${step === 5 ? 'wizard-nav-final' : ''}`}>
-        <button className="btn-back" onClick={back} disabled={step <= minStep} title={BACK_TITLES[step]}>
+        <button
+          className="btn-back"
+          onClick={back}
+          disabled={step <= minStep}
+          title={BACK_TITLES[step]}
+        >
           Back
         </button>
         <span className="coffee-text">

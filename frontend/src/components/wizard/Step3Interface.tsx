@@ -123,12 +123,11 @@ export function Step3Interface({ state, update, onReady }: Props) {
           <strong>{'\u26A0\uFE0F'} Complex class detected</strong>
           <p>
             This class has been identified as having significant complexity or poor code quality.
-            VBGone has extracted only the pure business logic methods into the interface — UI
-            event handlers, data access calls, and framework dependencies have been stripped.
+            VBGone has extracted only the pure business logic methods into the interface — UI event
+            handlers, data access calls, and framework dependencies have been stripped.
           </p>
           <p>
-            The generated tests verify the business logic contract only. This is intentional —
-            the{' '}
+            The generated tests verify the business logic contract only. This is intentional — the{' '}
             <a
               href="https://martinfowler.com/bliki/StranglerFigApplication.html"
               target="_blank"

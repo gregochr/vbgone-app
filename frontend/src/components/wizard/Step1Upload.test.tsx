@@ -11,7 +11,12 @@ vi.mock('../../api/migrateApi', async () => {
     uploadProject: vi.fn().mockResolvedValue({
       sessionId: 'mock-uuid-1234',
       classes: [
-        { name: 'ValidationHelper', methods: ['IsNullOrEmpty'], dependencies: [], complexity: 'LOW' },
+        {
+          name: 'ValidationHelper',
+          methods: ['IsNullOrEmpty'],
+          dependencies: [],
+          complexity: 'LOW',
+        },
       ],
       suggestedMigrationOrder: ['ValidationHelper'],
       dependencyGraph: { ValidationHelper: [] },

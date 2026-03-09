@@ -17,9 +17,7 @@ function App() {
       </header>
       <main className="app-main">
         {view.type === 'wizard' ? (
-          <WizardShell
-            onProjectAnalysed={(analysis) => setView({ type: 'project', analysis })}
-          />
+          <WizardShell onProjectAnalysed={(analysis) => setView({ type: 'project', analysis })} />
         ) : (
           <ProjectQueueView
             analysis={view.analysis}

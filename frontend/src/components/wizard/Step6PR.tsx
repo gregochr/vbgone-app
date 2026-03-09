@@ -124,9 +124,7 @@ function Step6PRSingle({
           <p>
             Branch: <code>{branchName}</code>
           </p>
-          <p>
-            {'\uD83D\uDD12'} No Claude API call — this is pure GitHub API.
-          </p>
+          <p>{'\uD83D\uDD12'} No Claude API call — this is pure GitHub API.</p>
           <p>Proceed?</p>
         </ConfirmDialog>
       </div>

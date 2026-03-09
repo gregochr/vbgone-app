@@ -13,13 +13,11 @@ interface Props {
 const MAX_ATTEMPTS = 3
 
 export function Step5Implement({ state, update, onReady }: Props) {
-  const [mode, setMode] = useState<'STUB' | 'CLAUDE' | null>(null)
+  const [mode, setMode] = useState<'STUB' | 'CLAUDE' | null>('CLAUDE')
   const [loading, setLoading] = useState(false)
   const [phase, setPhase] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [pendingMode, setPendingMode] = useState<'STUB' | 'CLAUDE' | null>(
-    state.greenBuild && state.implementResult ? null : 'CLAUDE',
-  )
+  const [pendingMode, setPendingMode] = useState<'STUB' | 'CLAUDE' | null>(null)
   const [attempts, setAttempts] = useState(1)
 
   const className =

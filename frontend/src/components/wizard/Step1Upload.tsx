@@ -298,8 +298,7 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
                       <strong>On Error Resume Next</strong> — silently swallows all exceptions
                     </li>
                     <li>
-                      <strong>GoTo statements</strong> — used for flow control instead of
-                      If/ElseIf
+                      <strong>GoTo statements</strong> — used for flow control instead of If/ElseIf
                     </li>
                     <li>
                       <strong>SQL injection</strong> — string concatenation for SQL queries

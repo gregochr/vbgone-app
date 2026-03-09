@@ -169,7 +169,9 @@ const mockApi = {
             dependencies: [],
             complexity: 'MEDIUM',
             codeQuality: 'FAIR' as const,
-            codeSmells: ['Magic numbers — hardcoded tax rates, discount thresholds, shipping costs'],
+            codeSmells: [
+              'Magic numbers — hardcoded tax rates, discount thresholds, shipping costs',
+            ],
             refactoringSuggestions: [
               'Extract discount thresholds and shipping tiers into configuration constants',
             ],
@@ -880,7 +882,8 @@ public class OrderProcessor : IOrderProcessor
       passed: mode === 'CLAUDE' ? total : 0,
       failed: mode === 'CLAUDE' ? 0 : total,
       errors: [],
-      failedTests: mode === 'CLAUDE' ? [] : Array.from({ length: total }, (_, i) => `Test_${i + 1}`),
+      failedTests:
+        mode === 'CLAUDE' ? [] : Array.from({ length: total }, (_, i) => `Test_${i + 1}`),
     }
   },
 
@@ -951,12 +954,7 @@ public class OrderProcessor : IOrderProcessor
           complexity: 'HIGH',
         },
       ],
-      suggestedMigrationOrder: [
-        'ValidationHelper',
-        'StringHelper',
-        'DateHelper',
-        'Calculator',
-      ],
+      suggestedMigrationOrder: ['ValidationHelper', 'StringHelper', 'DateHelper', 'Calculator'],
       dependencyGraph: {
         ValidationHelper: [],
         StringHelper: [],

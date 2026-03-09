@@ -1,5 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import type { ProjectAnalysis, ClassInfo, CostResult, PullRequestResult } from '../../api/migrateApi'
+import type {
+  ProjectAnalysis,
+  ClassInfo,
+  CostResult,
+  PullRequestResult,
+} from '../../api/migrateApi'
 import { fetchCost, raisePR } from '../../api/migrateApi'
 import { WizardShell } from './WizardShell'
 import { DependencyGraph } from './DependencyGraph'
@@ -129,107 +134,115 @@ export function ProjectQueueView({ analysis, onBackToUpload }: Props) {
     <div className="project-queue-wrapper">
       <div className="project-queue">
         <div className="queue-header">
-        <div>
-          <h2 className="step-title">Migration Queue</h2>
-          <p className="step-subtitle">{analysis.summary}</p>
+          <div>
+            <h2 className="step-title">Migration Queue</h2>
+            <p className="step-subtitle">{analysis.summary}</p>
+          </div>
         </div>
-      </div>
 
-      {/* Project summary */}
-      <div className="queue-summary">
-        <div className="queue-stat">
-          <span className="queue-stat-value">{totalClasses}</span>
-          <span className="queue-stat-label">Classes</span>
-        </div>
-        <div className="queue-stat">
-          <span className="queue-stat-value">{migratedCount}</span>
-          <span className="queue-stat-label">Migrated</span>
-        </div>
-        <div className="queue-stat">
-          <span className="queue-stat-value">
-            {analysis.classes.filter((c) => c.complexity === 'HIGH').length}
-          </span>
-          <span className="queue-stat-label">High Complexity</span>
-        </div>
-        {totalCost > 0 && (
+        {/* Project summary */}
+        <div className="queue-summary">
           <div className="queue-stat">
-            <span className="queue-stat-value">${totalCost.toFixed(4)}</span>
-            <span className="queue-stat-label">Total Cost</span>
+            <span className="queue-stat-value">{totalClasses}</span>
+            <span className="queue-stat-label">Classes</span>
+          </div>
+          <div className="queue-stat">
+            <span className="queue-stat-value">{migratedCount}</span>
+            <span className="queue-stat-label">Migrated</span>
+          </div>
+          <div className="queue-stat">
+            <span className="queue-stat-value">
+              {analysis.classes.filter((c) => c.complexity === 'HIGH').length}
+            </span>
+            <span className="queue-stat-label">High Complexity</span>
+          </div>
+          {totalCost > 0 && (
+            <div className="queue-stat">
+              <span className="queue-stat-value">${totalCost.toFixed(4)}</span>
+              <span className="queue-stat-label">Total Cost</span>
+            </div>
+          )}
+        </div>
+
+        {/* Progress bar */}
+        <div className="queue-progress">
+          <div className="queue-progress-bar">
+            <div
+              className="queue-progress-fill"
+              style={{ width: `${progressPercent}%` }}
+              data-testid="progress-fill"
+            />
+          </div>
+          <span className="queue-progress-text">
+            {migratedCount} of {totalClasses} classes migrated
+          </span>
+        </div>
+
+        {/* Dependency graph */}
+        <DependencyGraph
+          classes={analysis.classes}
+          dependencyGraph={analysis.dependencyGraph}
+          statuses={statuses}
+          onMigrate={handleMigrate}
+        />
+
+        {/* Class cards — collapsible */}
+        <CollapsibleCards
+          totalClasses={totalClasses}
+          classes={analysis.classes}
+          migrationOrder={analysis.suggestedMigrationOrder}
+          dependencyGraph={analysis.dependencyGraph}
+          statuses={statuses}
+          onMigrate={handleMigrate}
+        />
+
+        {/* Raise PR — only when all classes are complete */}
+        {!prResult && (
+          <div className="queue-pr-section">
+            <button
+              className="btn-plex btn-raise-pr"
+              onClick={handleRaisePR}
+              disabled={!allComplete || prLoading}
+              title={
+                !allComplete
+                  ? 'Migrate all classes before raising a PR'
+                  : 'Raise a single PR for all migrated classes'
+              }
+            >
+              {prLoading ? 'Raising PR...' : 'Raise PR'}
+            </button>
+            {prError && <p className="queue-pr-error">{prError}</p>}
           </div>
         )}
-      </div>
 
-      {/* Progress bar */}
-      <div className="queue-progress">
-        <div className="queue-progress-bar">
-          <div
-            className="queue-progress-fill"
-            style={{ width: `${progressPercent}%` }}
-            data-testid="progress-fill"
-          />
-        </div>
-        <span className="queue-progress-text">
-          {migratedCount} of {totalClasses} classes migrated
-        </span>
-      </div>
-
-      {/* Dependency graph */}
-      <DependencyGraph
-        classes={analysis.classes}
-        dependencyGraph={analysis.dependencyGraph}
-        statuses={statuses}
-        onMigrate={handleMigrate}
-      />
-
-      {/* Class cards — collapsible */}
-      <CollapsibleCards
-        totalClasses={totalClasses}
-        classes={analysis.classes}
-        migrationOrder={analysis.suggestedMigrationOrder}
-        dependencyGraph={analysis.dependencyGraph}
-        statuses={statuses}
-        onMigrate={handleMigrate}
-      />
-
-      {/* Raise PR — only when all classes are complete */}
-      {!prResult && (
-        <div className="queue-pr-section">
-          <button
-            className="btn-plex btn-raise-pr"
-            onClick={handleRaisePR}
-            disabled={!allComplete || prLoading}
-            title={!allComplete ? 'Migrate all classes before raising a PR' : 'Raise a single PR for all migrated classes'}
-          >
-            {prLoading ? 'Raising PR...' : 'Raise PR'}
-          </button>
-          {prError && <p className="queue-pr-error">{prError}</p>}
-        </div>
-      )}
-
-      {prResult && (
-        <div className="queue-pr-result">
-          <button className="btn-pr-success" disabled>
-            {'\u2713'} PR Raised
-          </button>
-          <div className="info-card" style={{ marginTop: 12 }}>
-            <div style={{ marginBottom: 12 }}>
-              <a className="pr-link" href={prResult.prUrl} target="_blank" rel="noopener noreferrer">
-                {prResult.prUrl}
-              </a>
+        {prResult && (
+          <div className="queue-pr-result">
+            <button className="btn-pr-success" disabled>
+              {'\u2713'} PR Raised
+            </button>
+            <div className="info-card" style={{ marginTop: 12 }}>
+              <div style={{ marginBottom: 12 }}>
+                <a
+                  className="pr-link"
+                  href={prResult.prUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {prResult.prUrl}
+                </a>
+              </div>
+              <div style={{ color: 'var(--grey)', fontSize: '0.85rem', marginBottom: 12 }}>
+                Branch: <code>{prResult.branchName}</code>
+              </div>
+              <h4 style={{ marginBottom: 8 }}>Files committed</h4>
+              <ul className="file-list">
+                {prResult.filesCommitted.map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
             </div>
-            <div style={{ color: 'var(--grey)', fontSize: '0.85rem', marginBottom: 12 }}>
-              Branch: <code>{prResult.branchName}</code>
-            </div>
-            <h4 style={{ marginBottom: 8 }}>Files committed</h4>
-            <ul className="file-list">
-              {prResult.filesCommitted.map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
           </div>
-        </div>
-      )}
-
+        )}
       </div>
 
       <div className="wizard-nav">

@@ -294,7 +294,8 @@ describe('WizardShell navigation', () => {
     await waitFor(() => expect(screen.getByText(/tests failing/)).toBeInTheDocument())
     await user.click(screen.getByText('Next'))
 
-    // Step 5 → Claude pre-selected, confirm and wait for result
+    // Step 5 → click Claude Implements, confirm, wait for result
+    await user.click(screen.getByText('Claude Implements'))
     await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
     await user.click(screen.getByText('Next'))
@@ -367,87 +368,97 @@ describe('WizardShell multi-class iteration', () => {
     )
   })
 
-  it('shows Next Class button after completing first class in multi-class mode', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<WizardShell />)
+  it(
+    'shows Next Class button after completing first class in multi-class mode',
+    { timeout: 15000 },
+    async () => {
+      const user = userEvent.setup()
+      const { container } = render(<WizardShell />)
 
-    // Upload with 'multi' content to trigger multi-class mock
-    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
-    const file = new File(['multi'], 'Test.vb', { type: 'text/plain' })
-    await user.upload(fileInput, file)
+      // Upload with 'multi' content to trigger multi-class mock
+      const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+      const file = new File(['multi'], 'Test.vb', { type: 'text/plain' })
+      await user.upload(fileInput, file)
 
-    // Step 1 → Step 2
-    await user.click(screen.getByText('Next'))
-    await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+      // Step 1 → Step 2
+      await user.click(screen.getByText('Next'))
+      await user.click(screen.getByText('Continue'))
+      await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
 
-    // Should show both classes in analysis (appear in class card + migration order)
-    expect(screen.getAllByText('Alpha').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Beta').length).toBeGreaterThanOrEqual(1)
+      // Should show both classes in analysis (appear in class card + migration order)
+      expect(screen.getAllByText('Alpha').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText('Beta').length).toBeGreaterThanOrEqual(1)
 
-    // Step 2 → Step 3 (Interface for Alpha)
-    await user.click(screen.getByText('Next'))
-    // Progress banner should appear
-    await waitFor(() => expect(screen.getByTestId('class-progress-banner')).toBeInTheDocument())
-    expect(screen.getByText(/Migrating class 1 of 2/)).toBeInTheDocument()
-    expect(screen.getByText('Alpha')).toBeInTheDocument()
+      // Step 2 → Step 3 (Interface for Alpha)
+      await user.click(screen.getByText('Next'))
+      // Progress banner should appear
+      await waitFor(() => expect(screen.getByTestId('class-progress-banner')).toBeInTheDocument())
+      expect(screen.getByText(/Migrating class 1 of 2/)).toBeInTheDocument()
+      expect(screen.getByText('Alpha')).toBeInTheDocument()
 
-    // Complete Step 3
-    await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
+      // Complete Step 3
+      await user.click(screen.getByText('Continue'))
+      await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
 
-    // Step 3 → Step 4
-    await user.click(screen.getByText('Next'))
-    await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText(/tests failing/)).toBeInTheDocument())
+      // Step 3 → Step 4
+      await user.click(screen.getByText('Next'))
+      await user.click(screen.getByText('Continue'))
+      await waitFor(() => expect(screen.getByText(/tests failing/)).toBeInTheDocument())
 
-    // Step 4 → Step 5
-    await user.click(screen.getByText('Next'))
-    await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
+      // Step 4 → Step 5
+      await user.click(screen.getByText('Next'))
+      await user.click(screen.getByText('Claude Implements'))
+      await user.click(screen.getByText('Continue'))
+      await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
 
-    // Should show "Next Class" instead of "Next"
-    expect(screen.getByText('Next Class')).toBeInTheDocument()
-  })
+      // Should show "Next Class" instead of "Next"
+      expect(screen.getByText('Next Class')).toBeInTheDocument()
+    },
+  )
 
-  it('loops back to Interface step for second class after clicking Next Class', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<WizardShell />)
+  it(
+    'loops back to Interface step for second class after clicking Next Class',
+    { timeout: 15000 },
+    async () => {
+      const user = userEvent.setup()
+      const { container } = render(<WizardShell />)
 
-    // Upload with 'multi' content
-    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
-    const file = new File(['multi'], 'Test.vb', { type: 'text/plain' })
-    await user.upload(fileInput, file)
+      // Upload with 'multi' content
+      const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+      const file = new File(['multi'], 'Test.vb', { type: 'text/plain' })
+      await user.upload(fileInput, file)
 
-    // Step 1 → Step 2 → Analysis
-    await user.click(screen.getByText('Next'))
-    await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+      // Step 1 → Step 2 → Analysis
+      await user.click(screen.getByText('Next'))
+      await user.click(screen.getByText('Continue'))
+      await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
 
-    // Step 2 → Step 3 → Interface
-    await user.click(screen.getByText('Next'))
-    await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
+      // Step 2 → Step 3 → Interface
+      await user.click(screen.getByText('Next'))
+      await user.click(screen.getByText('Continue'))
+      await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
 
-    // Step 3 → Step 4 → Tests
-    await user.click(screen.getByText('Next'))
-    await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText(/tests failing/)).toBeInTheDocument())
+      // Step 3 → Step 4 → Tests
+      await user.click(screen.getByText('Next'))
+      await user.click(screen.getByText('Continue'))
+      await waitFor(() => expect(screen.getByText(/tests failing/)).toBeInTheDocument())
 
-    // Step 4 → Step 5 → Implement
-    await user.click(screen.getByText('Next'))
-    await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
+      // Step 4 → Step 5 → Implement
+      await user.click(screen.getByText('Next'))
+      await user.click(screen.getByText('Claude Implements'))
+      await user.click(screen.getByText('Continue'))
+      await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
 
-    // Click "Next Class" — should loop back to Interface for Beta
-    await user.click(screen.getByText('Next Class'))
+      // Click "Next Class" — should loop back to Interface for Beta
+      await user.click(screen.getByText('Next Class'))
 
-    // Should now show class 2 of 2 in progress banner
-    await waitFor(() => expect(screen.getByText(/Migrating class 2 of 2/)).toBeInTheDocument())
-    expect(screen.getByText('Beta')).toBeInTheDocument()
-    // Should show confirm dialog for Interface step again
-    expect(screen.getByText('Continue')).toBeInTheDocument()
-  })
+      // Should now show class 2 of 2 in progress banner
+      await waitFor(() => expect(screen.getByText(/Migrating class 2 of 2/)).toBeInTheDocument())
+      expect(screen.getByText('Beta')).toBeInTheDocument()
+      // Should show confirm dialog for Interface step again
+      expect(screen.getByText('Continue')).toBeInTheDocument()
+    },
+  )
 
   it('arc turns green after all classes are complete', async () => {
     const user = userEvent.setup()
@@ -479,6 +490,7 @@ describe('WizardShell multi-class iteration', () => {
 
     // Step 4 → Step 5 → Implement
     await user.click(screen.getByText('Next'))
+    await user.click(screen.getByText('Claude Implements'))
     await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
 
@@ -498,6 +510,7 @@ describe('WizardShell multi-class iteration', () => {
 
     // Step 4 → Step 5 → Implement
     await user.click(screen.getByText('Next'))
+    await user.click(screen.getByText('Claude Implements'))
     await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
 
@@ -511,5 +524,5 @@ describe('WizardShell multi-class iteration', () => {
     await waitFor(() =>
       expect(screen.getByTestId('loop-back-arc')).toHaveAttribute('data-arc-colour', 'green'),
     )
-  })
+  }, 15000)
 })

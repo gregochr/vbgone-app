@@ -54,11 +54,14 @@ const mockGreenBuild: api.BuildResult = {
 }
 
 describe('Step5Implement', () => {
-  it('defaults to Claude Implements with confirm dialog', () => {
+  it('renders with Claude Implements pre-selected', () => {
     render(<Step5Implement state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText('Choose Implementation')).toBeInTheDocument()
-    expect(screen.getByText(/Claude Sonnet/)).toBeInTheDocument()
-    expect(screen.getByText('Continue')).toBeInTheDocument()
+    expect(screen.getByText('Claude Implements')).toBeInTheDocument()
+    expect(screen.getByText('Manual (Stub)')).toBeInTheDocument()
+    // Claude card should be pre-selected
+    const claudeCard = screen.getByText('Claude Implements').closest('.impl-choice')
+    expect(claudeCard).toHaveClass('selected')
   })
 
   it('calls onReady on mount when implementation is already in state', () => {
@@ -73,7 +76,9 @@ describe('Step5Implement', () => {
     render(<Step5Implement state={doneState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getAllByText('Implementation')).toHaveLength(2)
     expect(screen.getByText(/Mode:.*AI/)).toBeInTheDocument()
-    expect(screen.getByText(/10 \/ 10 tests passing — this is the GREEN phase of Red-Green TDD/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/10 \/ 10 tests passing — this is the GREEN phase of Red-Green TDD/),
+    ).toBeInTheDocument()
     expect(screen.getByText(mockImpl.code)).toBeInTheDocument()
   })
 
@@ -100,8 +105,6 @@ describe('Step5Implement', () => {
     const update = vi.fn()
     render(<Step5Implement state={baseState} update={update} onReady={vi.fn()} />)
 
-    // Cancel the default Claude confirm, then pick Manual
-    await user.click(screen.getByText('Cancel'))
     await user.click(screen.getByText('Manual (Stub)'))
     expect(screen.getByText(/You have chosen to implement the C# yourself/)).toBeInTheDocument()
     await user.click(screen.getByText('Continue'))
@@ -190,7 +193,7 @@ describe('Step5Implement', () => {
 
     render(<Step5Implement state={baseState} update={vi.fn()} onReady={vi.fn()} />)
 
-    // Claude is pre-selected — just confirm
+    await user.click(screen.getByText('Claude Implements'))
     await user.click(screen.getByText('Continue'))
     expect(screen.getByText(/Claude is implementing/)).toBeInTheDocument()
   })
@@ -201,6 +204,7 @@ describe('Step5Implement', () => {
 
     render(<Step5Implement state={baseState} update={vi.fn()} onReady={vi.fn()} />)
 
+    await user.click(screen.getByText('Claude Implements'))
     await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(screen.getByText('Implementation Failed')).toBeInTheDocument()
@@ -272,7 +276,7 @@ describe('Step5Implement', () => {
     const onReady = vi.fn()
     render(<Step5Implement state={baseState} update={update} onReady={onReady} />)
 
-    // Claude is pre-selected — just confirm
+    await user.click(screen.getByText('Claude Implements'))
     await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(update).toHaveBeenCalledWith({ implementResult: mockImpl })

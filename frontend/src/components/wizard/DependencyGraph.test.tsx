@@ -32,10 +32,7 @@ const allPending: Record<string, ClassStatus> = {
   Calculator: 'Pending',
 }
 
-function renderGraph(
-  statuses: Record<string, ClassStatus> = allPending,
-  onMigrate = vi.fn(),
-) {
+function renderGraph(statuses: Record<string, ClassStatus> = allPending, onMigrate = vi.fn()) {
   return render(
     <DependencyGraph
       classes={classes}
@@ -105,14 +102,7 @@ describe('DependencyGraph', () => {
   })
 
   it('renders nothing inside SVG when classes array is empty', () => {
-    render(
-      <DependencyGraph
-        classes={[]}
-        dependencyGraph={{}}
-        statuses={{}}
-        onMigrate={vi.fn()}
-      />,
-    )
+    render(<DependencyGraph classes={[]} dependencyGraph={{}} statuses={{}} onMigrate={vi.fn()} />)
     const svg = document.querySelector('svg.dep-graph-svg')
     expect(svg).toBeTruthy()
     expect(svg!.querySelectorAll('circle').length).toBe(0)
@@ -256,9 +246,7 @@ describe('DependencyGraph — node visuals by status', () => {
     const nodeGroup = findNodeGroup('ValidationHelper')
     const circles = nodeGroup.querySelectorAll('circle')
     // Should have main circle + inner dot
-    const mainCircle = Array.from(circles).find(
-      (c) => c.getAttribute('r') === '22',
-    )
+    const mainCircle = Array.from(circles).find((c) => c.getAttribute('r') === '22')
     expect(mainCircle?.getAttribute('fill')).toBe('#4CAF50')
   })
 
@@ -270,9 +258,7 @@ describe('DependencyGraph — node visuals by status', () => {
     renderGraph(withPR)
     const nodeGroup = findNodeGroup('ValidationHelper')
     const circles = nodeGroup.querySelectorAll('circle')
-    const mainCircle = Array.from(circles).find(
-      (c) => c.getAttribute('r') === '22',
-    )
+    const mainCircle = Array.from(circles).find((c) => c.getAttribute('r') === '22')
     expect(mainCircle?.getAttribute('fill')).toBe('#E5A00D')
   })
 
@@ -280,9 +266,7 @@ describe('DependencyGraph — node visuals by status', () => {
     renderGraph()
     const nodeGroup = findNodeGroup('DateHelper')
     const circles = nodeGroup.querySelectorAll('circle')
-    const mainCircle = Array.from(circles).find(
-      (c) => c.getAttribute('r') === '22',
-    )
+    const mainCircle = Array.from(circles).find((c) => c.getAttribute('r') === '22')
     expect(mainCircle?.getAttribute('fill')).toBe('#555')
   })
 
@@ -290,9 +274,7 @@ describe('DependencyGraph — node visuals by status', () => {
     renderGraph()
     const nodeGroup = findNodeGroup('DateHelper')
     const circles = nodeGroup.querySelectorAll('circle')
-    const mainCircle = Array.from(circles).find(
-      (c) => c.getAttribute('r') === '22',
-    )
+    const mainCircle = Array.from(circles).find((c) => c.getAttribute('r') === '22')
     expect(mainCircle?.getAttribute('stroke')).toBe('#555')
   })
 

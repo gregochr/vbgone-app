@@ -125,14 +125,18 @@ describe('Step2Analysis', () => {
     const stateWithAnalysis = { ...baseState, analysis: mockAnalysis }
     render(<Step2Analysis state={stateWithAnalysis} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText('Code Smells')).toBeInTheDocument()
-    expect(screen.getByText('Mixed concerns — UI logic mixed with business logic')).toBeInTheDocument()
+    expect(
+      screen.getByText('Mixed concerns — UI logic mixed with business logic'),
+    ).toBeInTheDocument()
   })
 
   it('shows refactoring suggestions', () => {
     const stateWithAnalysis = { ...baseState, analysis: mockAnalysis }
     render(<Step2Analysis state={stateWithAnalysis} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText('Refactoring Suggestions')).toBeInTheDocument()
-    expect(screen.getByText('Extract arithmetic operations into a separate service class')).toBeInTheDocument()
+    expect(
+      screen.getByText('Extract arithmetic operations into a separate service class'),
+    ).toBeInTheDocument()
   })
 
   it('shows VB.NET anti-patterns', () => {
