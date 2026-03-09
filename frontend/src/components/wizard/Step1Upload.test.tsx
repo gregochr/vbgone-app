@@ -24,6 +24,8 @@ const emptyState: WizardState = {
   filename: '',
   content: '',
   analysis: null,
+  currentClassIndex: 0,
+  completedClasses: [],
   interfaceResult: null,
   tests: null,
   stubResult: null,
