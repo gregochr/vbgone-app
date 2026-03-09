@@ -24,6 +24,8 @@ const baseState: WizardState = {
     suggestedMigrationOrder: ['Foo'],
     summary: 'Test',
   },
+  currentClassIndex: 0,
+  completedClasses: [],
   interfaceResult: null,
   tests: null,
   stubResult: null,
@@ -130,6 +132,23 @@ describe('Step4Tests', () => {
     await waitFor(() => {
       expect(screen.getByText('Generation failed')).toBeInTheDocument()
     })
+  })
+
+  it('shows retry button after cancelling confirm dialog', async () => {
+    const user = userEvent.setup()
+    render(<Step4Tests state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('Continue')).toBeInTheDocument()
+    await user.click(screen.getByText('Cancel'))
+    expect(screen.getByText('Generate Tests')).toBeInTheDocument()
+  })
+
+  it('re-shows confirm dialog after clicking retry button', async () => {
+    const user = userEvent.setup()
+    render(<Step4Tests state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Cancel'))
+    await user.click(screen.getByText('Generate Tests'))
+    expect(screen.getByText('Continue')).toBeInTheDocument()
+    expect(screen.getByText(/claude-sonnet-4-6/)).toBeInTheDocument()
   })
 
   it('calls update and onReady after all phases complete', async () => {

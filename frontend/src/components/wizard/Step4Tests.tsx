@@ -16,8 +16,12 @@ export function Step4Tests({ state, update, onReady }: Props) {
   const [phase, setPhase] = useState<Phase>(state.redBuild ? 'done' : 'tests')
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [pipelineStarted, setPipelineStarted] = useState(false)
 
-  const className = state.analysis?.classes[0]?.name ?? ''
+  const className =
+    state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
+    state.analysis?.classes[0]?.name ??
+    ''
   const sessionId = state.analysis?.sessionId ?? ''
 
   useEffect(() => {
@@ -30,6 +34,7 @@ export function Step4Tests({ state, update, onReady }: Props) {
 
   const runPipeline = () => {
     setShowConfirm(false)
+    setPipelineStarted(true)
     let cancelled = false
 
     ;(async () => {
@@ -66,7 +71,7 @@ export function Step4Tests({ state, update, onReady }: Props) {
   const phaseMessages: Record<Phase, string> = {
     tests: `Generating NUnit tests for ${className}...`,
     stub: 'Generating stub implementation...',
-    build: 'Running dotnet test...',
+    build: 'Running .NET test...',
     done: '',
   }
 
@@ -95,11 +100,24 @@ export function Step4Tests({ state, update, onReady }: Props) {
             and reused, reducing input token costs by up to 90% at scale.
           </p>
           <p>
-            After both calls, dotnet test runs automatically. Expect all tests to fail — this is the
+            After both calls, .NET test runs automatically. Expect all tests to fail — this is the
             TDD red phase.
           </p>
           <p>Proceed?</p>
         </ConfirmDialog>
+      </div>
+    )
+  }
+
+  // Cancelled state — confirm dismissed but pipeline hasn't started
+  if (!showConfirm && !pipelineStarted && !state.tests && !error) {
+    return (
+      <div>
+        <h2 className="step-title">Tests + Red Build</h2>
+        <p className="step-subtitle">Ready to generate tests and run the red build.</p>
+        <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+          Generate Tests
+        </button>
       </div>
     )
   }

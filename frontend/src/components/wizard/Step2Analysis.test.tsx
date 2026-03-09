@@ -14,6 +14,8 @@ const baseState: WizardState = {
   filename: 'Test.vb',
   content: 'Public Class Test\nEnd Class',
   analysis: null,
+  currentClassIndex: 0,
+  completedClasses: [],
   interfaceResult: null,
   tests: null,
   stubResult: null,
@@ -158,5 +160,26 @@ describe('Step2Analysis', () => {
     const stateWithAnalysis = { ...baseState, analysis: noQualityAnalysis }
     render(<Step2Analysis state={stateWithAnalysis} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.queryByText('Code Quality')).not.toBeInTheDocument()
+  })
+
+  it('shows retry button after cancelling confirm dialog', async () => {
+    const user = userEvent.setup()
+    render(<Step2Analysis state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    // Confirm dialog is shown on mount
+    expect(screen.getByText('Continue')).toBeInTheDocument()
+    // Cancel the dialog
+    await user.click(screen.getByText('Cancel'))
+    // Should show retry button, not a blank screen
+    expect(screen.getByText('Analyse with Claude')).toBeInTheDocument()
+  })
+
+  it('re-shows confirm dialog after clicking retry button', async () => {
+    const user = userEvent.setup()
+    render(<Step2Analysis state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Cancel'))
+    await user.click(screen.getByText('Analyse with Claude'))
+    // Confirm dialog is back
+    expect(screen.getByText('Continue')).toBeInTheDocument()
+    expect(screen.getAllByText(/claude-sonnet-4-6/).length).toBeGreaterThan(0)
   })
 })

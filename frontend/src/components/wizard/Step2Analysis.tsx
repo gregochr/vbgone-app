@@ -86,7 +86,17 @@ export function Step2Analysis({ state, update, onReady }: Props) {
   }
 
   const analysis = state.analysis
-  if (!analysis) return null
+  if (!analysis) {
+    return (
+      <div>
+        <h2 className="step-title">Analysing VB.NET Source</h2>
+        <p className="step-subtitle">Ready to analyse your VB.NET code with Claude.</p>
+        <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+          Analyse with Claude
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div>

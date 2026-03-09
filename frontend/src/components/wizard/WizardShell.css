@@ -91,6 +91,10 @@
   opacity: 1;
 }
 
+.wizard-steps.has-loop-arc {
+  padding-bottom: 48px;
+}
+
 /* ── Content area ── */
 
 .wizard-content {

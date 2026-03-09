@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
 import type { ProjectMode } from './WizardShell'
+import { ConfirmDialog } from './ConfirmDialog'
 import { raisePR } from '../../api/migrateApi'
 
 interface Props {
@@ -41,18 +42,21 @@ function Step6PRSingle({
   update: (partial: Partial<WizardState>) => void
   onReady: () => void
 }) {
-  const [loading, setLoading] = useState(!state.prResult)
+  const isMultiClass = (state.analysis?.suggestedMigrationOrder?.length ?? 1) > 1
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const sessionId = state.analysis?.sessionId ?? ''
-  const className = state.analysis?.classes[0]?.name ?? ''
-  const branchName = `migrate/${className.toLowerCase().replace(/\s+/g, '-')}`
+  const totalClasses = state.analysis?.suggestedMigrationOrder?.length ?? 1
+  const branchName =
+    totalClasses > 1
+      ? `migrate/${state.analysis?.classes[0]?.name?.toLowerCase().replace(/\s+/g, '-') ?? 'batch'}-batch`
+      : `migrate/${(state.analysis?.suggestedMigrationOrder[0] ?? state.analysis?.classes[0]?.name ?? '').toLowerCase().replace(/\s+/g, '-')}`
 
-  useEffect(() => {
-    if (state.prResult) {
-      onReady()
-      return
-    }
+  const doRaisePR = () => {
+    setShowConfirm(false)
+    setLoading(true)
     raisePR(sessionId, 'gregochr', 'vbgone-output', branchName)
       .then((result) => {
         update({ prResult: result })
@@ -63,7 +67,86 @@ function Step6PRSingle({
         setLoading(false)
         setError(err instanceof Error ? err.message : 'PR creation failed')
       })
+  }
+
+  useEffect(() => {
+    if (state.prResult) {
+      onReady()
+      return
+    }
+    // Always show confirm dialog — never auto-fire PR
+    setShowConfirm(true)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (showConfirm) {
+    return (
+      <div>
+        <h2 className="step-title">Raise Pull Request</h2>
+        <p className="step-subtitle">
+          {isMultiClass
+            ? `All ${totalClasses} classes migrated successfully. Review the summary below and raise a PR when ready.`
+            : 'Migration complete. Review and raise a PR when ready.'}
+        </p>
+
+        {isMultiClass && state.completedClasses.length > 0 && (
+          <div className="info-card" style={{ marginBottom: 16 }}>
+            <h4 style={{ marginBottom: 12 }}>Completed Classes</h4>
+            {state.completedClasses.map((cls) => (
+              <div
+                key={cls.className}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 0',
+                  color: 'var(--grey)',
+                  fontSize: '0.9rem',
+                }}
+              >
+                <span style={{ color: 'var(--green)' }}>{'\u2713'}</span>
+                <strong style={{ color: 'var(--text)' }}>{cls.className}</strong>
+                <span>
+                  — {cls.interfaceResult.interfaceName}, {cls.tests.testCount} tests, implementation
+                  complete
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <ConfirmDialog onConfirm={doRaisePR} onCancel={() => setShowConfirm(false)}>
+          <p>
+            This will commit {totalClasses} {totalClasses === 1 ? 'interface' : 'interfaces'},{' '}
+            {totalClasses} {totalClasses === 1 ? 'implementation' : 'implementations'}, and{' '}
+            {totalClasses} test {totalClasses === 1 ? 'suite' : 'suites'} to a new branch and raise
+            a Pull Request against vbgone-output.
+          </p>
+          <p>
+            Branch: <code>{branchName}</code>
+          </p>
+          <p>
+            {'\uD83D\uDD12'} No Claude API call — this is pure GitHub API.
+          </p>
+          <p>Proceed?</p>
+        </ConfirmDialog>
+      </div>
+    )
+  }
+
+  // Cancelled state — confirm dismissed but PR hasn't been raised
+  if (!loading && !error && !state.prResult) {
+    return (
+      <div>
+        <h2 className="step-title">Raise Pull Request</h2>
+        <p className="step-subtitle">
+          Ready to raise a Pull Request{isMultiClass ? ' with all migrated classes' : ''}.
+        </p>
+        <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+          Raise Pull Request
+        </button>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -92,7 +175,10 @@ function Step6PRSingle({
   return (
     <div>
       <h2 className="step-title">Pull Request Raised</h2>
-      <p className="step-subtitle">Migration complete! Your PR is ready for review.</p>
+      <p className="step-subtitle">
+        Migration complete! {totalClasses > 1 ? `All ${totalClasses} classes committed.` : ''} Your
+        PR is ready for review.
+      </p>
 
       <button className="btn-pr-success" disabled>
         {'\u2713'} PR Raised

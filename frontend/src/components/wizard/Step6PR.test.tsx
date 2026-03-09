@@ -20,6 +20,8 @@ const baseState: WizardState = {
     suggestedMigrationOrder: ['Foo'],
     summary: 'Test',
   },
+  currentClassIndex: 0,
+  completedClasses: [],
   interfaceResult: null,
   tests: null,
   stubResult: null,
@@ -63,16 +65,27 @@ describe('Step6PR — single file mode', () => {
     expect(screen.getByText('Foo.Tests/FooTests.cs')).toBeInTheDocument()
   })
 
-  it('shows loading state while API call is in progress', () => {
+  it('shows confirm dialog before raising PR', () => {
+    render(<Step6PR state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('Raise Pull Request')).toBeInTheDocument()
+    expect(screen.getByText('Continue')).toBeInTheDocument()
+    expect(api.raisePR).not.toHaveBeenCalled()
+  })
+
+  it('shows loading state after confirming', async () => {
+    const user = userEvent.setup()
     vi.mocked(api.raisePR).mockReturnValue(new Promise(() => {}))
     render(<Step6PR state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Continue'))
     expect(screen.getByText('Raising Pull Request')).toBeInTheDocument()
     expect(screen.getByText(/Committing files and raising PR/)).toBeInTheDocument()
   })
 
   it('shows error state if API call fails', async () => {
+    const user = userEvent.setup()
     vi.mocked(api.raisePR).mockRejectedValue(new Error('Auth failed'))
     render(<Step6PR state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(screen.getByText('Pull Request Failed')).toBeInTheDocument()
       expect(screen.getByText('Auth failed')).toBeInTheDocument()
@@ -80,14 +93,146 @@ describe('Step6PR — single file mode', () => {
   })
 
   it('calls update and onReady after successful API call', async () => {
+    const user = userEvent.setup()
     vi.mocked(api.raisePR).mockResolvedValue(mockPR)
     const update = vi.fn()
     const onReady = vi.fn()
     render(<Step6PR state={baseState} update={update} onReady={onReady} />)
+    await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(update).toHaveBeenCalledWith({ prResult: mockPR })
       expect(onReady).toHaveBeenCalled()
     })
+  })
+})
+
+const multiClassState: WizardState = {
+  ...baseState,
+  analysis: {
+    sessionId: 'session-1',
+    classes: [
+      { name: 'Alpha', methods: ['DoA'], dependencies: [], complexity: 'LOW' },
+      { name: 'Beta', methods: ['DoB'], dependencies: ['Alpha'], complexity: 'MEDIUM' },
+    ],
+    suggestedMigrationOrder: ['Alpha', 'Beta'],
+    summary: 'Two classes',
+  },
+  currentClassIndex: 1,
+  completedClasses: [
+    {
+      className: 'Alpha',
+      interfaceResult: {
+        sessionId: 'session-1',
+        className: 'Alpha',
+        interfaceName: 'IAlpha',
+        code: 'public interface IAlpha {}',
+      },
+      tests: {
+        sessionId: 'session-1',
+        className: 'Alpha',
+        testClassName: 'AlphaTests',
+        code: '[TestFixture] public class AlphaTests {}',
+        testCount: 8,
+      },
+      stubResult: { sessionId: 'session-1', className: 'Alpha', code: 'stub' },
+      implementResult: {
+        sessionId: 'session-1',
+        className: 'Alpha',
+        code: 'public class Alpha : IAlpha {}',
+        mode: 'CLAUDE',
+      },
+    },
+    {
+      className: 'Beta',
+      interfaceResult: {
+        sessionId: 'session-1',
+        className: 'Beta',
+        interfaceName: 'IBeta',
+        code: 'public interface IBeta {}',
+      },
+      tests: {
+        sessionId: 'session-1',
+        className: 'Beta',
+        testClassName: 'BetaTests',
+        code: '[TestFixture] public class BetaTests {}',
+        testCount: 5,
+      },
+      stubResult: { sessionId: 'session-1', className: 'Beta', code: 'stub' },
+      implementResult: {
+        sessionId: 'session-1',
+        className: 'Beta',
+        code: 'public class Beta : IBeta {}',
+        mode: 'CLAUDE',
+      },
+    },
+  ],
+}
+
+describe('Step6PR — multi-class mode', () => {
+  beforeEach(() => {
+    vi.mocked(api.raisePR).mockClear()
+  })
+
+  it('shows confirm dialog with completed classes summary', () => {
+    render(<Step6PR state={multiClassState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('Raise Pull Request')).toBeInTheDocument()
+    expect(screen.getByText(/All 2 classes migrated successfully/)).toBeInTheDocument()
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+    expect(screen.getByText('Beta')).toBeInTheDocument()
+    expect(screen.getByText(/IAlpha/)).toBeInTheDocument()
+    expect(screen.getByText(/IBeta/)).toBeInTheDocument()
+  })
+
+  it('does NOT auto-fire raisePR before confirm', () => {
+    render(<Step6PR state={multiClassState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(api.raisePR).not.toHaveBeenCalled()
+  })
+
+  it('raises PR after clicking Continue on confirm dialog', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.raisePR).mockResolvedValue(mockPR)
+    const update = vi.fn()
+    const onReady = vi.fn()
+    render(<Step6PR state={multiClassState} update={update} onReady={onReady} />)
+    await user.click(screen.getByText('Continue'))
+    await waitFor(() => {
+      expect(api.raisePR).toHaveBeenCalled()
+      expect(update).toHaveBeenCalledWith({ prResult: mockPR })
+      expect(onReady).toHaveBeenCalled()
+    })
+  })
+
+  it('shows retry button after cancelling confirm dialog', async () => {
+    const user = userEvent.setup()
+    render(<Step6PR state={multiClassState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Cancel'))
+    expect(screen.getByRole('button', { name: 'Raise Pull Request' })).toBeInTheDocument()
+  })
+
+  it('re-shows confirm dialog after clicking retry button', async () => {
+    const user = userEvent.setup()
+    render(<Step6PR state={multiClassState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Cancel'))
+    await user.click(screen.getByRole('button', { name: 'Raise Pull Request' }))
+    await waitFor(() => {
+      expect(screen.getByText(/All 2 classes migrated successfully/)).toBeInTheDocument()
+      expect(screen.getByText('Continue')).toBeInTheDocument()
+    })
+  })
+
+  it('shows loading state after confirming', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.raisePR).mockReturnValue(new Promise(() => {}))
+    render(<Step6PR state={multiClassState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Continue'))
+    expect(screen.getByText('Raising Pull Request')).toBeInTheDocument()
+  })
+
+  it('shows "All N classes committed" in success message', async () => {
+    vi.mocked(api.raisePR).mockResolvedValue(mockPR)
+    const doneState = { ...multiClassState, prResult: mockPR }
+    render(<Step6PR state={doneState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText(/All 2 classes committed/)).toBeInTheDocument()
   })
 })
 

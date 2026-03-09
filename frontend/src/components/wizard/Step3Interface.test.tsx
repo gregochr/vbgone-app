@@ -19,6 +19,8 @@ const baseState: WizardState = {
     suggestedMigrationOrder: ['Foo'],
     summary: 'Test',
   },
+  currentClassIndex: 0,
+  completedClasses: [],
   interfaceResult: null,
   tests: null,
   stubResult: null,
@@ -133,5 +135,64 @@ describe('Step3Interface', () => {
     const stateWithIface = { ...baseState, interfaceResult: mockInterface }
     render(<Step3Interface state={stateWithIface} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.queryByTestId('god-class-warning')).not.toBeInTheDocument()
+  })
+
+  it('shows retry button after cancelling confirm dialog', async () => {
+    const user = userEvent.setup()
+    render(<Step3Interface state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('Continue')).toBeInTheDocument()
+    await user.click(screen.getByText('Cancel'))
+    expect(screen.getByText('Generate Interface')).toBeInTheDocument()
+  })
+
+  it('re-shows confirm dialog after clicking retry button', async () => {
+    const user = userEvent.setup()
+    render(<Step3Interface state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Cancel'))
+    await user.click(screen.getByText('Generate Interface'))
+    expect(screen.getByText('Continue')).toBeInTheDocument()
+    expect(screen.getAllByText(/claude-haiku-4-5/).length).toBeGreaterThan(0)
+  })
+
+  it('uses currentClassIndex for class name in multi-class mode', () => {
+    const multiClassState: WizardState = {
+      ...baseState,
+      analysis: {
+        sessionId: 'session-1',
+        classes: [
+          { name: 'Foo', methods: ['Bar'], dependencies: [], complexity: 'LOW' },
+          { name: 'Baz', methods: ['Qux'], dependencies: ['Foo'], complexity: 'MEDIUM' },
+        ],
+        suggestedMigrationOrder: ['Foo', 'Baz'],
+        summary: 'Two classes',
+      },
+      currentClassIndex: 1,
+      interfaceResult: {
+        sessionId: 'session-1',
+        className: 'Baz',
+        interfaceName: 'IBaz',
+        code: 'public interface IBaz { int Qux(); }',
+      },
+    }
+    render(<Step3Interface state={multiClassState} update={vi.fn()} onReady={vi.fn()} />)
+    expect(screen.getByText('IBaz')).toBeInTheDocument()
+    expect(screen.getByText(/Generated C# interface for Baz/)).toBeInTheDocument()
+  })
+
+  it('Strangler Fig pattern links to Martin Fowler', () => {
+    const highState: WizardState = {
+      ...baseState,
+      analysis: {
+        ...baseState.analysis!,
+        classes: [{ ...baseState.analysis!.classes[0], complexity: 'HIGH' }],
+      },
+      interfaceResult: mockInterface,
+    }
+    render(<Step3Interface state={highState} update={vi.fn()} onReady={vi.fn()} />)
+    const link = screen.getByRole('link', { name: /Strangler Fig pattern/ })
+    expect(link).toHaveAttribute(
+      'href',
+      'https://martinfowler.com/bliki/StranglerFigApplication.html',
+    )
   })
 })

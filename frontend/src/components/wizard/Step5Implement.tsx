@@ -17,10 +17,15 @@ export function Step5Implement({ state, update, onReady }: Props) {
   const [loading, setLoading] = useState(false)
   const [phase, setPhase] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [pendingMode, setPendingMode] = useState<'STUB' | 'CLAUDE' | null>(null)
+  const [pendingMode, setPendingMode] = useState<'STUB' | 'CLAUDE' | null>(
+    state.greenBuild && state.implementResult ? null : 'CLAUDE',
+  )
   const [attempts, setAttempts] = useState(1)
 
-  const className = state.analysis?.classes[0]?.name ?? ''
+  const className =
+    state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
+    state.analysis?.classes[0]?.name ??
+    ''
   const sessionId = state.analysis?.sessionId ?? ''
 
   useEffect(() => {
@@ -44,7 +49,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
       const implResult = await implement(sessionId, className, chosen)
       update({ implementResult: implResult })
 
-      setPhase('Running dotnet test...')
+      setPhase('Running .NET test...')
       const buildResult = await buildAfterImplement(sessionId, chosen)
       update({ greenBuild: buildResult })
 
@@ -69,7 +74,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
       const implResult = await retryImplement(sessionId, className, failingTests)
       update({ implementResult: implResult })
 
-      setPhase('Running dotnet test...')
+      setPhase('Running .NET test...')
       const buildResult = await build(sessionId)
       update({ greenBuild: buildResult })
 
@@ -171,7 +176,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
                 matching, and nullable reference types where appropriate.
               </p>
               <p>
-                After the implementation is generated, dotnet test runs automatically. All tests
+                After the implementation is generated, .NET test runs automatically. All tests
                 should pass — if any fail, the implementation will need review.
               </p>
             </>

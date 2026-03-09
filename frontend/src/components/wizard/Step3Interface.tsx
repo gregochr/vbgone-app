@@ -15,8 +15,12 @@ export function Step3Interface({ state, update, onReady }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
 
-  const className = state.analysis?.classes[0]?.name ?? ''
+  const className =
+    state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
+    state.analysis?.classes[0]?.name ??
+    ''
   const sessionId = state.analysis?.sessionId ?? ''
+  const currentClassInfo = state.analysis?.classes.find((c) => c.name === className)
 
   useEffect(() => {
     if (state.interfaceResult) {
@@ -91,7 +95,17 @@ export function Step3Interface({ state, update, onReady }: Props) {
   }
 
   const iface = state.interfaceResult
-  if (!iface) return null
+  if (!iface) {
+    return (
+      <div>
+        <h2 className="step-title">Generating C# Interface</h2>
+        <p className="step-subtitle">Ready to generate the C# interface for {className}.</p>
+        <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+          Generate Interface
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -104,8 +118,7 @@ export function Step3Interface({ state, update, onReady }: Props) {
         editable
         onEdit={(edited) => update({ interfaceResult: { ...iface, code: edited } })}
       />
-      {(state.analysis?.classes[0]?.complexity === 'HIGH' ||
-        state.analysis?.classes[0]?.codeQuality === 'POOR') && (
+      {(currentClassInfo?.complexity === 'HIGH' || currentClassInfo?.codeQuality === 'POOR') && (
         <div className="callout-warning" data-testid="god-class-warning">
           <strong>{'\u26A0\uFE0F'} Complex class detected</strong>
           <p>
@@ -115,8 +128,15 @@ export function Step3Interface({ state, update, onReady }: Props) {
           </p>
           <p>
             The generated tests verify the business logic contract only. This is intentional —
-            the Strangler Fig pattern replaces the legacy class incrementally, one tested
-            interface at a time.
+            the{' '}
+            <a
+              href="https://martinfowler.com/bliki/StranglerFigApplication.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Strangler Fig pattern
+            </a>{' '}
+            replaces the legacy class incrementally, one tested interface at a time.
           </p>
         </div>
       )}

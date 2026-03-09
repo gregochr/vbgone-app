@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import './WizardShell.css'
 import { Step1Upload } from './Step1Upload'
 import { Step2Analysis } from './Step2Analysis'
@@ -74,7 +74,17 @@ const STEPS: { label: string; tip: React.ReactNode }[] = [
     tip: (
       <>
         <p>
-          A C# interface is the cornerstone of the <strong>Strangler Fig migration pattern</strong>.
+          A C# interface is the cornerstone of the{' '}
+          <strong>
+            <a
+              href="https://martinfowler.com/bliki/StranglerFigApplication.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Strangler Fig migration pattern
+            </a>
+          </strong>
+          .
           By defining the contract first — the method signatures, parameter types, and return types
           — VBGone creates a seam between the legacy VB.NET system and its modern C# replacement.
         </p>
@@ -113,7 +123,7 @@ const STEPS: { label: string; tip: React.ReactNode }[] = [
         <p>
           <strong>Claude Haiku</strong> then generates a stub implementation: a class that satisfies
           the interface but throws <strong>NotImplementedException</strong> for every method.{' '}
-          <strong>dotnet test</strong> is run immediately. Every test will fail.{' '}
+          <strong>.NET test</strong> is run immediately. Every test will fail.{' '}
           <strong>This is intentional — and it is a good sign.</strong>
         </p>
         <p>
@@ -134,7 +144,7 @@ const STEPS: { label: string; tip: React.ReactNode }[] = [
           <strong>You have two paths.</strong> The <strong>Claude path</strong> asks Claude Sonnet
           to generate a full C# implementation based on the VB.NET behaviour. It writes idiomatic
           modern C# — expression-bodied members, pattern matching, nullable reference types where
-          appropriate. <strong>dotnet test</strong> runs immediately and all tests should pass
+          appropriate. <strong>.NET test</strong> runs immediately and all tests should pass
           green. This is fast, useful for straightforward classes, and gives you a solid starting
           point even if you intend to refine the implementation afterwards.
         </p>
@@ -186,10 +196,20 @@ const STEPS: { label: string; tip: React.ReactNode }[] = [
   },
 ]
 
+export interface CompletedClass {
+  className: string
+  interfaceResult: InterfaceResult
+  tests: TestsResult
+  stubResult: StubResult
+  implementResult: ImplementResult
+}
+
 export interface WizardState {
   filename: string
   content: string
   analysis: AnalysisResult | null
+  currentClassIndex: number
+  completedClasses: CompletedClass[]
   interfaceResult: InterfaceResult | null
   tests: TestsResult | null
   stubResult: StubResult | null
@@ -203,6 +223,8 @@ const initialState: WizardState = {
   filename: '',
   content: '',
   analysis: null,
+  currentClassIndex: 0,
+  completedClasses: [],
   interfaceResult: null,
   tests: null,
   stubResult: null,
@@ -255,6 +277,8 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     if (projectMode) {
       return {
         ...initialState,
+        currentClassIndex: 0,
+        completedClasses: [],
         filename: `${projectMode.className}.vb`,
         content: '',
         analysis: {
@@ -308,9 +332,46 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     }
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const minStep = projectMode ? 2 : 0
+  const totalClasses = state.analysis?.suggestedMigrationOrder?.length ?? 1
+  const isMultiClass = !projectMode && totalClasses > 1
+  const minStep = projectMode ? 2 : state.currentClassIndex > 0 ? 2 : 0
 
   const next = () => {
+    // After Step 5 (index 4) in multi-class: save and advance or finish
+    if (step === 4 && isMultiClass) {
+      const completed: CompletedClass = {
+        className: state.analysis!.suggestedMigrationOrder[state.currentClassIndex],
+        interfaceResult: state.interfaceResult!,
+        tests: state.tests!,
+        stubResult: state.stubResult!,
+        implementResult: state.implementResult!,
+      }
+
+      if (state.currentClassIndex < totalClasses - 1) {
+        // More classes — save, reset per-class state, back to Interface
+        setState((prev) => ({
+          ...prev,
+          currentClassIndex: prev.currentClassIndex + 1,
+          completedClasses: [...prev.completedClasses, completed],
+          interfaceResult: null,
+          tests: null,
+          stubResult: null,
+          redBuild: null,
+          implementResult: null,
+          greenBuild: null,
+        }))
+        setStepReady(false)
+        setStep(2) // Back to Interface (Step 3)
+        return
+      } else {
+        // Last class — save before proceeding to PR
+        setState((prev) => ({
+          ...prev,
+          completedClasses: [...prev.completedClasses, completed],
+        }))
+      }
+    }
+
     setStepReady(false)
     setStep((s) => Math.min(s + 1, 5))
   }
@@ -324,6 +385,41 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     refreshCost()
   }
 
+  // Loop-back arc measurement for multi-class stepper
+  const navRef = useRef<HTMLElement>(null)
+  const [arcPath, setArcPath] = useState<{ d: string; width: number; height: number; left: number } | null>(null)
+  const allClassesDone = state.completedClasses.length >= totalClasses
+  const iterationStarted = step > 2 || state.completedClasses.length > 0
+  const arcColour = allClassesDone ? 'var(--green)' : iterationStarted ? 'var(--amber)' : 'var(--grey)'
+  const arcColourName = allClassesDone ? 'green' : iterationStarted ? 'amber' : 'grey'
+
+  useLayoutEffect(() => {
+    if (!isMultiClass || !navRef.current) {
+      setArcPath(null)
+      return
+    }
+    const nav = navRef.current
+    const interfaceBox = nav.querySelector('[data-step-index="2"]') as HTMLElement | null
+    const implementBox = nav.querySelector('[data-step-index="4"]') as HTMLElement | null
+    if (!interfaceBox || !implementBox) return
+
+    const navRect = nav.getBoundingClientRect()
+    const iRect = interfaceBox.getBoundingClientRect()
+    const eRect = implementBox.getBoundingClientRect()
+
+    const left = iRect.left - navRect.left + iRect.width / 2
+    const right = eRect.left - navRect.left + eRect.width / 2
+    const width = right - left
+    const arcHeight = 22
+    const totalHeight = arcHeight + 8
+
+    // Curved path from right (Implement) down and back to left (Interface)
+    const d = `M ${width} 0 C ${width} ${arcHeight}, 0 ${arcHeight}, 0 0`
+
+    setArcPath({ d, width, height: totalHeight, left })
+  }, [isMultiClass, step, state.currentClassIndex])
+
+  const classKey = state.currentClassIndex
   const steps = [
     <Step1Upload
       key={0}
@@ -333,26 +429,28 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
       onProjectAnalysed={onProjectAnalysed}
     />,
     <Step2Analysis key={1} state={state} update={update} onReady={onReady} />,
-    <Step3Interface key={2} state={state} update={update} onReady={onReady} />,
-    <Step4Tests key={3} state={state} update={update} onReady={onReady} />,
-    <Step5Implement key={4} state={state} update={update} onReady={onReady} />,
+    <Step3Interface key={`2-${classKey}`} state={state} update={update} onReady={onReady} />,
+    <Step4Tests key={`3-${classKey}`} state={state} update={update} onReady={onReady} />,
+    <Step5Implement key={`4-${classKey}`} state={state} update={update} onReady={onReady} />,
     <Step6PR key={5} state={state} update={update} onReady={onReady} projectMode={projectMode} />,
   ]
 
   return (
     <div className="wizard">
-      <nav className="wizard-steps">
-        {STEPS.map(({ label, tip }, i) => (
-          <div className="wizard-step-item" key={label}>
+      <nav className={`wizard-steps${isMultiClass && arcPath ? ' has-loop-arc' : ''}`} ref={navRef} style={{ position: 'relative' }}>
+        {STEPS.map(({ label, tip }, i) => {
+          const isCompleted = i < step || (i === 5 && !!state.prResult)
+          return (
+          <div className="wizard-step-item" key={label} data-step-index={i}>
             <div
-              className={`wizard-step-box ${i === step ? 'active' : i < step ? 'completed' : ''}`}
+              className={`wizard-step-box ${isCompleted ? 'completed' : i === step ? 'active' : ''}`}
             >
               <div
-                className={`wizard-step-dot ${i === step ? 'active' : i < step ? 'completed' : ''}`}
+                className={`wizard-step-dot ${isCompleted ? 'completed' : i === step ? 'active' : ''}`}
               >
-                {i < step ? '\u2713' : i + 1}
+                {isCompleted ? '\u2713' : i + 1}
               </div>
-              <span className={`wizard-step-label ${i === step ? 'active' : ''}`}>{label}</span>
+              <span className={`wizard-step-label ${isCompleted || i === step ? 'active' : ''}`}>{label}</span>
               <span className="step-infotip">
                 <InfoTip>{tip}</InfoTip>
               </span>
@@ -361,7 +459,8 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
               <div className={`wizard-step-connector ${i < step ? 'completed' : ''}`} />
             )}
           </div>
-        ))}
+          )
+        })}
         {totalCost > 0 && (
           <span
             className="cost-display"
@@ -370,6 +469,45 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
           >
             Est. cost: ${totalCost.toFixed(4)} (~ £{(totalCost * USD_TO_GBP).toFixed(4)})
           </span>
+        )}
+        {isMultiClass && arcPath && (
+          <svg
+            className="loop-back-arc"
+            data-testid="loop-back-arc"
+            data-arc-colour={arcColourName}
+            width={arcPath.width + 12}
+            height={arcPath.height}
+            style={{
+              position: 'absolute',
+              left: arcPath.left - 6,
+              bottom: 0,
+              pointerEvents: 'none',
+              overflow: 'visible',
+            }}
+          >
+            <defs>
+              <marker
+                id="loop-arrow"
+                viewBox="0 0 10 10"
+                refX="1"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 z" fill={arcColour} />
+              </marker>
+            </defs>
+            <path
+              d={arcPath.d}
+              fill="none"
+              stroke={arcColour}
+              strokeWidth="2"
+              strokeDasharray="6 3"
+              markerEnd="url(#loop-arrow)"
+              transform="translate(6, 2)"
+            />
+          </svg>
         )}
       </nav>
 
@@ -381,6 +519,20 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
           <span className="project-banner-text">
             Migrating class {projectMode.classIndex} of {projectMode.totalClasses} —{' '}
             <strong>{projectMode.className}</strong>
+          </span>
+        </div>
+      )}
+
+      {isMultiClass && step >= 2 && step <= 4 && (
+        <div className="project-banner" data-testid="class-progress-banner">
+          <span className="project-banner-text">
+            Migrating class {state.currentClassIndex + 1} of {totalClasses} —{' '}
+            <strong>{state.analysis!.suggestedMigrationOrder[state.currentClassIndex]}</strong>
+            {state.completedClasses.length > 0 && (
+              <span style={{ marginLeft: 12, fontSize: '0.8rem' }}>
+                ({state.completedClasses.length} completed)
+              </span>
+            )}
           </span>
         </div>
       )}
@@ -410,10 +562,14 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
             title={
               step === 4 && state.greenBuild && state.greenBuild.buildStatus !== 'GREEN'
                 ? 'Fix failing tests before raising a PR'
-                : NEXT_TITLES[step]
+                : step === 4 && isMultiClass && state.currentClassIndex < totalClasses - 1
+                  ? `Next class: ${state.analysis!.suggestedMigrationOrder[state.currentClassIndex + 1]}`
+                  : NEXT_TITLES[step]
             }
           >
-            Next
+            {step === 4 && isMultiClass && state.currentClassIndex < totalClasses - 1
+              ? 'Next Class'
+              : 'Next'}
           </button>
         )}
       </div>

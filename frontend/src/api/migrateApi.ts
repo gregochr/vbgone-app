@@ -149,11 +149,92 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /* ── Mock API calls ── */
 
+// Track state across mock calls so build/PR can return consistent data
+let lastMockTestCount = 30
+const mockMigratedClasses: string[] = []
+
 const mockApi = {
   async analyse(filename: string, content: string): Promise<AnalysisResult> {
-    void filename
     void content
     await delay(1200)
+
+    // Complex demo — return multi-class God class decomposition
+    if (filename === DEMO_COMPLEX_FILENAME) {
+      return {
+        sessionId: MOCK_SESSION_ID,
+        classes: [
+          {
+            name: 'OrderCalculationService',
+            methods: ['CalculateDiscount', 'CalculateShipping', 'CalculateTotal'],
+            dependencies: [],
+            complexity: 'MEDIUM',
+            codeQuality: 'FAIR' as const,
+            codeSmells: ['Magic numbers — hardcoded tax rates, discount thresholds, shipping costs'],
+            refactoringSuggestions: [
+              'Extract discount thresholds and shipping tiers into configuration constants',
+            ],
+            vbAntiPatterns: ['Deep nesting — 5 levels of nested If statements'],
+          },
+          {
+            name: 'OrderValidator',
+            methods: ['ValidateOrder', 'GetDiscountTier'],
+            dependencies: [],
+            complexity: 'LOW',
+            codeQuality: 'FAIR' as const,
+            codeSmells: ['GoTo statements used for flow control'],
+            refactoringSuggestions: ['Replace GoTo with early returns or switch expression'],
+            vbAntiPatterns: ['GoTo statements'],
+          },
+          {
+            name: 'RefundService',
+            methods: ['ProcessRefund'],
+            dependencies: ['OrderCalculationService'],
+            complexity: 'HIGH',
+            codeQuality: 'POOR' as const,
+            codeSmells: [
+              'Mixed concerns — business logic, database access, email sending, file I/O',
+              'SQL injection — string concatenation for SQL queries',
+              'On Error Resume Next — silently swallows all exceptions',
+            ],
+            refactoringSuggestions: [
+              'Accept IOrderRepository and INotificationService via constructor injection',
+              'Remove MsgBox calls — return result object instead',
+            ],
+            vbAntiPatterns: ['On Error Resume Next', 'SQL injection via string concatenation'],
+          },
+          {
+            name: 'OrderProcessor',
+            methods: ['SubmitOrder'],
+            dependencies: ['OrderCalculationService', 'OrderValidator', 'RefundService'],
+            complexity: 'HIGH',
+            codeQuality: 'POOR' as const,
+            codeSmells: [
+              'God class — too many responsibilities in a single file',
+              'Copy-paste duplication — discount and shipping logic duplicated',
+              'Hardcoded connection strings and file paths',
+            ],
+            refactoringSuggestions: [
+              'Orchestration only — delegate to extracted services',
+              'Accept dependencies via constructor injection',
+            ],
+            vbAntiPatterns: [
+              'On Error Resume Next',
+              'SQL injection via string concatenation',
+              'MsgBox for user feedback in business logic',
+            ],
+          },
+        ],
+        suggestedMigrationOrder: [
+          'OrderCalculationService',
+          'OrderValidator',
+          'RefundService',
+          'OrderProcessor',
+        ],
+        summary:
+          'God class decomposed into 4 classes. OrderCalculationService and OrderValidator are leaf nodes with no dependencies. RefundService depends on OrderCalculationService. OrderProcessor orchestrates all three. Recommended migration order starts with the two independent services.',
+      }
+    }
+
     return {
       sessionId: MOCK_SESSION_ID,
       classes: [
@@ -184,31 +265,368 @@ const mockApi = {
   async generateInterface(sessionId: string, className: string): Promise<InterfaceResult> {
     void sessionId
     await delay(800)
+    if (!mockMigratedClasses.includes(className)) {
+      mockMigratedClasses.push(className)
+    }
+
+    const interfaceCode: Record<string, string> = {
+      OrderCalculationService: `namespace VBGone.Generated;
+
+public interface IOrderCalculationService
+{
+    double CalculateDiscount(double unitPrice, int quantity);
+    double CalculateShipping(int quantity);
+    double CalculateTotal(double unitPrice, int quantity);
+}`,
+      OrderValidator: `namespace VBGone.Generated;
+
+public interface IOrderValidator
+{
+    string ValidateOrder(string name, string amount, string quantity);
+    string GetDiscountTier(double subtotal);
+}`,
+      RefundService: `namespace VBGone.Generated;
+
+public interface IRefundService
+{
+    bool ProcessRefund(int orderId, string reason);
+}`,
+      OrderProcessor: `namespace VBGone.Generated;
+
+public interface IOrderProcessor
+{
+    void SubmitOrder(string customerName, double unitPrice, int quantity);
+}`,
+    }
+
     return {
       sessionId: MOCK_SESSION_ID,
       className,
       interfaceName: `I${className}`,
-      code: `namespace VBGone.Generated;
-
-public interface I${className}
-{
-    int Add(int a, int b);
-    int Subtract(int a, int b);
-    int Multiply(int a, int b);
-    double Divide(int a, int b);
-    int Modulus(int a, int b);
-}`,
+      code:
+        interfaceCode[className] ??
+        `namespace VBGone.Generated;\n\npublic interface I${className}\n{\n    int Add(int a, int b);\n    int Subtract(int a, int b);\n    int Multiply(int a, int b);\n    double Divide(int a, int b);\n    int Modulus(int a, int b);\n}`,
     }
   },
 
   async generateTests(sessionId: string, className: string): Promise<TestsResult> {
     void sessionId
     await delay(1000)
-    return {
-      sessionId: MOCK_SESSION_ID,
-      className,
-      testClassName: `${className}Tests`,
-      code: `using NUnit.Framework;
+
+    const testCode: Record<string, { code: string; count: number }> = {
+      OrderCalculationService: {
+        count: 18,
+        code: `using NUnit.Framework;
+
+namespace VBGone.Generated.Tests;
+
+[TestFixture]
+public class OrderCalculationServiceTests
+{
+    private IOrderCalculationService _sut;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _sut = new OrderCalculationService();
+    }
+
+    // ── CalculateDiscount ──
+
+    [TestCase(10.0, 5, ExpectedResult = 0.0)]
+    [TestCase(20.0, 6, ExpectedResult = 0.10)]
+    [TestCase(50.0, 11, ExpectedResult = 0.15)]
+    [TestCase(100.0, 11, ExpectedResult = 0.20)]
+    public double CalculateDiscount_ReturnsCorrectTier(double unitPrice, int quantity)
+    {
+        return _sut.CalculateDiscount(unitPrice, quantity);
+    }
+
+    [Test]
+    public void CalculateDiscount_BoundaryAt100_ReturnsZero()
+    {
+        Assert.That(_sut.CalculateDiscount(10.0, 10), Is.EqualTo(0.0));
+    }
+
+    [Test]
+    public void CalculateDiscount_JustOver100_ReturnsTier1()
+    {
+        Assert.That(_sut.CalculateDiscount(10.1, 10), Is.EqualTo(0.10));
+    }
+
+    [Test]
+    public void CalculateDiscount_ZeroQuantity_ReturnsZero()
+    {
+        Assert.That(_sut.CalculateDiscount(50.0, 0), Is.EqualTo(0.0));
+    }
+
+    [Test]
+    public void CalculateDiscount_NegativePrice_ReturnsZero()
+    {
+        Assert.That(_sut.CalculateDiscount(-10.0, 5), Is.EqualTo(0.0));
+    }
+
+    // ── CalculateShipping ──
+
+    [TestCase(1, ExpectedResult = 5.99)]
+    [TestCase(5, ExpectedResult = 5.99)]
+    [TestCase(6, ExpectedResult = 9.99)]
+    [TestCase(20, ExpectedResult = 9.99)]
+    [TestCase(21, ExpectedResult = 14.99)]
+    [TestCase(100, ExpectedResult = 14.99)]
+    public double CalculateShipping_ReturnsCorrectTier(int quantity)
+    {
+        return _sut.CalculateShipping(quantity);
+    }
+
+    [Test]
+    public void CalculateShipping_ZeroQuantity_ReturnsZero()
+    {
+        Assert.That(_sut.CalculateShipping(0), Is.EqualTo(0.0));
+    }
+
+    // ── CalculateTotal ──
+
+    [Test]
+    public void CalculateTotal_SmallOrder_IncludesTaxAndShipping()
+    {
+        var total = _sut.CalculateTotal(10.0, 2);
+        Assert.That(total, Is.GreaterThan(20.0));
+    }
+
+    [Test]
+    public void CalculateTotal_LargeOrder_AppliesDiscount()
+    {
+        var noDiscount = _sut.CalculateTotal(10.0, 5);
+        var withDiscount = _sut.CalculateTotal(20.0, 6);
+        Assert.That(withDiscount, Is.LessThan(20.0 * 6 * 1.1));
+    }
+
+    [Test]
+    public void CalculateTotal_ZeroQuantity_ReturnsZero()
+    {
+        Assert.That(_sut.CalculateTotal(10.0, 0), Is.EqualTo(0.0));
+    }
+}`,
+      },
+      OrderValidator: {
+        count: 12,
+        code: `using NUnit.Framework;
+
+namespace VBGone.Generated.Tests;
+
+[TestFixture]
+public class OrderValidatorTests
+{
+    private IOrderValidator _sut;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _sut = new OrderValidator();
+    }
+
+    // ── ValidateOrder ──
+
+    [Test]
+    public void ValidateOrder_AllValid_ReturnsEmptyString()
+    {
+        Assert.That(_sut.ValidateOrder("Alice", "19.99", "3"), Is.EqualTo(""));
+    }
+
+    [Test]
+    public void ValidateOrder_EmptyName_ReturnsNameRequired()
+    {
+        Assert.That(_sut.ValidateOrder("", "10", "1"), Does.Contain("Name required"));
+    }
+
+    [Test]
+    public void ValidateOrder_NonNumericAmount_ReturnsAmountError()
+    {
+        Assert.That(_sut.ValidateOrder("Alice", "abc", "1"), Does.Contain("Amount must be numeric"));
+    }
+
+    [Test]
+    public void ValidateOrder_NegativeAmount_ReturnsPositiveError()
+    {
+        Assert.That(_sut.ValidateOrder("Alice", "-5", "1"), Does.Contain("Amount must be positive"));
+    }
+
+    [Test]
+    public void ValidateOrder_ZeroAmount_ReturnsPositiveError()
+    {
+        Assert.That(_sut.ValidateOrder("Alice", "0", "1"), Does.Contain("Amount must be positive"));
+    }
+
+    [Test]
+    public void ValidateOrder_NonNumericQuantity_ReturnsQuantityError()
+    {
+        Assert.That(_sut.ValidateOrder("Alice", "10", "xyz"), Does.Contain("Quantity must be numeric"));
+    }
+
+    [Test]
+    public void ValidateOrder_ZeroQuantity_ReturnsPositiveError()
+    {
+        Assert.That(_sut.ValidateOrder("Alice", "10", "0"), Does.Contain("Quantity must be positive"));
+    }
+
+    [Test]
+    public void ValidateOrder_AllInvalid_ReturnsMultipleErrors()
+    {
+        var result = _sut.ValidateOrder("", "abc", "xyz");
+        Assert.That(result, Does.Contain("Name required"));
+        Assert.That(result, Does.Contain("Amount must be numeric"));
+        Assert.That(result, Does.Contain("Quantity must be numeric"));
+    }
+
+    // ── GetDiscountTier ──
+
+    [TestCase(0, ExpectedResult = "NONE")]
+    [TestCase(100, ExpectedResult = "NONE")]
+    [TestCase(100.01, ExpectedResult = "BRONZE")]
+    [TestCase(500, ExpectedResult = "BRONZE")]
+    [TestCase(500.01, ExpectedResult = "SILVER")]
+    [TestCase(1000, ExpectedResult = "SILVER")]
+    [TestCase(1000.01, ExpectedResult = "GOLD")]
+    [TestCase(5000, ExpectedResult = "GOLD")]
+    public string GetDiscountTier_ReturnsCorrectTier(double subtotal)
+    {
+        return _sut.GetDiscountTier(subtotal);
+    }
+
+    [Test]
+    public void GetDiscountTier_NegativeSubtotal_ReturnsNone()
+    {
+        Assert.That(_sut.GetDiscountTier(-50), Is.EqualTo("NONE"));
+    }
+}`,
+      },
+      RefundService: {
+        count: 8,
+        code: `using NUnit.Framework;
+
+namespace VBGone.Generated.Tests;
+
+[TestFixture]
+public class RefundServiceTests
+{
+    private IRefundService _sut;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _sut = new RefundService();
+    }
+
+    [Test]
+    public void ProcessRefund_ValidOrderAndReason_ReturnsTrue()
+    {
+        Assert.That(_sut.ProcessRefund(1001, "Damaged goods"), Is.True);
+    }
+
+    [Test]
+    public void ProcessRefund_ZeroOrderId_ReturnsFalse()
+    {
+        Assert.That(_sut.ProcessRefund(0, "Damaged goods"), Is.False);
+    }
+
+    [Test]
+    public void ProcessRefund_NegativeOrderId_ReturnsFalse()
+    {
+        Assert.That(_sut.ProcessRefund(-1, "Damaged goods"), Is.False);
+    }
+
+    [Test]
+    public void ProcessRefund_EmptyReason_ReturnsFalse()
+    {
+        Assert.That(_sut.ProcessRefund(1001, ""), Is.False);
+    }
+
+    [Test]
+    public void ProcessRefund_NullReason_ReturnsFalse()
+    {
+        Assert.That(_sut.ProcessRefund(1001, null!), Is.False);
+    }
+
+    [Test]
+    public void ProcessRefund_LargeOrderId_ReturnsTrue()
+    {
+        Assert.That(_sut.ProcessRefund(999999, "Customer request"), Is.True);
+    }
+
+    [Test]
+    public void ProcessRefund_WhitespaceReason_ReturnsFalse()
+    {
+        Assert.That(_sut.ProcessRefund(1001, "   "), Is.False);
+    }
+
+    [Test]
+    public void ProcessRefund_SpecialCharactersInReason_ReturnsTrue()
+    {
+        Assert.That(_sut.ProcessRefund(1001, "Reason with 'quotes' & <symbols>"), Is.True);
+    }
+}`,
+      },
+      OrderProcessor: {
+        count: 6,
+        code: `using NUnit.Framework;
+
+namespace VBGone.Generated.Tests;
+
+[TestFixture]
+public class OrderProcessorTests
+{
+    private IOrderProcessor _sut;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _sut = new OrderProcessor(
+            new OrderCalculationService(),
+            new OrderValidator()
+        );
+    }
+
+    [Test]
+    public void SubmitOrder_ValidInput_DoesNotThrow()
+    {
+        Assert.DoesNotThrow(() => _sut.SubmitOrder("Alice", 19.99, 3));
+    }
+
+    [Test]
+    public void SubmitOrder_EmptyName_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => _sut.SubmitOrder("", 19.99, 3));
+    }
+
+    [Test]
+    public void SubmitOrder_NegativePrice_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => _sut.SubmitOrder("Alice", -10, 3));
+    }
+
+    [Test]
+    public void SubmitOrder_ZeroQuantity_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => _sut.SubmitOrder("Alice", 19.99, 0));
+    }
+
+    [Test]
+    public void SubmitOrder_LargeOrder_DoesNotThrow()
+    {
+        Assert.DoesNotThrow(() => _sut.SubmitOrder("Bob", 500.0, 50));
+    }
+
+    [Test]
+    public void SubmitOrder_MinimumValidInput_DoesNotThrow()
+    {
+        Assert.DoesNotThrow(() => _sut.SubmitOrder("X", 0.01, 1));
+    }
+}`,
+      },
+    }
+
+    const defaultCode = `using NUnit.Framework;
 
 namespace VBGone.Generated.Tests;
 
@@ -264,41 +682,76 @@ public class ${className}Tests
     {
         return _sut.Modulus(a, b);
     }
-}`,
-      testCount: 30,
+}`
+
+    const match = testCode[className]
+    const count = match?.count ?? 30
+    lastMockTestCount = count
+
+    return {
+      sessionId: MOCK_SESSION_ID,
+      className,
+      testClassName: `${className}Tests`,
+      code: match?.code ?? defaultCode,
+      testCount: count,
     }
   },
 
   async generateStub(sessionId: string, className: string): Promise<StubResult> {
     void sessionId
     await delay(600)
+
+    const stubCode: Record<string, string> = {
+      OrderCalculationService: `namespace VBGone.Generated;
+
+public class OrderCalculationService : IOrderCalculationService
+{
+    public double CalculateDiscount(double unitPrice, int quantity) => throw new NotImplementedException();
+    public double CalculateShipping(int quantity) => throw new NotImplementedException();
+    public double CalculateTotal(double unitPrice, int quantity) => throw new NotImplementedException();
+}`,
+      OrderValidator: `namespace VBGone.Generated;
+
+public class OrderValidator : IOrderValidator
+{
+    public string ValidateOrder(string name, string amount, string quantity) => throw new NotImplementedException();
+    public string GetDiscountTier(double subtotal) => throw new NotImplementedException();
+}`,
+      RefundService: `namespace VBGone.Generated;
+
+public class RefundService : IRefundService
+{
+    public bool ProcessRefund(int orderId, string reason) => throw new NotImplementedException();
+}`,
+      OrderProcessor: `namespace VBGone.Generated;
+
+public class OrderProcessor : IOrderProcessor
+{
+    public void SubmitOrder(string customerName, double unitPrice, int quantity) => throw new NotImplementedException();
+}`,
+    }
+
     return {
       sessionId: MOCK_SESSION_ID,
       className,
-      code: `namespace VBGone.Generated;
-
-public class ${className} : I${className}
-{
-    public int Add(int a, int b) => throw new NotImplementedException();
-    public int Subtract(int a, int b) => throw new NotImplementedException();
-    public int Multiply(int a, int b) => throw new NotImplementedException();
-    public double Divide(int a, int b) => throw new NotImplementedException();
-    public int Modulus(int a, int b) => throw new NotImplementedException();
-}`,
+      code:
+        stubCode[className] ??
+        `namespace VBGone.Generated;\n\npublic class ${className} : I${className}\n{\n    public int Add(int a, int b) => throw new NotImplementedException();\n    public int Subtract(int a, int b) => throw new NotImplementedException();\n    public int Multiply(int a, int b) => throw new NotImplementedException();\n    public double Divide(int a, int b) => throw new NotImplementedException();\n    public int Modulus(int a, int b) => throw new NotImplementedException();\n}`,
     }
   },
 
   async build(sessionId: string): Promise<BuildResult> {
     void sessionId
     await delay(1500)
+    const total = lastMockTestCount
     return {
       sessionId: MOCK_SESSION_ID,
       buildStatus: 'RED',
-      total: 30,
+      total,
       passed: 0,
-      failed: 30,
+      failed: total,
       errors: [],
-      failedTests: Array.from({ length: 30 }, (_, i) => `Test_${i + 1}`),
+      failedTests: Array.from({ length: total }, (_, i) => `Test_${i + 1}`),
     }
   },
 
@@ -309,46 +762,125 @@ public class ${className} : I${className}
   ): Promise<ImplementResult> {
     void sessionId
     await delay(mode === 'CLAUDE' ? 2000 : 400)
+
+    const implCode: Record<string, string> = {
+      OrderCalculationService: `namespace VBGone.Generated;
+
+public class OrderCalculationService : IOrderCalculationService
+{
+    private const double TaxRate = 0.0825;
+    private const double Tier1Discount = 0.10;
+    private const double Tier2Discount = 0.15;
+    private const double Tier3Discount = 0.20;
+
+    public double CalculateDiscount(double unitPrice, int quantity)
+    {
+        var subtotal = unitPrice * quantity;
+        return subtotal switch
+        {
+            > 1000 => Tier3Discount,
+            > 500 => Tier2Discount,
+            > 100 => Tier1Discount,
+            _ => 0
+        };
+    }
+
+    public double CalculateShipping(int quantity) => quantity switch
+    {
+        <= 0 => 0,
+        <= 5 => 5.99,
+        <= 20 => 9.99,
+        _ => 14.99
+    };
+
+    public double CalculateTotal(double unitPrice, int quantity)
+    {
+        var subtotal = unitPrice * quantity;
+        var discount = CalculateDiscount(unitPrice, quantity);
+        var shipping = CalculateShipping(quantity);
+        var afterDiscount = subtotal - (subtotal * discount) + shipping;
+        return afterDiscount + (afterDiscount * TaxRate);
+    }
+}`,
+      OrderValidator: `namespace VBGone.Generated;
+
+public class OrderValidator : IOrderValidator
+{
+    public string ValidateOrder(string name, string amount, string quantity)
+    {
+        var errors = "";
+        if (string.IsNullOrEmpty(name)) errors += "Name required. ";
+        if (!double.TryParse(amount, out var a)) errors += "Amount must be numeric. ";
+        else if (a <= 0) errors += "Amount must be positive. ";
+        if (!int.TryParse(quantity, out var q)) errors += "Quantity must be numeric. ";
+        else if (q <= 0) errors += "Quantity must be positive. ";
+        return errors;
+    }
+
+    public string GetDiscountTier(double subtotal) => subtotal switch
+    {
+        <= 100 => "NONE",
+        <= 500 => "BRONZE",
+        <= 1000 => "SILVER",
+        _ => "GOLD"
+    };
+}`,
+      RefundService: `namespace VBGone.Generated;
+
+public class RefundService : IRefundService
+{
+    private const int MaxRefunds = 3;
+
+    public bool ProcessRefund(int orderId, string reason)
+    {
+        if (orderId <= 0 || string.IsNullOrEmpty(reason)) return false;
+        // Delegates to IOrderRepository and INotificationService
+        return true;
+    }
+}`,
+      OrderProcessor: `namespace VBGone.Generated;
+
+public class OrderProcessor : IOrderProcessor
+{
+    private readonly IOrderCalculationService _calc;
+    private readonly IOrderValidator _validator;
+
+    public OrderProcessor(IOrderCalculationService calc, IOrderValidator validator)
+    {
+        _calc = calc;
+        _validator = validator;
+    }
+
+    public void SubmitOrder(string customerName, double unitPrice, int quantity)
+    {
+        var errors = _validator.ValidateOrder(customerName, unitPrice.ToString(), quantity.ToString());
+        if (!string.IsNullOrEmpty(errors)) throw new ArgumentException(errors);
+        var total = _calc.CalculateTotal(unitPrice, quantity);
+        // Persist order via IOrderRepository
+    }
+}`,
+    }
+
     const code =
       mode === 'CLAUDE'
-        ? `namespace VBGone.Generated;
-
-public class ${className} : I${className}
-{
-    public int Add(int a, int b) => a + b;
-    public int Subtract(int a, int b) => a - b;
-    public int Multiply(int a, int b) => a * b;
-    public double Divide(int a, int b)
-    {
-        if (b == 0) throw new DivideByZeroException();
-        return (double)a / b;
-    }
-    public int Modulus(int a, int b) => a % b;
-}`
-        : `namespace VBGone.Generated;
-
-public class ${className} : I${className}
-{
-    public int Add(int a, int b) => throw new NotImplementedException();
-    public int Subtract(int a, int b) => throw new NotImplementedException();
-    public int Multiply(int a, int b) => throw new NotImplementedException();
-    public double Divide(int a, int b) => throw new NotImplementedException();
-    public int Modulus(int a, int b) => throw new NotImplementedException();
-}`
+        ? (implCode[className] ??
+          `namespace VBGone.Generated;\n\npublic class ${className} : I${className}\n{\n    public int Add(int a, int b) => a + b;\n    public int Subtract(int a, int b) => a - b;\n    public int Multiply(int a, int b) => a * b;\n    public double Divide(int a, int b)\n    {\n        if (b == 0) throw new DivideByZeroException();\n        return (double)a / b;\n    }\n    public int Modulus(int a, int b) => a % b;\n}`)
+        : `namespace VBGone.Generated;\n\npublic class ${className} : I${className}\n{\n    public int Add(int a, int b) => throw new NotImplementedException();\n    public int Subtract(int a, int b) => throw new NotImplementedException();\n    public int Multiply(int a, int b) => throw new NotImplementedException();\n    public double Divide(int a, int b) => throw new NotImplementedException();\n    public int Modulus(int a, int b) => throw new NotImplementedException();\n}`
     return { sessionId: MOCK_SESSION_ID, className, code, mode }
   },
 
   async buildAfterImplement(sessionId: string, mode: 'STUB' | 'CLAUDE'): Promise<BuildResult> {
     void sessionId
     await delay(1500)
+    const total = lastMockTestCount
     return {
       sessionId: MOCK_SESSION_ID,
       buildStatus: mode === 'CLAUDE' ? 'GREEN' : 'RED',
-      total: 30,
-      passed: mode === 'CLAUDE' ? 30 : 0,
-      failed: mode === 'CLAUDE' ? 0 : 30,
+      total,
+      passed: mode === 'CLAUDE' ? total : 0,
+      failed: mode === 'CLAUDE' ? 0 : total,
       errors: [],
-      failedTests: mode === 'CLAUDE' ? [] : Array.from({ length: 30 }, (_, i) => `Test_${i + 1}`),
+      failedTests: mode === 'CLAUDE' ? [] : Array.from({ length: total }, (_, i) => `Test_${i + 1}`),
     }
   },
 
@@ -375,11 +907,17 @@ public class ${className} : I${className}
   ): Promise<PullRequestResult> {
     void sessionId
     await delay(1000)
+    const classes = mockMigratedClasses.length > 0 ? mockMigratedClasses : ['Form1']
+    const filesCommitted = classes.flatMap((cls) => [
+      `${cls}/I${cls}.cs`,
+      `${cls}/${cls}.cs`,
+      `${cls}.Tests/${cls}Tests.cs`,
+    ])
     return {
       sessionId: MOCK_SESSION_ID,
       prUrl: `https://github.com/${repoOwner}/${repoName}/pull/1`,
       branchName,
-      filesCommitted: ['Form1/IForm1.cs', 'Form1/Form1.cs', 'Form1.Tests/Form1Tests.cs'],
+      filesCommitted,
     }
   },
 
