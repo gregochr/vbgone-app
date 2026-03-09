@@ -327,6 +327,39 @@ class GenerationServiceTest {
         assertThat(service.countTests(code)).isEqualTo(4);
     }
 
+    // ── stripNamespaceWrapper ──
+
+    @Test
+    void stripNamespaceWrapper_removesBlockNamespace() {
+        String code = "namespace Foo\n{\n    public interface IFoo { }\n}";
+        assertThat(service.stripNamespaceWrapper(code)).isEqualTo("public interface IFoo { }");
+    }
+
+    @Test
+    void stripNamespaceWrapper_removesFileScopedNamespace() {
+        String code = "namespace Foo;\n\npublic interface IFoo { }";
+        assertThat(service.stripNamespaceWrapper(code)).isEqualTo("public interface IFoo { }");
+    }
+
+    @Test
+    void stripNamespaceWrapper_leavesCodeWithoutNamespaceUntouched() {
+        String code = "public interface IFoo { }";
+        assertThat(service.stripNamespaceWrapper(code)).isEqualTo("public interface IFoo { }");
+    }
+
+    @Test
+    void generateInterface_stripsNamespaceFromResponse() {
+        MigrationSession session = sessionWithVb("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse("namespace VBGone;\n\npublic interface IForm1 { int Add(int a, int b); }"));
+
+        InterfaceResult result = service.generateInterface("s1", "Form1");
+
+        assertThat(result.code()).doesNotContain("namespace");
+        assertThat(result.code()).contains("IForm1");
+    }
+
     // ── Token tracking ──
 
     @Test

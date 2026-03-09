@@ -18,6 +18,9 @@ public class GenerationService {
             Consider the semantics of each method — if the operation can produce a non-integer \
             result, use double or decimal as the return type.
 
+            IMPORTANT: The interface MUST be in the root namespace (no namespace declaration). \
+            Do NOT wrap the interface in any namespace block.
+
             Return only raw C# code. No markdown. No backticks. \
             No explanation. The response will be written directly to a .cs file.""";
 
@@ -31,12 +34,18 @@ public class GenerationService {
             implementation class in the test file. The tests should use the interface type for \
             the field declaration and instantiate the real implementation class in the [SetUp] method.
 
+            IMPORTANT: The interface and implementation class are in the ROOT namespace (no namespace). \
+            The test file must NOT use any 'using' statement to import them — they are already \
+            globally accessible. Do NOT wrap the test class in any namespace block either.
+
             Return only raw C# code. No markdown. No backticks. No explanation.""";
 
     static final String STUB_SYSTEM_PROMPT = """
             You are a C# developer. Generate a C# class that implements a given interface. \
             Every method body must be: throw new NotImplementedException(); \
             Do NOT implement any logic — every single method must throw NotImplementedException. \
+            IMPORTANT: The class MUST be in the root namespace (no namespace declaration). \
+            Do NOT wrap the class in any namespace block. \
             Return only raw C# code. No markdown. No backticks. No explanation.""";
 
     static final String IMPLEMENT_SYSTEM_PROMPT = """
@@ -53,6 +62,9 @@ public class GenerationService {
             When implementing Divide methods, always check for division by zero and throw \
             DivideByZeroException: if (b == 0) throw new DivideByZeroException("Cannot divide by zero."); \
             Never rely on implicit division by zero behaviour — always throw explicitly.
+
+            IMPORTANT: The class MUST be in the root namespace (no namespace declaration). \
+            Do NOT wrap the class in any namespace block.
 
             Return only raw C# code. No markdown. No backticks. No explanation.""";
 
@@ -71,7 +83,7 @@ public class GenerationService {
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 INTERFACE_SYSTEM_PROMPT, userMessage, Model.CLAUDE_HAIKU_4_5, 4096L);
-        String code = stripCodeFences(response.text());
+        String code = stripNamespaceWrapper(stripCodeFences(response.text()));
 
         String modelId = Model.CLAUDE_HAIKU_4_5.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
@@ -89,22 +101,20 @@ public class GenerationService {
                 + "\n\nThe implementation class name is " + className
                 + ", the interface is I" + className + "."
                 + "\n\nThe test file should follow this structure exactly:\n"
-                + "using NUnit.Framework;\n"
-                + "// other using statements\n\n"
-                + "namespace " + className + "Tests\n{\n"
-                + "    [TestFixture]\n"
-                + "    public class " + className + "Tests\n    {\n"
-                + "        private I" + className + " _sut;\n\n"
-                + "        [SetUp]\n"
-                + "        public void SetUp()\n        {\n"
-                + "            _sut = new " + className + "();\n"
-                + "        }\n\n"
-                + "        // test methods only\n"
-                + "    }\n}";
+                + "using NUnit.Framework;\n\n"
+                + "[TestFixture]\n"
+                + "public class " + className + "Tests\n{\n"
+                + "    private I" + className + " _sut;\n\n"
+                + "    [SetUp]\n"
+                + "    public void SetUp()\n    {\n"
+                + "        _sut = new " + className + "();\n"
+                + "    }\n\n"
+                + "    // test methods here — no namespace block\n"
+                + "}";
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 TESTS_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);
-        String code = stripCodeFences(response.text());
+        String code = stripNamespaceWrapper(stripCodeFences(response.text()));
 
         String modelId = Model.CLAUDE_SONNET_4_6.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
@@ -126,7 +136,7 @@ public class GenerationService {
         String userMessage = "Generate a stub implementation of " + iface.code();
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 STUB_SYSTEM_PROMPT, userMessage, Model.CLAUDE_HAIKU_4_5, 4096L);
-        String code = stripCodeFences(response.text());
+        String code = stripNamespaceWrapper(stripCodeFences(response.text()));
 
         String modelId = Model.CLAUDE_HAIKU_4_5.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
@@ -161,7 +171,7 @@ public class GenerationService {
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);
-        String code = stripCodeFences(response.text());
+        String code = stripNamespaceWrapper(stripCodeFences(response.text()));
 
         String modelId = Model.CLAUDE_SONNET_4_6.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
@@ -192,7 +202,7 @@ public class GenerationService {
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 8192L);
-        String code = stripCodeFences(response.text());
+        String code = stripNamespaceWrapper(stripCodeFences(response.text()));
 
         String modelId = Model.CLAUDE_SONNET_4_6.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
@@ -212,6 +222,26 @@ public class GenerationService {
         return (int) code.lines()
                 .filter(line -> line.trim().startsWith("[Test]") || line.trim().startsWith("[TestCase"))
                 .count();
+    }
+
+    String stripNamespaceWrapper(String code) {
+        // If Claude wraps code in a namespace block despite instructions, unwrap it.
+        // Matches: namespace Foo { ... } or namespace Foo\n{ ... }
+        String trimmed = code.trim();
+        if (trimmed.matches("(?s)^namespace\\s+\\S+\\s*\\{.*\\}\\s*$")) {
+            // Remove "namespace X {" and the final "}"
+            int openBrace = trimmed.indexOf('{');
+            String inner = trimmed.substring(openBrace + 1).trim();
+            if (inner.endsWith("}")) {
+                inner = inner.substring(0, inner.length() - 1).trim();
+            }
+            return inner;
+        }
+        // Also handle file-scoped namespace: namespace Foo;
+        if (trimmed.matches("(?s)^namespace\\s+\\S+\\s*;.*")) {
+            return trimmed.replaceFirst("^namespace\\s+\\S+\\s*;\\s*", "").trim();
+        }
+        return trimmed;
     }
 
     private String stripCodeFences(String text) {
