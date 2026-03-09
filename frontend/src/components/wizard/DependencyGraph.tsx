@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import * as d3 from 'd3'
 import type { ClassInfo } from '../../api/migrateApi'
-import { isClassEnabled, firstUnmigratedDep } from './ProjectQueueView'
-import type { ClassStatus } from './ProjectQueueView'
+import { isClassEnabled, firstUnmigratedDep } from './classStatus'
+import type { ClassStatus } from './classStatus'
 
 interface Props {
   classes: ClassInfo[]

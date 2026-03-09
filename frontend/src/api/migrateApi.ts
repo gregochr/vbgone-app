@@ -890,9 +890,10 @@ public class OrderProcessor : IOrderProcessor
   async retryImplement(
     sessionId: string,
     className: string,
-    _failingTests: string[],
+    failingTests: string[],
   ): Promise<ImplementResult> {
     void sessionId
+    void failingTests
     await delay(2000)
     return {
       sessionId: MOCK_SESSION_ID,
@@ -924,7 +925,8 @@ public class OrderProcessor : IOrderProcessor
     }
   },
 
-  async uploadProject(_file: File): Promise<ProjectAnalysis> {
+  async uploadProject(file: File): Promise<ProjectAnalysis> {
+    void file
     await delay(2000)
     return {
       sessionId: MOCK_SESSION_ID,
@@ -966,7 +968,8 @@ public class OrderProcessor : IOrderProcessor
     }
   },
 
-  async fetchCost(_sessionId: string): Promise<CostResult> {
+  async fetchCost(sessionId: string): Promise<CostResult> {
+    void sessionId
     return { sessionId: MOCK_SESSION_ID, steps: [], totalCost: 0 }
   },
 }
@@ -1008,7 +1011,8 @@ const realApi = {
     return data
   },
 
-  async buildAfterImplement(sessionId: string, _mode: 'STUB' | 'CLAUDE'): Promise<BuildResult> {
+  async buildAfterImplement(sessionId: string, mode: 'STUB' | 'CLAUDE'): Promise<BuildResult> {
+    void mode
     const { data } = await api.post<BuildResult>('/build', { sessionId })
     return data
   },

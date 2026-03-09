@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { DependencyGraph } from './DependencyGraph'
 import type { ClassInfo } from '../../api/migrateApi'
-import type { ClassStatus } from './ProjectQueueView'
+import type { ClassStatus } from './classStatus'
 
 const classes: ClassInfo[] = [
   { name: 'ValidationHelper', methods: ['IsNullOrEmpty'], dependencies: [], complexity: 'LOW' },

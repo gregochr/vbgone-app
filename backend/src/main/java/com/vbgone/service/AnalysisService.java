@@ -33,9 +33,11 @@ public class AnalysisService {
                 "refactoringSuggestions": ["string"],
                 "vbAntiPatterns": ["string"]
               }],
-              "suggestedMigrationOrder": ["string"],
+              "suggestedMigrationOrder": ["ClassName"],
               "summary": "string"
-            }""";
+            }
+            IMPORTANT: suggestedMigrationOrder must contain ONLY class names — no descriptions, \
+            no reasons, no dashes. Example: ["Calculator", "Form1"], NOT ["Calculator — simple class"].""";
 
     static final String PROJECT_SYSTEM_PROMPT = """
             You are a VB.NET to C# migration expert. You are given multiple VB.NET source files \
@@ -66,7 +68,9 @@ public class AnalysisService {
             The suggestedMigrationOrder should start with the simplest, most self-contained \
             classes — leaf nodes with no dependencies — and end with the most complex classes \
             that depend on others. The dependencyGraph maps each class name to the list of \
-            classes it depends on.""";
+            classes it depends on.
+            IMPORTANT: suggestedMigrationOrder must contain ONLY class names — no descriptions, \
+            no reasons, no dashes. Example: ["Calculator", "Form1"], NOT ["Calculator — simple class"].""";
 
     private final ClaudeClient claudeClient;
     private final SessionStore sessionStore;
@@ -102,7 +106,7 @@ public class AnalysisService {
             return new AnalysisResult(
                     sessionId,
                     analysis.classes(),
-                    analysis.suggestedMigrationOrder(),
+                    cleanMigrationOrder(analysis.suggestedMigrationOrder()),
                     analysis.summary()
             );
         } catch (Exception e) {
@@ -153,13 +157,21 @@ public class AnalysisService {
             return new ProjectAnalysis(
                     sessionId,
                     analysis.classes(),
-                    analysis.suggestedMigrationOrder(),
+                    cleanMigrationOrder(analysis.suggestedMigrationOrder()),
                     depGraph,
                     analysis.summary()
             );
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse Claude response: " + e.getMessage(), e);
         }
+    }
+
+    private List<String> cleanMigrationOrder(List<String> order) {
+        if (order == null) return List.of();
+        return order.stream()
+                .map(s -> s.split("\\s*[—–\\-]\\s", 2)[0].trim())
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 
     private String stripMarkdownFences(String text) {

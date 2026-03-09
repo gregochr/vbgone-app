@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ProjectQueueView, isClassEnabled, firstUnmigratedDep } from './ProjectQueueView'
-import type { ClassStatus } from './ProjectQueueView'
+import { ProjectQueueView } from './ProjectQueueView'
+import { isClassEnabled, firstUnmigratedDep } from './classStatus'
+import type { ClassStatus } from './classStatus'
 import type { ProjectAnalysis } from '../../api/migrateApi'
 
 vi.mock('../../api/migrateApi', async () => {
