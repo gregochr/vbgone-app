@@ -174,7 +174,9 @@ public class GenerationService {
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 16384L);
-        String code = stripNamespaceWrapper(stripCodeFences(response.text()));
+        String code = fixClassDeclaration(
+                stripNamespaceWrapper(stripCodeFences(response.text())),
+                className, iface.interfaceName());
 
         String modelId = Model.CLAUDE_SONNET_4_6.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
@@ -209,7 +211,9 @@ public class GenerationService {
 
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
                 IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 16384L);
-        String code = stripNamespaceWrapper(stripCodeFences(response.text()));
+        String code = fixClassDeclaration(
+                stripNamespaceWrapper(stripCodeFences(response.text())),
+                className, iface.interfaceName());
 
         String modelId = Model.CLAUDE_SONNET_4_6.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
@@ -277,6 +281,20 @@ public class GenerationService {
             }
         }
         return sb.toString().trim();
+    }
+
+    /**
+     * If Claude generated a class with the wrong name or implementing the wrong interface,
+     * fix the class declaration line to use the correct names.
+     * e.g. "public class OrderCalculationService : IOrderCalculationService"
+     *    → "public class OrderConstants : IOrderConstants"
+     */
+    String fixClassDeclaration(String code, String expectedClass, String expectedInterface) {
+        // Match: public class <AnyName> : <AnyInterface>
+        String fixed = code.replaceFirst(
+                "public\\s+class\\s+\\w+\\s*:\\s*\\w+",
+                "public class " + expectedClass + " : " + expectedInterface);
+        return fixed;
     }
 
     /**

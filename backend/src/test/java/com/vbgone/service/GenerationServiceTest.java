@@ -496,6 +496,47 @@ class GenerationServiceTest {
         assertThat(result.code()).contains("IForm1");
     }
 
+    // ── fixClassDeclaration ──
+
+    @Test
+    void fixClassDeclaration_correctsWrongClassAndInterface() {
+        String code = "public class OrderCalculationService : IOrderCalculationService\n{\n    // body\n}";
+        String fixed = service.fixClassDeclaration(code, "OrderConstants", "IOrderConstants");
+        assertThat(fixed).startsWith("public class OrderConstants : IOrderConstants");
+        assertThat(fixed).contains("// body");
+    }
+
+    @Test
+    void fixClassDeclaration_leavesCorrectCodeUntouched() {
+        String code = "public class OrderConstants : IOrderConstants\n{\n    // body\n}";
+        String fixed = service.fixClassDeclaration(code, "OrderConstants", "IOrderConstants");
+        assertThat(fixed).isEqualTo(code);
+    }
+
+    @Test
+    void fixClassDeclaration_handlesExtraWhitespace() {
+        String code = "public  class  Foo  :  IBar\n{\n}";
+        String fixed = service.fixClassDeclaration(code, "MyClass", "IMyClass");
+        assertThat(fixed).contains("public class MyClass : IMyClass");
+    }
+
+    @Test
+    void implement_fixesWrongClassNameFromClaude() {
+        MigrationSession session = sessionWithVb("s1");
+        session.setInterfaceResult(new InterfaceResult("s1", "OrderConstants", "IOrderConstants",
+                "public interface IOrderConstants { double CalculateTotal(double a, int q); }"));
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        // Claude returns the wrong class name
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse("public class OrderCalculationService : IOrderCalculationService\n{\n    public double CalculateTotal(double a, int q) => a * q;\n}"));
+
+        ImplementResult result = service.implement("s1", "OrderConstants", ImplementMode.CLAUDE);
+
+        assertThat(result.code()).contains("public class OrderConstants : IOrderConstants");
+        assertThat(result.code()).doesNotContain("OrderCalculationService");
+        assertThat(result.code()).doesNotContain("IOrderCalculationService");
+    }
+
     // ── Token tracking ──
 
     @Test
