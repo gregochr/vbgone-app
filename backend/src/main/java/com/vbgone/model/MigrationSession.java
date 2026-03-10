@@ -59,6 +59,16 @@ public class MigrationSession {
     public List<TokenUsage> getTokenUsages() { return tokenUsages; }
     public void addTokenUsage(TokenUsage usage) { tokenUsages.add(usage); }
 
+    /** Clears per-class artifacts when starting a new class in a multi-class session. */
+    public void clearClassArtifacts() {
+        this.interfaceResult = null;
+        this.testsResult = null;
+        this.stubResult = null;
+        this.implementResult = null;
+        this.redBuild = null;
+        this.greenBuild = null;
+    }
+
     public Map<String, String> getClassSources() { return classSources; }
     public void putClassSource(String className, String source) { classSources.put(className, source); }
 

@@ -79,6 +79,7 @@ public class GenerationService {
 
     public InterfaceResult generateInterface(String sessionId, String className) {
         MigrationSession session = getSession(sessionId);
+        session.clearClassArtifacts();
         String userMessage = "Generate a C# interface named I" + className
                 + " for this VB.NET:\n" + session.getVbContentForClass(className);
 
