@@ -152,10 +152,13 @@ public class OrderNotificationServiceTests
     [Test]
     public void CalculateTotal_QuantityTwenty_UsesMediumShipping()
     {
+        // subtotal=200 (> 100 => 10% discount), qty=20 (<= 20 => ship=9.99)
         double a = 10.0;
         int q = 20;
+        double subtotal = a * q;
+        double afterDisc = subtotal - subtotal * 0.10;
         double ship = 9.99;
-        double tot = a * q + ship;
+        double tot = afterDisc + ship;
         double expected = tot + tot * 0.0825;
         double result = _sut.CalculateTotal(a, q);
         Assert.That(result, Is.EqualTo(expected).Within(0.001));
@@ -164,10 +167,13 @@ public class OrderNotificationServiceTests
     [Test]
     public void CalculateTotal_QuantityTwentyOne_UsesHighShipping()
     {
+        // subtotal=210 (> 100 => 10% discount), qty=21 (> 20 => ship=14.99)
         double a = 10.0;
         int q = 21;
+        double subtotal = a * q;
+        double afterDisc = subtotal - subtotal * 0.10;
         double ship = 14.99;
-        double tot = a * q + ship;
+        double tot = afterDisc + ship;
         double expected = tot + tot * 0.0825;
         double result = _sut.CalculateTotal(a, q);
         Assert.That(result, Is.EqualTo(expected).Within(0.001));
@@ -176,10 +182,13 @@ public class OrderNotificationServiceTests
     [Test]
     public void CalculateTotal_LargeQuantity_UsesHighShipping()
     {
+        // subtotal=500 (> 100 but NOT > 500 => 10% discount), qty=100 (> 20 => ship=14.99)
         double a = 5.0;
         int q = 100;
+        double subtotal = a * q;
+        double afterDisc = subtotal - subtotal * 0.10;
         double ship = 14.99;
-        double tot = a * q + ship;
+        double tot = afterDisc + ship;
         double expected = tot + tot * 0.0825;
         double result = _sut.CalculateTotal(a, q);
         Assert.That(result, Is.EqualTo(expected).Within(0.001));
@@ -525,24 +534,27 @@ public class OrderNotificationServiceTests
     }
 
     [Test]
-    public void GetDiscountTier_SubtotalJustBelow101_ReturnsNone()
+    public void GetDiscountTier_SubtotalJustAbove100_ReturnsBronze()
     {
+        // 100.99 > 100 => BRONZE
         string result = _sut.GetDiscountTier(100.99);
-        Assert.That(result, Is.EqualTo("NONE"));
-    }
-
-    [Test]
-    public void GetDiscountTier_SubtotalJustBelow501_ReturnsBronze()
-    {
-        string result = _sut.GetDiscountTier(500.99);
         Assert.That(result, Is.EqualTo("BRONZE"));
     }
 
     [Test]
-    public void GetDiscountTier_SubtotalJustBelow1001_ReturnsSilver()
+    public void GetDiscountTier_SubtotalJustAbove500_ReturnsSilver()
     {
-        string result = _sut.GetDiscountTier(1000.99);
+        // 500.99 > 500 => SILVER
+        string result = _sut.GetDiscountTier(500.99);
         Assert.That(result, Is.EqualTo("SILVER"));
+    }
+
+    [Test]
+    public void GetDiscountTier_SubtotalJustAbove1000_ReturnsGold()
+    {
+        // 1000.99 > 1000 => GOLD
+        string result = _sut.GetDiscountTier(1000.99);
+        Assert.That(result, Is.EqualTo("GOLD"));
     }
 
     // ── ProcessRefund – happy path ───────────────────────────────────────────

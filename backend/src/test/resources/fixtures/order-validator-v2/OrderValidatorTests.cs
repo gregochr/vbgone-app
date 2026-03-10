@@ -408,30 +408,32 @@ public class OrderValidatorTests
     [Test]
     public void CalculateTotal_QuantityOf20_AppliesMediumShipping()
     {
-        // qty=20 (<= 20 => ship=9.99)
+        // qty=20 (<= 20 => ship=9.99), subtotal=200 (> 100 => 10% discount)
         var result = _sut.CalculateTotal(10.0, 20);
         double subtotal = 10.0 * 20;
-        double expected = (subtotal + 9.99) * 1.0825;
+        double afterDisc = subtotal - subtotal * 0.10;
+        double expected = (afterDisc + 9.99) * 1.0825;
         Assert.That(result, Is.EqualTo(expected).Within(0.0001));
     }
 
     [Test]
     public void CalculateTotal_QuantityOf21_AppliesLargeShipping()
     {
-        // qty=21 (> 20 => ship=14.99)
+        // qty=21 (> 20 => ship=14.99), subtotal=210 (> 100 => 10% discount)
         var result = _sut.CalculateTotal(10.0, 21);
         double subtotal = 10.0 * 21;
-        double expected = (subtotal + 14.99) * 1.0825;
+        double afterDisc = subtotal - subtotal * 0.10;
+        double expected = (afterDisc + 14.99) * 1.0825;
         Assert.That(result, Is.EqualTo(expected).Within(0.0001));
     }
 
     [Test]
     public void CalculateTotal_QuantityOf100_AppliesLargeShipping()
     {
-        // qty=100 (> 20 => ship=14.99)
+        // qty=100 (> 20 => ship=14.99), subtotal=500 (> 100 but NOT > 500 => 10% discount)
         var result = _sut.CalculateTotal(5.0, 100);
         double subtotal = 5.0 * 100;
-        double afterDisc = subtotal - subtotal * 0.20;
+        double afterDisc = subtotal - subtotal * 0.10;
         double expected = (afterDisc + 14.99) * 1.0825;
         Assert.That(result, Is.EqualTo(expected).Within(0.0001));
     }

@@ -19,6 +19,7 @@ public class MigrationSession {
     private BuildResult greenBuild;
     private PullRequestResult prResult;
     private final List<TokenUsage> tokenUsages = new ArrayList<>();
+    private final Map<String, String> failureMessages = new HashMap<>();
 
     public MigrationSession(String sessionId) {
         this.sessionId = sessionId;
@@ -58,6 +59,12 @@ public class MigrationSession {
 
     public List<TokenUsage> getTokenUsages() { return tokenUsages; }
     public void addTokenUsage(TokenUsage usage) { tokenUsages.add(usage); }
+
+    public Map<String, String> getFailureMessages() { return failureMessages; }
+    public void setFailureMessages(Map<String, String> messages) {
+        failureMessages.clear();
+        failureMessages.putAll(messages);
+    }
 
     /** Clears per-class artifacts when starting a new class in a multi-class session. */
     public void clearClassArtifacts() {

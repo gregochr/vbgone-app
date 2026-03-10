@@ -212,21 +212,25 @@ public class GenerationService {
 
         String failingList = String.join(", ", failingTests);
         String testSnippets = extractFailingTests(session, failingTests);
-        String userMessage = "The following tests are failing for class EXACTLY " + className
-                + " (which implements EXACTLY " + iface.interfaceName() + "). "
-                + "The class declaration MUST be: public class " + className + " : " + iface.interfaceName() + "\n"
-                + "Do NOT use any other class name or interface name.\n"
-                + "Fix the implementation to make them pass: "
-                + failingList
-                + "\n\nIMPORTANT: Read each failing test assertion carefully. Pay close attention to:\n"
-                + "- Boundary conditions: >= vs >, <= vs < (e.g. quantity >= 20 is NOT the same as quantity > 20)\n"
-                + "- Discount tier thresholds: check exact values in the test assertions\n"
-                + "- Shipping tier thresholds: check the exact quantity boundaries\n"
-                + "- The test name often encodes the expected boundary (e.g. 'QuantityTwenty_UsesMediumShipping' means qty=20 IS medium)\n"
-                + "\n\nFailing test source:\n" + testSnippets
-                + "\n\nCurrent failing implementation:\n" + previous.code()
-                + "\n\nInterface:\n" + iface.code()
-                + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContentForClass(className);
+
+        // Build failure message section from actual test output (expected vs actual)
+        StringBuilder failureDetails = new StringBuilder();
+        var failureMessages = session.getFailureMessages();
+        for (String testName : failingTests) {
+            String msg = failureMessages.get(testName);
+            if (msg != null) {
+                failureDetails.append(testName).append(": ").append(msg).append("\n");
+            }
+        }
+
+        String userMessage = "Fix this C# class to make ALL tests pass. Do NOT break any currently passing tests.\n"
+                + "Class declaration MUST be: public class " + className + " : " + iface.interfaceName() + "\n\n"
+                + "FAILING TESTS (expected vs actual from test runner):\n"
+                + failureDetails + "\n"
+                + "FULL TEST FILE (you must pass ALL of these, not just the failing ones):\n"
+                + session.getTestsResult().code() + "\n"
+                + "CURRENT IMPLEMENTATION (fix this):\n" + previous.code() + "\n"
+                + "INTERFACE:\n" + iface.code();
 
         // Escalate to Opus on the final attempt (attempt 3)
         boolean useOpus = attempt >= 3;

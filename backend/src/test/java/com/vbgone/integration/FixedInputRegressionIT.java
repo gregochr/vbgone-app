@@ -63,6 +63,43 @@ class FixedInputRegressionIT {
         }
     }
 
+    /**
+     * Retries implementation up to 2 times (Sonnet then Opus), matching prod flow.
+     * Returns the final BuildResult.
+     */
+    static BuildResult retryUntilGreen(String sessionId, String className, int expectedTotal) {
+        for (int attempt = 2; attempt <= 3; attempt++) {
+            MigrationSession session = sessionStore.get(sessionId).orElseThrow();
+            BuildResult latest = session.getGreenBuild() != null ? session.getGreenBuild() : session.getRedBuild();
+            if (latest != null && latest.buildStatus() == BuildStatus.GREEN) {
+                return latest;
+            }
+
+            BuildResult redBuild = session.getRedBuild();
+            assertThat(redBuild).isNotNull();
+            List<String> failingTests = redBuild.failedTests();
+            String model = attempt >= 3 ? "Opus" : "Sonnet";
+            System.out.println("=== " + className + " retry attempt " + attempt + " (" + model + ") — "
+                    + failingTests.size() + " failing tests ===");
+
+            ImplementResult retry = generationService.retryImplement(
+                    sessionId, className, failingTests, attempt);
+            assertThat(retry.code()).contains("class " + className);
+
+            BuildResult result = buildService.build(sessionId);
+            System.out.println("=== " + className + " Retry " + attempt + ": " + result.buildStatus()
+                    + " " + result.passed() + "/" + result.total() + " ===");
+            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
+
+            if (result.buildStatus() == BuildStatus.GREEN) {
+                return result;
+            }
+        }
+        // Return whatever we have after all attempts
+        MigrationSession session = sessionStore.get(sessionId).orElseThrow();
+        return session.getRedBuild();
+    }
+
     // ════════════════════════════════════════════════════════════════════
     //  Calculator (simple — 4 arithmetic methods, 10 tests)
     // ════════════════════════════════════════════════════════════════════
@@ -284,29 +321,7 @@ class FixedInputRegressionIT {
         @Order(3)
         @DisplayName("OrderValidator: retry → GREEN (57/57 pass)")
         void retryIfNeeded_allTestsPass() {
-            MigrationSession session = sessionStore.get(sessionId).orElseThrow();
-            BuildResult greenBuild = session.getGreenBuild();
-            if (greenBuild != null && greenBuild.buildStatus() == BuildStatus.GREEN) {
-                System.out.println("=== OrderValidator already GREEN — skip retry ===");
-                assertThat(greenBuild.passed()).isEqualTo(57);
-                return;
-            }
-
-            BuildResult redBuild = session.getRedBuild();
-            assertThat(redBuild).isNotNull();
-            List<String> failingTests = redBuild.failedTests();
-            System.out.println("=== OrderValidator retrying " + failingTests.size() + " failing tests ===");
-
-            ImplementResult retry = generationService.retryImplement(
-                    sessionId, "OrderValidator", failingTests, 2);
-            assertThat(retry.code()).contains("class OrderValidator");
-            assertThat(retry.code()).contains("IOrderValidator");
-
-            BuildResult result = buildService.build(sessionId);
-            System.out.println("=== OrderValidator Retry: " + result.buildStatus()
-                    + " " + result.passed() + "/" + result.total() + " ===");
-            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
-
+            BuildResult result = retryUntilGreen(sessionId, "OrderValidator", 57);
             assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
             assertThat(result.passed()).isEqualTo(57);
         }
@@ -379,29 +394,7 @@ class FixedInputRegressionIT {
         @Order(3)
         @DisplayName("OrderCalculatorService: retry → GREEN (66/66 pass)")
         void retryIfNeeded_allTestsPass() {
-            MigrationSession session = sessionStore.get(sessionId).orElseThrow();
-            BuildResult greenBuild = session.getGreenBuild();
-            if (greenBuild != null && greenBuild.buildStatus() == BuildStatus.GREEN) {
-                System.out.println("=== OrderCalculatorService already GREEN — skip retry ===");
-                assertThat(greenBuild.passed()).isEqualTo(66);
-                return;
-            }
-
-            BuildResult redBuild = session.getRedBuild();
-            assertThat(redBuild).isNotNull();
-            List<String> failingTests = redBuild.failedTests();
-            System.out.println("=== OrderCalculatorService retrying " + failingTests.size() + " failing tests ===");
-
-            ImplementResult retry = generationService.retryImplement(
-                    sessionId, "OrderCalculatorService", failingTests, 2);
-            assertThat(retry.code()).contains("class OrderCalculatorService");
-            assertThat(retry.code()).contains("IOrderCalculatorService");
-
-            BuildResult result = buildService.build(sessionId);
-            System.out.println("=== OrderCalculatorService Retry: " + result.buildStatus()
-                    + " " + result.passed() + "/" + result.total() + " ===");
-            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
-
+            BuildResult result = retryUntilGreen(sessionId, "OrderCalculatorService", 66);
             assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
             assertThat(result.passed()).isEqualTo(66);
         }
@@ -474,29 +467,7 @@ class FixedInputRegressionIT {
         @Order(3)
         @DisplayName("OrderCalculator: retry → GREEN (78/78 pass)")
         void retryIfNeeded_allTestsPass() {
-            MigrationSession session = sessionStore.get(sessionId).orElseThrow();
-            BuildResult greenBuild = session.getGreenBuild();
-            if (greenBuild != null && greenBuild.buildStatus() == BuildStatus.GREEN) {
-                System.out.println("=== OrderCalculator already GREEN — skip retry ===");
-                assertThat(greenBuild.passed()).isEqualTo(78);
-                return;
-            }
-
-            BuildResult redBuild = session.getRedBuild();
-            assertThat(redBuild).isNotNull();
-            List<String> failingTests = redBuild.failedTests();
-            System.out.println("=== OrderCalculator retrying " + failingTests.size() + " failing tests ===");
-
-            ImplementResult retry = generationService.retryImplement(
-                    sessionId, "OrderCalculator", failingTests, 2);
-            assertThat(retry.code()).contains("class OrderCalculator");
-            assertThat(retry.code()).contains("IOrderCalculator");
-
-            BuildResult result = buildService.build(sessionId);
-            System.out.println("=== OrderCalculator Retry: " + result.buildStatus()
-                    + " " + result.passed() + "/" + result.total() + " ===");
-            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
-
+            BuildResult result = retryUntilGreen(sessionId, "OrderCalculator", 78);
             assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
             assertThat(result.passed()).isEqualTo(78);
         }
@@ -569,29 +540,7 @@ class FixedInputRegressionIT {
         @Order(3)
         @DisplayName("OrderCalculatorService v2: retry → GREEN (50/50 pass)")
         void retryIfNeeded_allTestsPass() {
-            MigrationSession session = sessionStore.get(sessionId).orElseThrow();
-            BuildResult greenBuild = session.getGreenBuild();
-            if (greenBuild != null && greenBuild.buildStatus() == BuildStatus.GREEN) {
-                System.out.println("=== OrderCalculatorService v2 already GREEN — skip retry ===");
-                assertThat(greenBuild.passed()).isEqualTo(50);
-                return;
-            }
-
-            BuildResult redBuild = session.getRedBuild();
-            assertThat(redBuild).isNotNull();
-            List<String> failingTests = redBuild.failedTests();
-            System.out.println("=== OrderCalculatorService v2 retrying " + failingTests.size() + " failing tests ===");
-
-            ImplementResult retry = generationService.retryImplement(
-                    sessionId, "OrderCalculatorService", failingTests, 2);
-            assertThat(retry.code()).contains("class OrderCalculatorService");
-            assertThat(retry.code()).contains("IOrderCalculatorService");
-
-            BuildResult result = buildService.build(sessionId);
-            System.out.println("=== OrderCalculatorService v2 Retry: " + result.buildStatus()
-                    + " " + result.passed() + "/" + result.total() + " ===");
-            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
-
+            BuildResult result = retryUntilGreen(sessionId, "OrderCalculatorService", 50);
             assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
             assertThat(result.passed()).isEqualTo(50);
         }
@@ -664,29 +613,7 @@ class FixedInputRegressionIT {
         @Order(3)
         @DisplayName("OrderValidator v2: retry → GREEN (62/62 pass)")
         void retryIfNeeded_allTestsPass() {
-            MigrationSession session = sessionStore.get(sessionId).orElseThrow();
-            BuildResult greenBuild = session.getGreenBuild();
-            if (greenBuild != null && greenBuild.buildStatus() == BuildStatus.GREEN) {
-                System.out.println("=== OrderValidator v2 already GREEN — skip retry ===");
-                assertThat(greenBuild.passed()).isEqualTo(62);
-                return;
-            }
-
-            BuildResult redBuild = session.getRedBuild();
-            assertThat(redBuild).isNotNull();
-            List<String> failingTests = redBuild.failedTests();
-            System.out.println("=== OrderValidator v2 retrying " + failingTests.size() + " failing tests ===");
-
-            ImplementResult retry = generationService.retryImplement(
-                    sessionId, "OrderValidator", failingTests, 2);
-            assertThat(retry.code()).contains("class OrderValidator");
-            assertThat(retry.code()).contains("IOrderValidator");
-
-            BuildResult result = buildService.build(sessionId);
-            System.out.println("=== OrderValidator v2 Retry: " + result.buildStatus()
-                    + " " + result.passed() + "/" + result.total() + " ===");
-            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
-
+            BuildResult result = retryUntilGreen(sessionId, "OrderValidator", 62);
             assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
             assertThat(result.passed()).isEqualTo(62);
         }
@@ -760,29 +687,7 @@ class FixedInputRegressionIT {
         @Order(3)
         @DisplayName("OrderNotificationService: retry → GREEN (74/74 pass)")
         void retryIfNeeded_allTestsPass() {
-            MigrationSession session = sessionStore.get(sessionId).orElseThrow();
-            BuildResult greenBuild = session.getGreenBuild();
-            if (greenBuild != null && greenBuild.buildStatus() == BuildStatus.GREEN) {
-                System.out.println("=== OrderNotificationService already GREEN — skip retry ===");
-                assertThat(greenBuild.passed()).isEqualTo(74);
-                return;
-            }
-
-            BuildResult redBuild = session.getRedBuild();
-            assertThat(redBuild).isNotNull();
-            List<String> failingTests = redBuild.failedTests();
-            System.out.println("=== OrderNotificationService retrying " + failingTests.size() + " failing tests ===");
-
-            ImplementResult retry = generationService.retryImplement(
-                    sessionId, "OrderNotificationService", failingTests, 2);
-            assertThat(retry.code()).contains("class OrderNotificationService");
-            assertThat(retry.code()).contains("IOrderNotificationService");
-
-            BuildResult result = buildService.build(sessionId);
-            System.out.println("=== OrderNotificationService Retry: " + result.buildStatus()
-                    + " " + result.passed() + "/" + result.total() + " ===");
-            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
-
+            BuildResult result = retryUntilGreen(sessionId, "OrderNotificationService", 74);
             assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
             assertThat(result.passed()).isEqualTo(74);
         }

@@ -225,13 +225,23 @@ public class BuildService {
             int failed = Integer.parseInt(counters.getAttribute("failed"));
 
             List<String> failedTests = new java.util.ArrayList<>();
+            java.util.Map<String, String> failureMessages = new java.util.LinkedHashMap<>();
             var results = doc.getElementsByTagName("UnitTestResult");
             for (int i = 0; i < results.getLength(); i++) {
                 var el = (org.w3c.dom.Element) results.item(i);
                 if ("Failed".equals(el.getAttribute("outcome"))) {
-                    failedTests.add(el.getAttribute("testName"));
+                    String testName = el.getAttribute("testName");
+                    failedTests.add(testName);
+                    // Extract assertion failure message from Output/ErrorInfo/Message
+                    var outputNodes = el.getElementsByTagName("Message");
+                    if (outputNodes.getLength() > 0) {
+                        failureMessages.put(testName, outputNodes.item(0).getTextContent().trim());
+                    }
                 }
             }
+
+            // Store failure messages on session for retry prompts
+            sessionStore.get(sessionId).ifPresent(s -> s.setFailureMessages(failureMessages));
 
             BuildStatus status = (failed == 0) ? BuildStatus.GREEN : BuildStatus.RED;
             return new BuildResult(sessionId, status, total, passed, failed, List.of(), failedTests);
