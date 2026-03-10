@@ -67,7 +67,8 @@ public class GenerationService {
             IMPORTANT: The class MUST be in the root namespace (no namespace declaration). \
             Do NOT wrap the class in any namespace block.
 
-            Return only raw C# code. No markdown. No backticks. No explanation.""";
+            Return ONLY the complete C# class. No markdown. No backticks. No explanation. \
+            No analysis. No discussion. No test code. Just the class starting with 'public class'.""";
 
     private final ClaudeClient claudeClient;
     private final SessionStore sessionStore;
@@ -182,6 +183,11 @@ public class GenerationService {
                 stripNamespaceWrapper(stripCodeFences(response.text())),
                 className, iface.interfaceName());
 
+        // If Claude returned analysis instead of code, throw rather than write garbage
+        if (!code.contains("public class ")) {
+            throw new RuntimeException("Claude did not return valid C# code — try again");
+        }
+
         String modelId = Model.CLAUDE_SONNET_4_6.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
         session.addTokenUsage(new TokenUsage("implement", modelId, response.inputTokens(), response.outputTokens(), cost));
@@ -235,6 +241,11 @@ public class GenerationService {
         String modelId = model.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
         session.addTokenUsage(new TokenUsage("retry-implement", modelId, response.inputTokens(), response.outputTokens(), cost));
+
+        // If Claude returned analysis instead of code, fall back to the previous implementation
+        if (!code.contains("public class ")) {
+            code = previous.code();
+        }
 
         ImplementResult result = new ImplementResult(sessionId, className, code, ImplementMode.CLAUDE);
         session.setImplementResult(result);
