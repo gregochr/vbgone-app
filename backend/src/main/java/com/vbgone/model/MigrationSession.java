@@ -64,10 +64,35 @@ public class MigrationSession {
 
     /**
      * Returns VB.NET source for a specific class if available (project mode),
-     * otherwise falls back to the full vbContent (single file mode).
+     * otherwise extracts the class section from the full vbContent.
+     * Falls back to full vbContent if extraction fails.
      */
     public String getVbContentForClass(String className) {
         String classSource = classSources.get(className);
-        return classSource != null ? classSource : vbContent;
+        if (classSource != null) return classSource;
+
+        // Try to extract just this class from the full VB content
+        if (vbContent != null) {
+            String extracted = extractVbClass(vbContent, className);
+            if (extracted != null) return extracted;
+        }
+        return vbContent;
+    }
+
+    /**
+     * Extracts a single VB.NET class from source containing multiple classes.
+     * Matches: [Public|Friend|Private] Class ClassName ... End Class
+     */
+    public static String extractVbClass(String source, String className) {
+        // Match class declaration with optional access modifier
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                "(?m)^\\s*(?:Public|Friend|Private)?\\s*Class\\s+" +
+                java.util.regex.Pattern.quote(className) + "\\b.*?^\\s*End\\s+Class",
+                java.util.regex.Pattern.DOTALL | java.util.regex.Pattern.MULTILINE);
+        java.util.regex.Matcher matcher = pattern.matcher(source);
+        if (matcher.find()) {
+            return matcher.group().trim();
+        }
+        return null;
     }
 }

@@ -290,9 +290,9 @@ public class GenerationService {
      *    → "public class OrderConstants : IOrderConstants"
      */
     String fixClassDeclaration(String code, String expectedClass, String expectedInterface) {
-        // Match: public class <AnyName> : <AnyInterface>
+        // Match: public [sealed|partial|abstract|static] class <AnyName> : <AnyInterface>
         String fixed = code.replaceFirst(
-                "public\\s+class\\s+\\w+\\s*:\\s*\\w+",
+                "public\\s+(?:sealed\\s+|partial\\s+|abstract\\s+|static\\s+)*class\\s+\\w+\\s*:\\s*\\w+",
                 "public class " + expectedClass + " : " + expectedInterface);
         return fixed;
     }

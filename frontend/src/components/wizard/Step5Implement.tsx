@@ -168,9 +168,11 @@ export function Step5Implement({ state, update, onReady }: Props) {
             <p>
               {'\uD83E\uDDEA'} The {b.failedTests.length} failing{' '}
               {b.failedTests.length === 1 ? 'test' : 'tests'} will be extracted from the test suite
-              and sent to Claude alongside the current implementation. This targeted prompt
-              engineering gives Claude the exact assertions it needs to satisfy, rather than just
-              the test names.
+              and sent to Claude alongside the current implementation.{' '}
+              <strong>
+                This targeted prompt engineering gives Claude the exact assertions it needs to
+                satisfy, rather than just the test names.
+              </strong>
             </p>
             <p>
               {'\uD83D\uDCB0'} Prompt caching is enabled — the system prompt is cached and reused

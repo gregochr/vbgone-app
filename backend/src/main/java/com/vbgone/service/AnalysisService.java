@@ -97,6 +97,15 @@ public class AnalysisService {
 
         AnalysisResult result = parseAnalysis(session.getSessionId(), json);
         session.setAnalysisResult(result);
+
+        // Pre-populate per-class VB source for multi-class single-file scenarios
+        for (ClassInfo cls : result.classes()) {
+            String extracted = MigrationSession.extractVbClass(content, cls.name());
+            if (extracted != null) {
+                session.putClassSource(cls.name(), extracted);
+            }
+        }
+
         return result;
     }
 
@@ -136,11 +145,13 @@ public class AnalysisService {
         session.setAnalysisResult(new AnalysisResult(
                 manifest.sessionId(), result.classes(), result.suggestedMigrationOrder(), result.summary()));
 
-        // Map each class name to its individual file source for per-class generation
+        // Map each class name to its extracted VB source for per-class generation
         for (ClassInfo cls : result.classes()) {
             for (VbSourceFile file : manifest.files()) {
                 if (file.content().contains("Class " + cls.name())) {
-                    session.putClassSource(cls.name(), file.content());
+                    // Extract just this class section, not the entire file
+                    String extracted = MigrationSession.extractVbClass(file.content(), cls.name());
+                    session.putClassSource(cls.name(), extracted != null ? extracted : file.content());
                     break;
                 }
             }

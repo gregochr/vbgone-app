@@ -104,6 +104,23 @@ public class MigrationController {
         return costService.getCost(sessionId);
     }
 
+    @GetMapping("/dump/{sessionId}")
+    public SessionDump dumpSession(@PathVariable String sessionId) {
+        MigrationSession session = sessionStore.get(sessionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found"));
+        return new SessionDump(
+                session.getSessionId(),
+                session.getVbContent(),
+                session.getClassSources(),
+                session.getInterfaceResult(),
+                session.getTestsResult(),
+                session.getStubResult(),
+                session.getImplementResult(),
+                session.getRedBuild(),
+                session.getGreenBuild(),
+                session.getTokenUsages());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public java.util.Map<String, String> handleIllegalArgument(IllegalArgumentException ex) {

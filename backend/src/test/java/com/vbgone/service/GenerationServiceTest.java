@@ -521,6 +521,20 @@ class GenerationServiceTest {
     }
 
     @Test
+    void fixClassDeclaration_handlesSealedClass() {
+        String code = "public sealed class WrongName : IWrong\n{\n}";
+        String fixed = service.fixClassDeclaration(code, "OrderValidator", "IOrderValidator");
+        assertThat(fixed).contains("public class OrderValidator : IOrderValidator");
+    }
+
+    @Test
+    void fixClassDeclaration_handlesPartialClass() {
+        String code = "public partial class WrongName : IWrong\n{\n}";
+        String fixed = service.fixClassDeclaration(code, "OrderValidator", "IOrderValidator");
+        assertThat(fixed).contains("public class OrderValidator : IOrderValidator");
+    }
+
+    @Test
     void implement_fixesWrongClassNameFromClaude() {
         MigrationSession session = sessionWithVb("s1");
         session.setInterfaceResult(new InterfaceResult("s1", "OrderConstants", "IOrderConstants",
@@ -535,6 +549,67 @@ class GenerationServiceTest {
         assertThat(result.code()).contains("public class OrderConstants : IOrderConstants");
         assertThat(result.code()).doesNotContain("OrderCalculationService");
         assertThat(result.code()).doesNotContain("IOrderCalculationService");
+    }
+
+    // ── extractVbClass ──
+
+    @Test
+    void extractVbClass_extractsSingleClassFromMultiClassFile() {
+        String vb = """
+                Public Class OrderCalculatorService
+                    Public Function CalculateTotal() As Double
+                        Return 0
+                    End Function
+                End Class
+
+                Public Class OrderValidator
+                    Public Function ValidateOrder() As Boolean
+                        Return True
+                    End Function
+                End Class""";
+
+        String extracted = MigrationSession.extractVbClass(vb, "OrderValidator");
+
+        assertThat(extracted).contains("Public Class OrderValidator");
+        assertThat(extracted).contains("ValidateOrder");
+        assertThat(extracted).contains("End Class");
+        assertThat(extracted).doesNotContain("OrderCalculatorService");
+        assertThat(extracted).doesNotContain("CalculateTotal");
+    }
+
+    @Test
+    void extractVbClass_returnsNullWhenClassNotFound() {
+        String vb = "Public Class Foo\nEnd Class";
+        assertThat(MigrationSession.extractVbClass(vb, "Bar")).isNull();
+    }
+
+    @Test
+    void extractVbClass_handlesClassWithNoAccessModifier() {
+        String vb = "Class MyClass\n    Sub DoStuff()\n    End Sub\nEnd Class";
+        String extracted = MigrationSession.extractVbClass(vb, "MyClass");
+        assertThat(extracted).contains("Class MyClass");
+        assertThat(extracted).contains("DoStuff");
+    }
+
+    @Test
+    void getVbContentForClass_extractsClassFromFullContent() {
+        MigrationSession session = new MigrationSession("s1");
+        session.setVbContent("""
+                Public Class Alpha
+                    Sub A()
+                    End Sub
+                End Class
+
+                Public Class Beta
+                    Sub B()
+                    End Sub
+                End Class""");
+
+        String content = session.getVbContentForClass("Beta");
+
+        assertThat(content).contains("Public Class Beta");
+        assertThat(content).contains("Sub B()");
+        assertThat(content).doesNotContain("Alpha");
     }
 
     // ── Token tracking ──
