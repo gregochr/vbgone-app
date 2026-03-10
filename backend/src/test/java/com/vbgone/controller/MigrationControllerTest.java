@@ -20,7 +20,7 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.Map;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -162,13 +162,13 @@ class MigrationControllerTest {
 
     @Test
     void retryImplement_returns200WithImplementResult() throws Exception {
-        when(generationService.retryImplement(eq(SESSION_ID), eq("Form1"), any()))
+        when(generationService.retryImplement(eq(SESSION_ID), eq("Form1"), any(), anyInt()))
                 .thenReturn(new ImplementResult(SESSION_ID, "Form1", "public class Form1 { ... }", ImplementMode.CLAUDE));
 
         mockMvc.perform(post("/api/migrate/retry-implement")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new RetryRequest(SESSION_ID, "Form1", List.of("Add_ReturnsSum")))))
+                                new RetryRequest(SESSION_ID, "Form1", List.of("Add_ReturnsSum"), 1))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sessionId").value(SESSION_ID))
                 .andExpect(jsonPath("$.className").value("Form1"))

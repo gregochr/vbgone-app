@@ -260,7 +260,7 @@ class GenerationServiceTest {
                 .thenReturn(claudeResponse("public class Form1 : IForm1 { public int Add(int a, int b) => a + b; }"));
 
         ImplementResult result = service.retryImplement("s1", "Form1",
-                java.util.List.of("Add_ReturnsSum", "Subtract_ReturnsDiff"));
+                java.util.List.of("Add_ReturnsSum", "Subtract_ReturnsDiff"), 1);
 
         assertThat(result.sessionId()).isEqualTo("s1");
         assertThat(result.className()).isEqualTo("Form1");
@@ -294,7 +294,7 @@ class GenerationServiceTest {
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
                 .thenReturn(claudeResponse("public class Form1 : IForm1 { public int Add(int a, int b) => a + b; }"));
 
-        service.retryImplement("s1", "Form1", java.util.List.of("Add_ReturnsSum"));
+        service.retryImplement("s1", "Form1", java.util.List.of("Add_ReturnsSum"), 1);
 
         verify(claudeClient).sendWithCachedSystemPrompt(
                 eq(GenerationService.IMPLEMENT_SYSTEM_PROMPT),
@@ -308,7 +308,7 @@ class GenerationServiceTest {
         MigrationSession session = sessionWithVb("s1");
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));
 
-        assertThatThrownBy(() -> service.retryImplement("s1", "Form1", java.util.List.of()))
+        assertThatThrownBy(() -> service.retryImplement("s1", "Form1", java.util.List.of(), 1))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Interface must be generated");
     }
@@ -318,7 +318,7 @@ class GenerationServiceTest {
         MigrationSession session = sessionWithInterface("s1");
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));
 
-        assertThatThrownBy(() -> service.retryImplement("s1", "Form1", java.util.List.of()))
+        assertThatThrownBy(() -> service.retryImplement("s1", "Form1", java.util.List.of(), 1))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Previous implementation must exist");
     }

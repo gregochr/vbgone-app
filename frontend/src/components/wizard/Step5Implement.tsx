@@ -67,11 +67,13 @@ export function Step5Implement({ state, update, onReady }: Props) {
     const failingTests = state.greenBuild?.failedTests ?? []
     setLoading(true)
     setError(null)
-    setAttempts((a) => a + 1)
+    const nextAttempt = attempts + 1
+    setAttempts(nextAttempt)
 
     try {
-      setPhase('Claude is retrying implementation...')
-      const implResult = await retryImplement(sessionId, className, failingTests)
+      const isOpus = nextAttempt >= MAX_ATTEMPTS
+      setPhase(isOpus ? 'Claude Opus is retrying implementation...' : 'Claude is retrying implementation...')
+      const implResult = await retryImplement(sessionId, className, failingTests, nextAttempt)
       update({ implementResult: implResult })
 
       setPhase('Running .NET test...')
@@ -157,10 +159,18 @@ export function Step5Implement({ state, update, onReady }: Props) {
 
         {showRetryConfirm && (
           <ConfirmDialog onConfirm={retry} onCancel={() => setShowRetryConfirm(false)}>
-            <p>
-              This will make an API call to Claude Sonnet (claude-sonnet-4-6) via the Anthropic Java
-              SDK.
-            </p>
+            {attempts + 1 >= MAX_ATTEMPTS ? (
+              <p>
+                This is the final attempt. It will escalate to{' '}
+                <strong>Claude Opus (claude-opus-4-6)</strong> — the most capable model — via the
+                Anthropic Java SDK.
+              </p>
+            ) : (
+              <p>
+                This will make an API call to Claude Sonnet (claude-sonnet-4-6) via the Anthropic
+                Java SDK.
+              </p>
+            )}
             <p>
               {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored by Anthropic
               beyond the request.

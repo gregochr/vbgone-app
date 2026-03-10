@@ -298,7 +298,7 @@ class FixedInputRegressionIT {
             System.out.println("=== OrderValidator retrying " + failingTests.size() + " failing tests ===");
 
             ImplementResult retry = generationService.retryImplement(
-                    sessionId, "OrderValidator", failingTests);
+                    sessionId, "OrderValidator", failingTests, 2);
             assertThat(retry.code()).contains("class OrderValidator");
             assertThat(retry.code()).contains("IOrderValidator");
 
@@ -393,7 +393,7 @@ class FixedInputRegressionIT {
             System.out.println("=== OrderCalculatorService retrying " + failingTests.size() + " failing tests ===");
 
             ImplementResult retry = generationService.retryImplement(
-                    sessionId, "OrderCalculatorService", failingTests);
+                    sessionId, "OrderCalculatorService", failingTests, 2);
             assertThat(retry.code()).contains("class OrderCalculatorService");
             assertThat(retry.code()).contains("IOrderCalculatorService");
 
@@ -488,7 +488,7 @@ class FixedInputRegressionIT {
             System.out.println("=== OrderCalculator retrying " + failingTests.size() + " failing tests ===");
 
             ImplementResult retry = generationService.retryImplement(
-                    sessionId, "OrderCalculator", failingTests);
+                    sessionId, "OrderCalculator", failingTests, 2);
             assertThat(retry.code()).contains("class OrderCalculator");
             assertThat(retry.code()).contains("IOrderCalculator");
 
@@ -583,7 +583,7 @@ class FixedInputRegressionIT {
             System.out.println("=== OrderCalculatorService v2 retrying " + failingTests.size() + " failing tests ===");
 
             ImplementResult retry = generationService.retryImplement(
-                    sessionId, "OrderCalculatorService", failingTests);
+                    sessionId, "OrderCalculatorService", failingTests, 2);
             assertThat(retry.code()).contains("class OrderCalculatorService");
             assertThat(retry.code()).contains("IOrderCalculatorService");
 
@@ -678,7 +678,7 @@ class FixedInputRegressionIT {
             System.out.println("=== OrderValidator v2 retrying " + failingTests.size() + " failing tests ===");
 
             ImplementResult retry = generationService.retryImplement(
-                    sessionId, "OrderValidator", failingTests);
+                    sessionId, "OrderValidator", failingTests, 2);
             assertThat(retry.code()).contains("class OrderValidator");
             assertThat(retry.code()).contains("IOrderValidator");
 
@@ -689,6 +689,102 @@ class FixedInputRegressionIT {
 
             assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
             assertThat(result.passed()).isEqualTo(62);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  OrderNotificationService (74 tests, boundary conditions)
+    //  Captured from live run 2026-03-10 — 67/74 first attempt
+    //  Shipping thresholds and discount boundaries consistently tricky
+    // ════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    class OrderNotificationService {
+
+        static String sessionId;
+
+        @BeforeAll
+        static void createSession() {
+            String vb = loadFixture("order-notification-service/OrderProcessor.vb");
+            String iface = loadFixture("order-notification-service/IOrderNotificationService.cs");
+            String tests = loadFixture("order-notification-service/OrderNotificationServiceTests.cs");
+
+            MigrationSession session = sessionStore.create();
+            sessionId = session.getSessionId();
+            session.setVbContent(vb);
+            session.setInterfaceResult(new InterfaceResult(
+                    sessionId, "OrderNotificationService", "IOrderNotificationService", iface));
+            session.setTestsResult(new TestsResult(
+                    sessionId, "OrderNotificationService", "OrderNotificationServiceTests", tests, 74));
+        }
+
+        @Test
+        @Order(1)
+        @DisplayName("OrderNotificationService: stub → RED (74/74 fail)")
+        void stubBuild_allTestsFail() {
+            StubResult stub = generationService.generateStub(sessionId, "OrderNotificationService");
+            assertThat(stub.code()).contains("NotImplementedException");
+            assertThat(stub.code()).contains("class OrderNotificationService");
+            assertThat(stub.code()).contains("IOrderNotificationService");
+
+            BuildResult result = buildService.build(sessionId);
+            System.out.println("=== OrderNotificationService Stub: " + result.buildStatus()
+                    + " " + result.passed() + "/" + result.total() + " ===");
+
+            assertThat(result.buildStatus()).isEqualTo(BuildStatus.RED);
+            assertThat(result.total()).isEqualTo(74);
+            assertThat(result.failed()).isEqualTo(74);
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("OrderNotificationService: Claude implement → at least 60/74 pass")
+        void claudeImplementation_mostTestsPass() {
+            ImplementResult impl = generationService.implement(
+                    sessionId, "OrderNotificationService", ImplementMode.CLAUDE);
+            assertThat(impl.code()).contains("class OrderNotificationService");
+            assertThat(impl.code()).contains("IOrderNotificationService");
+
+            BuildResult result = buildService.build(sessionId);
+            System.out.println("=== OrderNotificationService Impl: " + result.buildStatus()
+                    + " " + result.passed() + "/" + result.total() + " ===");
+            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
+            if (!result.errors().isEmpty()) System.out.println("  Errors: " + result.errors());
+
+            assertThat(result.buildStatus()).isNotEqualTo(BuildStatus.ERROR);
+            assertThat(result.passed()).isGreaterThanOrEqualTo(60);
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("OrderNotificationService: retry → GREEN (74/74 pass)")
+        void retryIfNeeded_allTestsPass() {
+            MigrationSession session = sessionStore.get(sessionId).orElseThrow();
+            BuildResult greenBuild = session.getGreenBuild();
+            if (greenBuild != null && greenBuild.buildStatus() == BuildStatus.GREEN) {
+                System.out.println("=== OrderNotificationService already GREEN — skip retry ===");
+                assertThat(greenBuild.passed()).isEqualTo(74);
+                return;
+            }
+
+            BuildResult redBuild = session.getRedBuild();
+            assertThat(redBuild).isNotNull();
+            List<String> failingTests = redBuild.failedTests();
+            System.out.println("=== OrderNotificationService retrying " + failingTests.size() + " failing tests ===");
+
+            ImplementResult retry = generationService.retryImplement(
+                    sessionId, "OrderNotificationService", failingTests, 2);
+            assertThat(retry.code()).contains("class OrderNotificationService");
+            assertThat(retry.code()).contains("IOrderNotificationService");
+
+            BuildResult result = buildService.build(sessionId);
+            System.out.println("=== OrderNotificationService Retry: " + result.buildStatus()
+                    + " " + result.passed() + "/" + result.total() + " ===");
+            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
+
+            assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
+            assertThat(result.passed()).isEqualTo(74);
         }
     }
 }

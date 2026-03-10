@@ -5,5 +5,6 @@ import java.util.List;
 public record RetryRequest(
         String sessionId,
         String className,
-        List<String> failingTests
+        List<String> failingTests,
+        int attempt
 ) {}

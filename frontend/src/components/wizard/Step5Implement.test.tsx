@@ -314,7 +314,7 @@ describe('Step5Implement', () => {
     await user.click(screen.getByText('Continue'))
 
     await waitFor(() => {
-      expect(api.retryImplement).toHaveBeenCalledWith('session-1', 'Foo', ['Add_ReturnsSum'])
+      expect(api.retryImplement).toHaveBeenCalledWith('session-1', 'Foo', ['Add_ReturnsSum'], 2)
       expect(api.build).toHaveBeenCalledWith('session-1')
       expect(update).toHaveBeenCalledWith({ implementResult: retryImpl })
       expect(update).toHaveBeenCalledWith({ greenBuild: mockGreenBuild })

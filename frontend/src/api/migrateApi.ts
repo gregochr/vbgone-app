@@ -891,9 +891,11 @@ public class OrderProcessor : IOrderProcessor
     sessionId: string,
     className: string,
     failingTests: string[],
+    attempt?: number,
   ): Promise<ImplementResult> {
     void sessionId
     void failingTests
+    void attempt
     await delay(2000)
     return {
       sessionId: MOCK_SESSION_ID,
@@ -1021,11 +1023,13 @@ const realApi = {
     sessionId: string,
     className: string,
     failingTests: string[],
+    attempt?: number,
   ): Promise<ImplementResult> {
     const { data } = await api.post<ImplementResult>('/retry-implement', {
       sessionId,
       className,
       failingTests,
+      attempt: attempt ?? 1,
     })
     return data
   },

@@ -191,7 +191,8 @@ public class GenerationService {
         return result;
     }
 
-    public ImplementResult retryImplement(String sessionId, String className, java.util.List<String> failingTests) {
+    public ImplementResult retryImplement(String sessionId, String className,
+                                           java.util.List<String> failingTests, int attempt) {
         MigrationSession session = getSession(sessionId);
 
         InterfaceResult iface = session.getInterfaceResult();
@@ -210,18 +211,28 @@ public class GenerationService {
                 + "The class declaration MUST be: public class " + className + " : " + iface.interfaceName() + "\n"
                 + "Do NOT use any other class name or interface name.\n"
                 + "Fix the implementation to make them pass: "
-                + failingList + "\n\nFailing test source:\n" + testSnippets
+                + failingList
+                + "\n\nIMPORTANT: Read each failing test assertion carefully. Pay close attention to:\n"
+                + "- Boundary conditions: >= vs >, <= vs < (e.g. quantity >= 20 is NOT the same as quantity > 20)\n"
+                + "- Discount tier thresholds: check exact values in the test assertions\n"
+                + "- Shipping tier thresholds: check the exact quantity boundaries\n"
+                + "- The test name often encodes the expected boundary (e.g. 'QuantityTwenty_UsesMediumShipping' means qty=20 IS medium)\n"
+                + "\n\nFailing test source:\n" + testSnippets
                 + "\n\nCurrent failing implementation:\n" + previous.code()
                 + "\n\nInterface:\n" + iface.code()
                 + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContentForClass(className);
 
+        // Escalate to Opus on the final attempt (attempt 3)
+        boolean useOpus = attempt >= 3;
+        Model model = useOpus ? Model.CLAUDE_OPUS_4_6 : Model.CLAUDE_SONNET_4_6;
+
         ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
-                IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 16384L);
+                IMPLEMENT_SYSTEM_PROMPT, userMessage, model, 16384L);
         String code = fixClassDeclaration(
                 stripNamespaceWrapper(stripCodeFences(response.text())),
                 className, iface.interfaceName());
 
-        String modelId = Model.CLAUDE_SONNET_4_6.asString();
+        String modelId = model.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
         session.addTokenUsage(new TokenUsage("retry-implement", modelId, response.inputTokens(), response.outputTokens(), cost));
 

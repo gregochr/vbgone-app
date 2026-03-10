@@ -90,7 +90,7 @@ public class MigrationController {
     @PostMapping("/retry-implement")
     public ImplementResult retryImplement(@RequestBody RetryRequest request) {
         return generationService.retryImplement(
-                request.sessionId(), request.className(), request.failingTests());
+                request.sessionId(), request.className(), request.failingTests(), request.attempt());
     }
 
     @PostMapping("/pr")

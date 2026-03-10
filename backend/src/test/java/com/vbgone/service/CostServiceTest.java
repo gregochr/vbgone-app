@@ -86,8 +86,14 @@ class CostServiceTest {
 
     @Test
     void calculateCost_unknownModelFallsBackToSonnetPricing() {
-        double cost = CostService.calculateCost("claude-opus-4-6", 1_000_000, 0);
+        double cost = CostService.calculateCost("claude-unknown-model", 1_000_000, 0);
         assertThat(cost).isEqualTo(3.0);
+    }
+
+    @Test
+    void calculateCost_opusModelUsesOpusPricing() {
+        double cost = CostService.calculateCost("claude-opus-4-6", 1_000_000, 0);
+        assertThat(cost).isEqualTo(15.0);
     }
 
     // ── getCost ──
