@@ -30,6 +30,14 @@ public class GenerationService {
             path, edge cases, and error conditions including divide by zero, null inputs, and \
             boundary values.
 
+            CRITICAL — TEST CONSISTENCY: When a method has multiple interacting rules \
+            (e.g. tiered pricing, conditional fees, cascading thresholds), every test MUST \
+            account for ALL rules that apply to its specific inputs. Before writing any \
+            assertion, trace through the FULL VB.NET logic for the test's exact inputs and \
+            include every effect that triggers. Do NOT test one rule in isolation if the \
+            inputs also trigger other rules — the expected value must reflect the complete \
+            calculation path.
+
             Generate ONLY the NUnit test class. Do NOT include the interface definition or any \
             implementation class in the test file. The tests should use the interface type for \
             the field declaration and instantiate the real implementation class in the [SetUp] method.
