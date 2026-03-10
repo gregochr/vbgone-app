@@ -406,4 +406,99 @@ class FixedInputRegressionIT {
             assertThat(result.passed()).isEqualTo(66);
         }
     }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  OrderCalculator (complex — validation, totals, discounts, 78 tests)
+    //  Captured from live run 2026-03-10
+    // ════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    class OrderCalculator {
+
+        static String sessionId;
+
+        @BeforeAll
+        static void createSession() {
+            String vb = loadFixture("order-calculator/OrderProcessor.vb");
+            String iface = loadFixture("order-calculator/IOrderCalculator.cs");
+            String tests = loadFixture("order-calculator/OrderCalculatorTests.cs");
+
+            MigrationSession session = sessionStore.create();
+            sessionId = session.getSessionId();
+            session.setVbContent(vb);
+            session.setInterfaceResult(new InterfaceResult(
+                    sessionId, "OrderCalculator", "IOrderCalculator", iface));
+            session.setTestsResult(new TestsResult(
+                    sessionId, "OrderCalculator", "OrderCalculatorTests", tests, 78));
+        }
+
+        @Test
+        @Order(1)
+        @DisplayName("OrderCalculator: stub → RED (78/78 fail)")
+        void stubBuild_allTestsFail() {
+            StubResult stub = generationService.generateStub(sessionId, "OrderCalculator");
+            assertThat(stub.code()).contains("NotImplementedException");
+            assertThat(stub.code()).contains("class OrderCalculator");
+            assertThat(stub.code()).contains("IOrderCalculator");
+
+            BuildResult result = buildService.build(sessionId);
+            System.out.println("=== OrderCalculator Stub: " + result.buildStatus()
+                    + " " + result.passed() + "/" + result.total() + " ===");
+
+            assertThat(result.buildStatus()).isEqualTo(BuildStatus.RED);
+            assertThat(result.total()).isEqualTo(78);
+            assertThat(result.failed()).isEqualTo(78);
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("OrderCalculator: Claude implement → at least 70/78 pass")
+        void claudeImplementation_mostTestsPass() {
+            ImplementResult impl = generationService.implement(
+                    sessionId, "OrderCalculator", ImplementMode.CLAUDE);
+            assertThat(impl.code()).contains("class OrderCalculator");
+            assertThat(impl.code()).contains("IOrderCalculator");
+
+            BuildResult result = buildService.build(sessionId);
+            System.out.println("=== OrderCalculator Impl: " + result.buildStatus()
+                    + " " + result.passed() + "/" + result.total() + " ===");
+            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
+            if (!result.errors().isEmpty()) System.out.println("  Errors: " + result.errors());
+
+            assertThat(result.buildStatus()).isNotEqualTo(BuildStatus.ERROR);
+            assertThat(result.passed()).isGreaterThanOrEqualTo(70);
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("OrderCalculator: retry → GREEN (78/78 pass)")
+        void retryIfNeeded_allTestsPass() {
+            MigrationSession session = sessionStore.get(sessionId).orElseThrow();
+            BuildResult greenBuild = session.getGreenBuild();
+            if (greenBuild != null && greenBuild.buildStatus() == BuildStatus.GREEN) {
+                System.out.println("=== OrderCalculator already GREEN — skip retry ===");
+                assertThat(greenBuild.passed()).isEqualTo(78);
+                return;
+            }
+
+            BuildResult redBuild = session.getRedBuild();
+            assertThat(redBuild).isNotNull();
+            List<String> failingTests = redBuild.failedTests();
+            System.out.println("=== OrderCalculator retrying " + failingTests.size() + " failing tests ===");
+
+            ImplementResult retry = generationService.retryImplement(
+                    sessionId, "OrderCalculator", failingTests);
+            assertThat(retry.code()).contains("class OrderCalculator");
+            assertThat(retry.code()).contains("IOrderCalculator");
+
+            BuildResult result = buildService.build(sessionId);
+            System.out.println("=== OrderCalculator Retry: " + result.buildStatus()
+                    + " " + result.passed() + "/" + result.total() + " ===");
+            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
+
+            assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
+            assertThat(result.passed()).isEqualTo(78);
+        }
+    }
 }

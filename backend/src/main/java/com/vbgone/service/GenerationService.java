@@ -166,9 +166,12 @@ public class GenerationService {
         if (iface == null) {
             throw new IllegalStateException("Interface must be generated before implement");
         }
-        String userMessage = "Implement a C# class named " + className
-                + " that implements " + iface.interfaceName() + ". "
-                + "Match every method signature exactly — same return types, same parameter types.\n\n"
+        String userMessage = "Implement a C# class named EXACTLY " + className
+                + " that implements EXACTLY " + iface.interfaceName() + ". "
+                + "The class declaration MUST be: public class " + className + " : " + iface.interfaceName() + "\n"
+                + "Do NOT use any other class name or interface name.\n"
+                + "Match every method signature exactly — same return types, same parameter types.\n"
+                + "Only implement the methods declared in the interface below — ignore any other methods in the VB source.\n\n"
                 + "Interface:\n" + iface.code()
                 + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContentForClass(className);
 
@@ -201,8 +204,10 @@ public class GenerationService {
 
         String failingList = String.join(", ", failingTests);
         String testSnippets = extractFailingTests(session, failingTests);
-        String userMessage = "The following tests are failing for class " + className
-                + " (which implements " + iface.interfaceName() + "). "
+        String userMessage = "The following tests are failing for class EXACTLY " + className
+                + " (which implements EXACTLY " + iface.interfaceName() + "). "
+                + "The class declaration MUST be: public class " + className + " : " + iface.interfaceName() + "\n"
+                + "Do NOT use any other class name or interface name.\n"
                 + "Fix the implementation to make them pass: "
                 + failingList + "\n\nFailing test source:\n" + testSnippets
                 + "\n\nCurrent failing implementation:\n" + previous.code()
