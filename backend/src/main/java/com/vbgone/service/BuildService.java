@@ -128,8 +128,40 @@ public class BuildService {
                            String implementationCode, List<String> dependencies) throws IOException {
         Path mainDir = sessionDir.resolve(className);
         Path testDir = sessionDir.resolve(className + ".Tests");
+
+        // Clean previous build artifacts for this class to prevent stale files
+        if (Files.exists(mainDir)) {
+            try (var walk = Files.walk(mainDir)) {
+                walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+                    try { Files.deleteIfExists(p); } catch (IOException ignored) {}
+                });
+            }
+        }
+        if (Files.exists(testDir)) {
+            try (var walk = Files.walk(testDir)) {
+                walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+                    try { Files.deleteIfExists(p); } catch (IOException ignored) {}
+                });
+            }
+        }
+
         Files.createDirectories(mainDir);
         Files.createDirectories(testDir);
+
+        // Ensure dependency project directories exist with at least a stub .csproj and interface
+        for (String dep : dependencies) {
+            Path depDir = sessionDir.resolve(dep);
+            if (!Files.exists(depDir.resolve(dep + ".csproj"))) {
+                Files.createDirectories(depDir);
+                Files.writeString(depDir.resolve(dep + ".csproj"), MAIN_CSPROJ);
+                // Write a minimal stub interface so the dependency compiles
+                String depInterface = "public interface I" + dep + " { }";
+                Files.writeString(depDir.resolve("I" + dep + ".cs"), depInterface);
+                // Write a minimal stub class
+                String depStub = "public class " + dep + " : I" + dep + " { }";
+                Files.writeString(depDir.resolve(dep + ".cs"), depStub);
+            }
+        }
 
         String mainCsproj = buildMainCsproj(dependencies);
         Files.writeString(mainDir.resolve(className + ".csproj"), mainCsproj);
