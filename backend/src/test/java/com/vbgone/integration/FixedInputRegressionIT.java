@@ -596,4 +596,99 @@ class FixedInputRegressionIT {
             assertThat(result.passed()).isEqualTo(50);
         }
     }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  OrderValidator v2 (62 tests, stronger prompt)
+    //  Captured from live run 2026-03-10 — 57/62 first attempt, retry needed
+    // ════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    class OrderValidatorV2 {
+
+        static String sessionId;
+
+        @BeforeAll
+        static void createSession() {
+            String vb = loadFixture("order-validator-v2/OrderProcessor.vb");
+            String iface = loadFixture("order-validator-v2/IOrderValidator.cs");
+            String tests = loadFixture("order-validator-v2/OrderValidatorTests.cs");
+
+            MigrationSession session = sessionStore.create();
+            sessionId = session.getSessionId();
+            session.setVbContent(vb);
+            session.setInterfaceResult(new InterfaceResult(
+                    sessionId, "OrderValidator", "IOrderValidator", iface));
+            session.setTestsResult(new TestsResult(
+                    sessionId, "OrderValidator", "OrderValidatorTests", tests, 62));
+        }
+
+        @Test
+        @Order(1)
+        @DisplayName("OrderValidator v2: stub → RED (62/62 fail)")
+        void stubBuild_allTestsFail() {
+            StubResult stub = generationService.generateStub(sessionId, "OrderValidator");
+            assertThat(stub.code()).contains("NotImplementedException");
+            assertThat(stub.code()).contains("class OrderValidator");
+            assertThat(stub.code()).contains("IOrderValidator");
+
+            BuildResult result = buildService.build(sessionId);
+            System.out.println("=== OrderValidator v2 Stub: " + result.buildStatus()
+                    + " " + result.passed() + "/" + result.total() + " ===");
+
+            assertThat(result.buildStatus()).isEqualTo(BuildStatus.RED);
+            assertThat(result.total()).isEqualTo(62);
+            assertThat(result.failed()).isEqualTo(62);
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("OrderValidator v2: Claude implement → at least 55/62 pass")
+        void claudeImplementation_mostTestsPass() {
+            ImplementResult impl = generationService.implement(
+                    sessionId, "OrderValidator", ImplementMode.CLAUDE);
+            assertThat(impl.code()).contains("class OrderValidator");
+            assertThat(impl.code()).contains("IOrderValidator");
+
+            BuildResult result = buildService.build(sessionId);
+            System.out.println("=== OrderValidator v2 Impl: " + result.buildStatus()
+                    + " " + result.passed() + "/" + result.total() + " ===");
+            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
+            if (!result.errors().isEmpty()) System.out.println("  Errors: " + result.errors());
+
+            assertThat(result.buildStatus()).isNotEqualTo(BuildStatus.ERROR);
+            assertThat(result.passed()).isGreaterThanOrEqualTo(55);
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("OrderValidator v2: retry → GREEN (62/62 pass)")
+        void retryIfNeeded_allTestsPass() {
+            MigrationSession session = sessionStore.get(sessionId).orElseThrow();
+            BuildResult greenBuild = session.getGreenBuild();
+            if (greenBuild != null && greenBuild.buildStatus() == BuildStatus.GREEN) {
+                System.out.println("=== OrderValidator v2 already GREEN — skip retry ===");
+                assertThat(greenBuild.passed()).isEqualTo(62);
+                return;
+            }
+
+            BuildResult redBuild = session.getRedBuild();
+            assertThat(redBuild).isNotNull();
+            List<String> failingTests = redBuild.failedTests();
+            System.out.println("=== OrderValidator v2 retrying " + failingTests.size() + " failing tests ===");
+
+            ImplementResult retry = generationService.retryImplement(
+                    sessionId, "OrderValidator", failingTests);
+            assertThat(retry.code()).contains("class OrderValidator");
+            assertThat(retry.code()).contains("IOrderValidator");
+
+            BuildResult result = buildService.build(sessionId);
+            System.out.println("=== OrderValidator v2 Retry: " + result.buildStatus()
+                    + " " + result.passed() + "/" + result.total() + " ===");
+            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
+
+            assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
+            assertThat(result.passed()).isEqualTo(62);
+        }
+    }
 }

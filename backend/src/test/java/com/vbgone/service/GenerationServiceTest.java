@@ -338,6 +338,33 @@ class GenerationServiceTest {
         assertThat(result.code()).contains("IForm1");
     }
 
+    @Test
+    void stripCodeFences_extractsEmbeddedCodeBlock() {
+        String response = """
+                Looking at the failing tests, the issue is with shipping thresholds.
+
+                ```csharp
+                public class OrderValidator : IOrderValidator
+                {
+                    public string ValidateOrder(string n, string a, string q) => "OK";
+                }
+                ```
+
+                This should fix the shipping tests.""";
+        String result = service.stripCodeFences(response);
+        assertThat(result).startsWith("public class OrderValidator");
+        assertThat(result).doesNotContain("```");
+        assertThat(result).doesNotContain("Looking at");
+    }
+
+    @Test
+    void stripCodeFences_extractsCodeFromNaturalLanguagePreamble() {
+        String response = "Here is the fixed implementation:\n\npublic class Foo : IFoo\n{\n    public int Bar() => 42;\n}";
+        String result = service.stripCodeFences(response);
+        assertThat(result).startsWith("public class Foo");
+        assertThat(result).doesNotContain("Here is");
+    }
+
     // ── countTests ──
 
     @Test

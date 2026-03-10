@@ -356,10 +356,30 @@ public class GenerationService {
         return trimmed;
     }
 
-    private String stripCodeFences(String text) {
+    String stripCodeFences(String text) {
         String trimmed = text.trim();
+        // If the response starts with a code fence, strip it
         if (trimmed.startsWith("```")) {
             trimmed = trimmed.replaceAll("^```\\w*\\s*", "").replaceAll("\\s*```$", "");
+            return trimmed;
+        }
+        // If Claude returned natural language with an embedded code block, extract it
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                "```(?:csharp|cs)?\\s*\\n(.*?)\\n\\s*```",
+                java.util.regex.Pattern.DOTALL).matcher(trimmed);
+        if (m.find()) {
+            return m.group(1).trim();
+        }
+        // If the response contains "public class" but doesn't start with it,
+        // extract from the first "public class" or "using " onwards
+        int classIdx = trimmed.indexOf("public class ");
+        int usingIdx = trimmed.indexOf("using ");
+        int startIdx = -1;
+        if (classIdx >= 0 && usingIdx >= 0) startIdx = Math.min(classIdx, usingIdx);
+        else if (classIdx >= 0) startIdx = classIdx;
+        else if (usingIdx >= 0) startIdx = usingIdx;
+        if (startIdx > 0) {
+            return trimmed.substring(startIdx).trim();
         }
         return trimmed;
     }
