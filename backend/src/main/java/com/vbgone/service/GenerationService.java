@@ -107,8 +107,12 @@ public class GenerationService {
 
     public TestsResult generateTests(String sessionId, String className) {
         MigrationSession session = getSession(sessionId);
+        InterfaceResult iface = session.getInterfaceResult();
+        String ifaceCode = iface != null ? iface.code() : "";
         String userMessage = "Generate NUnit tests for I" + className
                 + " based on this VB.NET:\n" + session.getVbContentForClass(className)
+                + "\n\nC# interface (ONLY test methods defined here — do NOT invent extra methods):\n"
+                + ifaceCode
                 + "\n\nThe implementation class name is " + className
                 + ", the interface is I" + className + "."
                 + "\n\nThe test file should follow this structure exactly:\n"
