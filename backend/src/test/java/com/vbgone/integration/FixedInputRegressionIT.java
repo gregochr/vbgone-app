@@ -254,6 +254,157 @@ class FixedInputRegressionIT {
     }
 
     // ════════════════════════════════════════════════════════════════════
+    //  WinFormsCalculator (Calculator with framework dependencies in analysis)
+    //  Regression: System.Windows.Forms.* deps must be filtered, not scaffolded
+    // ════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    class WinFormsCalculator {
+
+        static final String VB = """
+                Public Class Form1
+                    Private lblResult As System.Windows.Forms.Label
+                    Private btnAdd As System.Windows.Forms.Button
+                    Private txtA As System.Windows.Forms.TextBox
+                    Private txtB As System.Windows.Forms.TextBox
+                    Private Sub btnAdd_Click(sender As Object, e As EventArgs) Handles btnAdd.Click
+                        lblResult.Text = CStr(CInt(txtA.Text) + CInt(txtB.Text))
+                    End Sub
+                    Private Sub btnSubtract_Click(sender As Object, e As EventArgs) Handles btnSubtract.Click
+                        lblResult.Text = CStr(CInt(txtA.Text) - CInt(txtB.Text))
+                    End Sub
+                    Private Sub btnMultiply_Click(sender As Object, e As EventArgs) Handles btnMultiply.Click
+                        lblResult.Text = CStr(CInt(txtA.Text) * CInt(txtB.Text))
+                    End Sub
+                    Private Sub btnDivide_Click(sender As Object, e As EventArgs) Handles btnDivide.Click
+                        lblResult.Text = CStr(CInt(txtA.Text) / CInt(txtB.Text))
+                    End Sub
+                End Class""";
+
+        static final String INTERFACE = """
+                public interface IForm1
+                {
+                    int Add(int a, int b);
+                    int Subtract(int a, int b);
+                    int Multiply(int a, int b);
+                    double Divide(int a, int b);
+                }""";
+
+        static final String TESTS = """
+                using NUnit.Framework;
+
+                [TestFixture]
+                public class Form1Tests
+                {
+                    private IForm1 _sut;
+
+                    [SetUp]
+                    public void SetUp()
+                    {
+                        _sut = new Form1();
+                    }
+
+                    [Test]
+                    public void Add_PositiveNumbers_ReturnsSum()
+                    {
+                        Assert.That(_sut.Add(2, 3), Is.EqualTo(5));
+                    }
+
+                    [Test]
+                    public void Add_NegativeNumbers_ReturnsSum()
+                    {
+                        Assert.That(_sut.Add(-2, -3), Is.EqualTo(-5));
+                    }
+
+                    [Test]
+                    public void Subtract_PositiveNumbers_ReturnsDifference()
+                    {
+                        Assert.That(_sut.Subtract(10, 3), Is.EqualTo(7));
+                    }
+
+                    [Test]
+                    public void Multiply_PositiveNumbers_ReturnsProduct()
+                    {
+                        Assert.That(_sut.Multiply(4, 5), Is.EqualTo(20));
+                    }
+
+                    [Test]
+                    public void Multiply_ByZero_ReturnsZero()
+                    {
+                        Assert.That(_sut.Multiply(100, 0), Is.EqualTo(0));
+                    }
+
+                    [Test]
+                    public void Divide_EvenDivision_ReturnsQuotient()
+                    {
+                        Assert.That(_sut.Divide(10, 2), Is.EqualTo(5.0));
+                    }
+
+                    [Test]
+                    public void Divide_ByZero_ThrowsDivideByZeroException()
+                    {
+                        Assert.Throws<DivideByZeroException>(() => _sut.Divide(1, 0));
+                    }
+                }""";
+
+        static String sessionId;
+
+        @BeforeAll
+        static void createSession() {
+            MigrationSession session = sessionStore.create();
+            sessionId = session.getSessionId();
+            session.setVbContent(VB);
+            // Analysis with framework dependencies — the bug that caused build errors
+            session.setAnalysisResult(new AnalysisResult(sessionId,
+                    List.of(new ClassInfo("Form1", List.of("Add", "Subtract", "Multiply", "Divide"),
+                            List.of("System.Windows.Forms.Label", "System.Windows.Forms.Button",
+                                    "System.Windows.Forms.TextBox", "System.Windows.Forms.Form"),
+                            Complexity.LOW, CodeQuality.FAIR, List.of(), List.of(), List.of())),
+                    List.of("Form1"), "Simple calculator with WinForms UI"));
+            session.setInterfaceResult(new InterfaceResult(sessionId, "Form1", "IForm1", INTERFACE));
+            session.setTestsResult(new TestsResult(sessionId, "Form1", "Form1Tests", TESTS, 7));
+        }
+
+        @Test
+        @Order(1)
+        @DisplayName("WinFormsCalculator: stub → RED (7/7 fail, no compile errors from framework deps)")
+        void stubBuild_allTestsFail_noCompileErrors() {
+            StubResult stub = generationService.generateStub(sessionId, "Form1");
+            assertThat(stub.code()).contains("NotImplementedException");
+
+            BuildResult result = buildService.build(sessionId);
+            System.out.println("=== WinFormsCalculator Stub: " + result.buildStatus()
+                    + " " + result.passed() + "/" + result.total() + " ===");
+            if (!result.errors().isEmpty()) System.out.println("  Errors: " + result.errors());
+
+            // Must NOT be ERROR — framework deps must be filtered, not scaffolded
+            assertThat(result.buildStatus())
+                    .as("Framework dependencies like System.Windows.Forms.Label must not cause compile errors")
+                    .isEqualTo(BuildStatus.RED);
+            assertThat(result.total()).isEqualTo(7);
+            assertThat(result.failed()).isEqualTo(7);
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("WinFormsCalculator: Claude implement → GREEN (7/7 pass)")
+        void claudeImplementation_allTestsPass() {
+            ImplementResult impl = generationService.implement(sessionId, "Form1", ImplementMode.CLAUDE);
+            assertThat(impl.code()).contains("class Form1");
+            assertThat(impl.code()).contains("IForm1");
+
+            BuildResult result = buildService.build(sessionId);
+            System.out.println("=== WinFormsCalculator Impl: " + result.buildStatus()
+                    + " " + result.passed() + "/" + result.total() + " ===");
+            if (!result.failedTests().isEmpty()) System.out.println("  Failed: " + result.failedTests());
+
+            assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
+            assertThat(result.passed()).isEqualTo(7);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
     //  OrderValidator (complex — validation, discounts, shipping, 57 tests)
     //  Captured from live run 2026-03-10
     // ════════════════════════════════════════════════════════════════════

@@ -173,14 +173,17 @@ public class BuildService {
         Files.writeString(testDir.resolve(tests.testClassName() + ".cs"), tests.code());
     }
 
-    private List<String> getDependencies(MigrationSession session, String className) {
+    List<String> getDependencies(MigrationSession session, String className) {
         AnalysisResult analysis = session.getAnalysisResult();
         if (analysis == null) return List.of();
         return analysis.classes().stream()
                 .filter(c -> c.name().equals(className))
                 .findFirst()
                 .map(ClassInfo::dependencies)
-                .orElse(List.of());
+                .orElse(List.of())
+                .stream()
+                .filter(dep -> !dep.contains("."))
+                .toList();
     }
 
     private String buildMainCsproj(List<String> dependencies) {

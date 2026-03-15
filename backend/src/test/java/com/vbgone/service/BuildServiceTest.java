@@ -336,6 +336,69 @@ class BuildServiceTest {
         assertThat(csprojContent).contains("../OrderCalculatorService/OrderCalculatorService.csproj");
     }
 
+    // ── framework dependency filtering ──
+
+    @Test
+    void build_filtersOutFrameworkDependenciesWithDots() throws Exception {
+        MigrationSession session = new MigrationSession("s1");
+        session.setVbContent("Public Class Form1...");
+        session.setAnalysisResult(new AnalysisResult("s1",
+                List.of(new ClassInfo("Form1", List.of("Add"), List.of(
+                        "System.Windows.Forms.Label", "System.Windows.Forms.Button",
+                        "System.Windows.Forms.TextBox", "System.Windows.Forms.Form",
+                        "OrderCalculator"),
+                        Complexity.LOW, null, null, null, null)),
+                List.of("Form1"), "Test"));
+        session.setInterfaceResult(new InterfaceResult("s1", "Form1", "IForm1",
+                "public interface IForm1 { int Add(int a, int b); }"));
+        session.setTestsResult(new TestsResult("s1", "Form1", "Form1Tests",
+                "[TestFixture] public class Form1Tests { [Test] public void T() {} }", 1));
+        session.setStubResult(new StubResult("s1", "Form1",
+                "public class Form1 : IForm1 { public int Add(int a, int b) => throw new NotImplementedException(); }"));
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+
+        when(processRunner.run(anyList())).thenAnswer(inv -> {
+            writeTrxFile("s1", "Form1", GREEN_TRX);
+            return new ProcessOutput(0, "", "");
+        });
+
+        service.build("s1");
+
+        Path sessionDir = tempDir.resolve("s1");
+        // Framework dependencies with dots should NOT have scaffold projects
+        assertThat(sessionDir.resolve("System.Windows.Forms.Label")).doesNotExist();
+        assertThat(sessionDir.resolve("System.Windows.Forms.Button")).doesNotExist();
+        assertThat(sessionDir.resolve("System.Windows.Forms.TextBox")).doesNotExist();
+        assertThat(sessionDir.resolve("System.Windows.Forms.Form")).doesNotExist();
+
+        // Valid user-defined dependency SHOULD have a scaffold project
+        assertThat(sessionDir.resolve("OrderCalculator/OrderCalculator.csproj")).exists();
+        assertThat(sessionDir.resolve("OrderCalculator/IOrderCalculator.cs")).exists();
+        assertThat(sessionDir.resolve("OrderCalculator/OrderCalculator.cs")).exists();
+
+        // Main .csproj should reference OrderCalculator but not framework types
+        String csprojContent = Files.readString(sessionDir.resolve("Form1/Form1.csproj"));
+        assertThat(csprojContent).contains("../OrderCalculator/OrderCalculator.csproj");
+        assertThat(csprojContent).doesNotContain("System.Windows.Forms");
+    }
+
+    @Test
+    void getDependencies_filtersOutDottedNames() {
+        MigrationSession session = new MigrationSession("s1");
+        session.setAnalysisResult(new AnalysisResult("s1",
+                List.of(new ClassInfo("Form1", List.of(), List.of(
+                        "System.Windows.Forms.Label", "Microsoft.Extensions.Logging.ILogger",
+                        "OrderCalculator", "ShippingService"),
+                        Complexity.LOW, null, null, null, null)),
+                List.of("Form1"), "Test"));
+
+        List<String> deps = service.getDependencies(session, "Form1");
+
+        assertThat(deps).containsExactly("OrderCalculator", "ShippingService");
+        assertThat(deps).doesNotContain("System.Windows.Forms.Label");
+        assertThat(deps).doesNotContain("Microsoft.Extensions.Logging.ILogger");
+    }
+
     // ── parseCompilationErrors unit tests ──
 
     @Test

@@ -10,6 +10,7 @@
 .idea
 .vscode
 *.iml
+.run/
 
 # Backend
 backend/target/
