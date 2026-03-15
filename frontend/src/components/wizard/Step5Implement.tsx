@@ -72,7 +72,11 @@ export function Step5Implement({ state, update, onReady }: Props) {
 
     try {
       const isOpus = nextAttempt >= MAX_ATTEMPTS
-      setPhase(isOpus ? 'Claude Opus is retrying implementation...' : 'Claude is retrying implementation...')
+      setPhase(
+        isOpus
+          ? 'Claude Opus is retrying implementation...'
+          : 'Claude is retrying implementation...',
+      )
       const implResult = await retryImplement(sessionId, className, failingTests, nextAttempt)
       update({ implementResult: implResult })
 
