@@ -28,7 +28,18 @@ export function AppHeader() {
     <header className="app-header">
       <div className="header-brand">
         <div className="brand-mark">
-          <span className="brand-dot" />
+          <svg className="brand-glyph" viewBox="0 0 40 40" aria-hidden="true">
+            <rect x="1" y="1" width="38" height="38" rx="11" fill="var(--bg-elevated)" stroke="var(--border-strong)" />
+            <path
+              d="M13 14 L21 20 L13 26"
+              fill="none"
+              stroke="var(--accent)"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <rect x="22" y="23.2" width="11" height="3.4" rx="1.7" fill="var(--accent)" />
+          </svg>
           <span className="brand-word">vbgone</span>
         </div>
         <span className="brand-caption">VB.NET → {lang.lang}</span>
