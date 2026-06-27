@@ -3,15 +3,22 @@ import { render, screen } from '@testing-library/react'
 import App from './App'
 
 describe('App', () => {
-  it('renders the logo', () => {
+  it('renders the wordmark in the header', () => {
     render(<App />)
-    const logo = screen.getByAltText('VBGone')
-    expect(logo).toBeInTheDocument()
-    expect(logo.tagName).toBe('IMG')
+    expect(screen.getByText('vbgone')).toBeInTheDocument()
   })
 
-  it('renders the wizard shell', () => {
+  it('renders the target language toggle and engine button', () => {
     render(<App />)
-    expect(screen.getByText('Upload VB.NET Source')).toBeInTheDocument()
+    // Target segmented control
+    expect(screen.getByRole('button', { name: 'C#' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Java/ })).toBeInTheDocument()
+    // Engine button shows the active provider
+    expect(screen.getByText('Claude')).toBeInTheDocument()
+  })
+
+  it('renders the wizard shell on the first step', () => {
+    render(<App />)
+    expect(screen.getByText('Upload legacy VB.NET')).toBeInTheDocument()
   })
 })

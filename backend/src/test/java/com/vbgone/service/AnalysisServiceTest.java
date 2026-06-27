@@ -2,6 +2,9 @@ package com.vbgone.service;
 
 import com.anthropic.models.messages.Model;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vbgone.ai.AiProviderRegistry;
+import com.vbgone.ai.anthropic.AnthropicProvider;
+import com.vbgone.ai.github.GitHubModelsProvider;
 import com.vbgone.model.*;
 import com.vbgone.session.SessionStore;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,7 +53,10 @@ class AnalysisServiceTest {
 
     @BeforeEach
     void setUp() {
-        analysisService = new AnalysisService(claudeClient, sessionStore, objectMapper);
+        AnthropicProvider anthropicProvider = new AnthropicProvider(claudeClient);
+        GitHubModelsProvider copilotProvider = new GitHubModelsProvider("", objectMapper);
+        AiProviderRegistry registry = new AiProviderRegistry(List.of(anthropicProvider, copilotProvider));
+        analysisService = new AnalysisService(registry, sessionStore, objectMapper);
     }
 
     private ClaudeClient.ClaudeResponse claudeResponse(String text) {

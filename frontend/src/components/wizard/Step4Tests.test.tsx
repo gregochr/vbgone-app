@@ -57,7 +57,7 @@ describe('Step4Tests', () => {
   it('renders correctly with build data already in state', () => {
     const doneState = { ...baseState, tests: mockTests, redBuild: mockBuild }
     render(<Step4Tests state={doneState} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText('Tests + Red Build')).toBeInTheDocument()
+    expect(screen.getByText('Write the tests first')).toBeInTheDocument()
     expect(screen.getByText(/10 NUnit tests generated/)).toBeInTheDocument()
   })
 
@@ -110,7 +110,7 @@ describe('Step4Tests', () => {
 
   it('shows confirm dialog before making API calls', () => {
     render(<Step4Tests state={baseState} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText('Tests + Red Build')).toBeInTheDocument()
+    expect(screen.getByText('Write the tests first')).toBeInTheDocument()
     expect(screen.getByText(/claude-sonnet-4-6/)).toBeInTheDocument()
     expect(screen.getByText(/claude-haiku-4-5/)).toBeInTheDocument()
     expect(screen.getByText('Continue')).toBeInTheDocument()
@@ -139,14 +139,14 @@ describe('Step4Tests', () => {
     render(<Step4Tests state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText('Continue')).toBeInTheDocument()
     await user.click(screen.getByText('Cancel'))
-    expect(screen.getByText('Generate Tests')).toBeInTheDocument()
+    expect(screen.getByText('Generate tests & run red build')).toBeInTheDocument()
   })
 
   it('re-shows confirm dialog after clicking retry button', async () => {
     const user = userEvent.setup()
     render(<Step4Tests state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     await user.click(screen.getByText('Cancel'))
-    await user.click(screen.getByText('Generate Tests'))
+    await user.click(screen.getByText('Generate tests & run red build'))
     expect(screen.getByText('Continue')).toBeInTheDocument()
     expect(screen.getByText(/claude-sonnet-4-6/)).toBeInTheDocument()
   })

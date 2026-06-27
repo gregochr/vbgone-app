@@ -42,7 +42,7 @@ describe('Step6PR — single file mode', () => {
   it('renders correctly with PR data already in state', () => {
     const doneState = { ...baseState, prResult: mockPR }
     render(<Step6PR state={doneState} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText('Pull Request Raised')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /PR Raised/ })).toBeInTheDocument()
     expect(screen.getByText(/Migration complete/)).toBeInTheDocument()
   })
 
@@ -67,7 +67,7 @@ describe('Step6PR — single file mode', () => {
 
   it('shows confirm dialog before raising PR', () => {
     render(<Step6PR state={baseState} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText('Raise Pull Request')).toBeInTheDocument()
+    expect(screen.getByText('Ship it')).toBeInTheDocument()
     expect(screen.getByText('Continue')).toBeInTheDocument()
     expect(api.raisePR).not.toHaveBeenCalled()
   })
@@ -77,8 +77,8 @@ describe('Step6PR — single file mode', () => {
     vi.mocked(api.raisePR).mockReturnValue(new Promise(() => {}))
     render(<Step6PR state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     await user.click(screen.getByText('Continue'))
-    expect(screen.getByText('Raising Pull Request')).toBeInTheDocument()
-    expect(screen.getByText(/Committing files and raising PR/)).toBeInTheDocument()
+    expect(screen.getByText('Ship it')).toBeInTheDocument()
+    expect(screen.getByText(/Committing files and opening the Pull Request/)).toBeInTheDocument()
   })
 
   it('shows error state if API call fails', async () => {
@@ -87,7 +87,7 @@ describe('Step6PR — single file mode', () => {
     render(<Step6PR state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     await user.click(screen.getByText('Continue'))
     await waitFor(() => {
-      expect(screen.getByText('Pull Request Failed')).toBeInTheDocument()
+      expect(screen.getByText('Ship it')).toBeInTheDocument()
       expect(screen.getByText('Auth failed')).toBeInTheDocument()
     })
   })
@@ -175,7 +175,7 @@ describe('Step6PR — multi-class mode', () => {
 
   it('shows confirm dialog with completed classes summary', () => {
     render(<Step6PR state={multiClassState} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText('Raise Pull Request')).toBeInTheDocument()
+    expect(screen.getByText('Ship it')).toBeInTheDocument()
     expect(screen.getByText(/All 2 classes migrated successfully/)).toBeInTheDocument()
     expect(screen.getByText('Alpha')).toBeInTheDocument()
     expect(screen.getByText('Beta')).toBeInTheDocument()
@@ -225,7 +225,7 @@ describe('Step6PR — multi-class mode', () => {
     vi.mocked(api.raisePR).mockReturnValue(new Promise(() => {}))
     render(<Step6PR state={multiClassState} update={vi.fn()} onReady={vi.fn()} />)
     await user.click(screen.getByText('Continue'))
-    expect(screen.getByText('Raising Pull Request')).toBeInTheDocument()
+    expect(screen.getByText('Ship it')).toBeInTheDocument()
   })
 
   it('shows "All N classes committed" in success message', async () => {

@@ -2,23 +2,221 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-}
-
-.app-header {
-  display: flex;
-  justify-content: center;
-  padding: 20px 32px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--bg-tertiary);
-}
-
-.app-logo {
-  height: 88px;
-  width: auto;
+  background: var(--bg-base);
 }
 
 .app-main {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+/* ── Shared utilities ── */
+
+.micro-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--text-faint);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  box-shadow: 0 6px 18px var(--accent-glow);
+  transition:
+    filter 0.15s,
+    box-shadow 0.15s;
+}
+.btn-primary:hover {
+  filter: brightness(1.07);
+}
+.btn-primary.btn-sm {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+.btn-ghost {
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  padding: 9px 15px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.btn-ghost:hover {
+  border-color: #3a4049;
+}
+
+/* ── Header ── */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 28px;
+  height: 64px;
+  border-bottom: 1px solid var(--border-hairline);
+  background: rgba(12, 13, 16, 0.7);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.header-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.brand-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent-ring);
+}
+
+.brand-word {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.brand-caption {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.header-divider {
+  width: 1px;
+  height: 26px;
+  background: var(--border);
+}
+
+/* Target segmented control */
+.target-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.target-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 15px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-muted);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.target-seg.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  box-shadow: inset 0 0 0 1px var(--accent-ring);
+}
+
+.target-seg-preview {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  padding: 1px 4px;
+}
+.target-seg.active .target-seg-preview {
+  color: var(--accent-text);
+  border-color: var(--accent-ring);
+}
+
+/* Engine button */
+.engine-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 11px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  transition: border-color 0.15s;
+}
+.engine-button:hover {
+  border-color: #3a4049;
+}
+.engine-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.engine-custom {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+.engine-gear {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-left: 1px;
+}
+
+/* Cost readout */
+.cost-readout {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #8a909b;
+}
+.cost-dim {
+  color: var(--text-faint);
 }

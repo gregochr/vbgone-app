@@ -83,6 +83,7 @@ docker compose up --build
 |---|---|
 | `ANTHROPIC_API_KEY` | Anthropic API key for Claude calls |
 | `GITHUB_TOKEN` | GitHub personal access token for raising PRs |
+| `GITHUB_MODELS_TOKEN` | Bearer token for the GitHub Models (Copilot) AI provider — optional; if unset, Copilot calls return HTTP 422 but the app still runs |
 | `DOTNET_RUNNER_CONTAINER` | Name of the dotnet sidecar container |
 
 See `.env.example` for the template.

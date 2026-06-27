@@ -41,7 +41,7 @@ describe('Step3Interface', () => {
   it('renders correctly with interface data already in state', () => {
     const stateWithIface = { ...baseState, interfaceResult: mockInterface }
     render(<Step3Interface state={stateWithIface} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText('IFoo')).toBeInTheDocument()
+    expect(screen.getByText('IFoo.cs')).toBeInTheDocument()
     expect(screen.getByText(/Generated C# interface for Foo/)).toBeInTheDocument()
   })
 
@@ -53,7 +53,11 @@ describe('Step3Interface', () => {
 
   it('shows confirm dialog before making API call', () => {
     render(<Step3Interface state={baseState} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText('Generating C# Interface')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /This will make an API call to Claude \(claude-haiku-4-5\) via the Anthropic provider/,
+      ),
+    ).toBeInTheDocument()
     expect(screen.getAllByText(/claude-haiku-4-5/).length).toBeGreaterThan(0)
     expect(screen.getByText('Continue')).toBeInTheDocument()
   })
@@ -63,7 +67,7 @@ describe('Step3Interface', () => {
     vi.mocked(api.generateInterface).mockReturnValue(new Promise(() => {}))
     render(<Step3Interface state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     await user.click(screen.getByText('Continue'))
-    expect(screen.getByText(/Claude is generating the interface for Foo/)).toBeInTheDocument()
+    expect(screen.getByText(/Generating the C# interface for Foo/)).toBeInTheDocument()
   })
 
   it('shows error state if API call fails', async () => {
@@ -72,7 +76,6 @@ describe('Step3Interface', () => {
     render(<Step3Interface state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     await user.click(screen.getByText('Continue'))
     await waitFor(() => {
-      expect(screen.getByText('Interface Generation Failed')).toBeInTheDocument()
       expect(screen.getByText('Timeout')).toBeInTheDocument()
     })
   })
@@ -142,14 +145,14 @@ describe('Step3Interface', () => {
     render(<Step3Interface state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText('Continue')).toBeInTheDocument()
     await user.click(screen.getByText('Cancel'))
-    expect(screen.getByText('Generate Interface')).toBeInTheDocument()
+    expect(screen.getByText('Generate interface')).toBeInTheDocument()
   })
 
   it('re-shows confirm dialog after clicking retry button', async () => {
     const user = userEvent.setup()
     render(<Step3Interface state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     await user.click(screen.getByText('Cancel'))
-    await user.click(screen.getByText('Generate Interface'))
+    await user.click(screen.getByText('Generate interface'))
     expect(screen.getByText('Continue')).toBeInTheDocument()
     expect(screen.getAllByText(/claude-haiku-4-5/).length).toBeGreaterThan(0)
   })
@@ -175,7 +178,7 @@ describe('Step3Interface', () => {
       },
     }
     render(<Step3Interface state={multiClassState} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText('IBaz')).toBeInTheDocument()
+    expect(screen.getByText('IBaz.cs')).toBeInTheDocument()
     expect(screen.getByText(/Generated C# interface for Baz/)).toBeInTheDocument()
   })
 

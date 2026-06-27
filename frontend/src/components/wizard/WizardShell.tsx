@@ -8,6 +8,8 @@ import { Step5Implement } from './Step5Implement'
 import { Step6PR } from './Step6PR'
 import { InfoTip } from './InfoTip'
 import { fetchCost } from '../../api/migrateApi'
+import { useWizardConfig } from '../../config/WizardConfigContext'
+import { STEP_ROLES, modelLabelFor } from '../../config/engine'
 import type {
   AnalysisResult,
   InterfaceResult,
@@ -234,10 +236,6 @@ const initialState: WizardState = {
   prResult: null,
 }
 
-// Exchange rate hard-coded — update periodically
-// Current rate: 1 USD = 0.79 GBP (March 2026)
-const USD_TO_GBP = 0.79
-
 const NEXT_TITLES = [
   'Analyse your VB.NET with Claude Sonnet',
   'Generate the C# interface with Claude Haiku',
@@ -299,7 +297,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     return initialState
   })
   const [stepReady, setStepReady] = useState(false)
-  const [totalCost, setTotalCost] = useState(0)
+  const { provider, modelOverrides, setSessionCost } = useWizardConfig()
   const sessionIdRef = useRef<string | undefined>(projectMode ? projectMode.sessionId : undefined)
 
   const update = (partial: Partial<WizardState>) => {
@@ -314,9 +312,9 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     const sessionId = sessionIdRef.current
     if (!sessionId) return
     fetchCost(sessionId)
-      .then((result) => setTotalCost(result.totalCost))
+      .then((result) => setSessionCost(result.totalCost))
       .catch(() => {})
-  }, [])
+  }, [setSessionCost])
 
   useEffect(() => {
     refreshCost()
@@ -376,6 +374,12 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   const back = () => {
     setStepReady(false)
     setStep((s) => Math.max(s - 1, minStep))
+  }
+  // Stepper chips navigate to any already-reached step (>= minStep, <= current).
+  const goToStep = (target: number) => {
+    if (target === step || target < minStep || target > step) return
+    setStepReady(false)
+    setStep(target)
   }
 
   const onReady = () => {
@@ -448,18 +452,44 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
       >
         {STEPS.map(({ label, tip }, i) => {
           const isCompleted = i < step || (i === 5 && !!state.prResult)
+          const isActive = i === step
+          const role = STEP_ROLES[i]
+          const sub =
+            role === 'source' || role === 'github'
+              ? role
+              : modelLabelFor(provider, role, modelOverrides)
+          const clickable = i >= minStep && i <= step
           return (
             <div className="wizard-step-item" key={label} data-step-index={i}>
               <div
-                className={`wizard-step-box ${isCompleted ? 'completed' : i === step ? 'active' : ''}`}
+                className={`wizard-step-box ${isActive ? 'active' : ''}`}
+                role="button"
+                tabIndex={clickable ? 0 : -1}
+                aria-current={isActive ? 'step' : undefined}
+                onClick={clickable ? () => goToStep(i) : undefined}
+                onKeyDown={
+                  clickable
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          goToStep(i)
+                        }
+                      }
+                    : undefined
+                }
               >
                 <div
-                  className={`wizard-step-dot ${isCompleted ? 'completed' : i === step ? 'active' : ''}`}
+                  className={`wizard-step-dot ${isCompleted ? 'completed' : isActive ? 'active' : ''}`}
                 >
                   {isCompleted ? '\u2713' : i + 1}
                 </div>
-                <span className={`wizard-step-label ${isCompleted || i === step ? 'active' : ''}`}>
-                  {label}
+                <span className="wizard-step-text">
+                  <span className={`wizard-step-label ${isCompleted || isActive ? 'active' : ''}`}>
+                    {label}
+                  </span>
+                  <span className={`wizard-step-sub ${isCompleted || isActive ? 'active' : ''}`}>
+                    {sub}
+                  </span>
                 </span>
                 <span className="step-infotip">
                   <InfoTip>{tip}</InfoTip>
@@ -471,15 +501,6 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
             </div>
           )
         })}
-        {totalCost > 0 && (
-          <span
-            className="cost-display"
-            data-testid="cost-display"
-            title="Total Anthropic API cost for this session"
-          >
-            Est. cost: ${totalCost.toFixed(4)} (~ £{(totalCost * USD_TO_GBP).toFixed(4)})
-          </span>
-        )}
         {isMultiClass && arcPath && (
           <svg
             className="loop-back-arc"
@@ -549,7 +570,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
 
       <div className="wizard-content">{steps[step]}</div>
 
-      <div className={`wizard-nav ${step === 5 ? 'wizard-nav-final' : ''}`}>
+      <div className="wizard-nav">
         <button
           className="btn-back"
           onClick={back}
@@ -558,16 +579,8 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
         >
           Back
         </button>
-        <span className="coffee-text">
-          Made with {'\u2615'} by Chris —{' '}
-          <a
-            className="coffee-link"
-            href="https://buymeacoffee.com/gregorychris"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Buy me a coffee
-          </a>
+        <span className="step-counter" data-testid="step-counter">
+          STEP {step + 1} / 6
         </span>
         {step < 5 && (
           <button

@@ -47,7 +47,8 @@ describe('Step2Analysis', () => {
   it('renders correctly with analysis data already in state', () => {
     const stateWithAnalysis = { ...baseState, analysis: mockAnalysis }
     render(<Step2Analysis state={stateWithAnalysis} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText('Analysis Complete')).toBeInTheDocument()
+    // Done state shows the summary banner instead of an "Analysis Complete" title
+    expect(screen.getByText('One class found with 2 methods.')).toBeInTheDocument()
   })
 
   it('displays mocked API response data', () => {
@@ -64,7 +65,9 @@ describe('Step2Analysis', () => {
 
   it('shows confirm dialog before making API call', () => {
     render(<Step2Analysis state={baseState} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText('Analysing VB.NET Source')).toBeInTheDocument()
+    expect(
+      screen.getByText(/This will make an API call to Claude \(claude-sonnet-4-6\)/),
+    ).toBeInTheDocument()
     expect(screen.getAllByText(/claude-sonnet-4-6/).length).toBeGreaterThan(0)
     expect(screen.getByText('Continue')).toBeInTheDocument()
   })
@@ -83,7 +86,6 @@ describe('Step2Analysis', () => {
     render(<Step2Analysis state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     await user.click(screen.getByText('Continue'))
     await waitFor(() => {
-      expect(screen.getByText('Analysis Failed')).toBeInTheDocument()
       expect(screen.getByText('Network error')).toBeInTheDocument()
     })
   })

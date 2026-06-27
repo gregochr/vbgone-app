@@ -96,6 +96,31 @@ class CostServiceTest {
         assertThat(cost).isEqualTo(15.0);
     }
 
+    // ── calculateCost — GitHub Models (Copilot) canonical ids ──
+
+    @Test
+    void calculateCost_copilotGpt5UsesPlaceholderPricing() {
+        // PLACEHOLDER pricing: gpt-5 $5 input, $15 output per million
+        double cost = CostService.calculateCost("gpt-5", 1_000_000, 1_000_000);
+        assertThat(cost).isCloseTo(20.0, within(1e-9));
+    }
+
+    @Test
+    void calculateCost_copilotO3UsesPlaceholderPricing() {
+        // PLACEHOLDER pricing: o3 $2 input, $8 output per million
+        double cost = CostService.calculateCost("o3", 1_000_000, 0);
+        assertThat(cost).isEqualTo(2.0);
+        double output = CostService.calculateCost("o3", 0, 1_000_000);
+        assertThat(output).isEqualTo(8.0);
+    }
+
+    @Test
+    void calculateCost_copilotGemini25ProUsesPlaceholderPricing() {
+        // PLACEHOLDER pricing: gemini-2.5-pro $1.25 input, $10 output per million
+        double cost = CostService.calculateCost("gemini-2.5-pro", 1_000_000, 0);
+        assertThat(cost).isEqualTo(1.25);
+    }
+
     // ── getCost ──
 
     @Test
