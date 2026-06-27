@@ -25,6 +25,9 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - GITHUB_MODELS_TOKEN=${GITHUB_MODELS_TOKEN:-}
+      # Comma-separated CORS origin patterns; blank falls back to the in-code
+      # defaults (which already include the Mini's Tailscale/LAN origins).
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
       - DOTNET_RUNNER_CONTAINER=vbgone-dotnet-runner
     depends_on:
       - dotnet-runner
