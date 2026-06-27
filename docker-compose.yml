@@ -13,6 +13,7 @@ services:
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_MODELS_TOKEN=${GITHUB_MODELS_TOKEN:-}
       - DOTNET_RUNNER_CONTAINER=${DOTNET_RUNNER_CONTAINER:-vbgone-app-dotnet-runner-1}
     depends_on:
       - dotnet-runner
