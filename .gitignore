@@ -12,5 +12,8 @@
 *.iml
 .run/
 
+# Claude Code — personal per-machine overrides (keep shared config tracked)
+.claude/settings.local.json
+
 # Backend
 backend/target/
