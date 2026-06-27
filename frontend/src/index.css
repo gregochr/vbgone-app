@@ -1,21 +1,59 @@
-:root {
-  --bg-primary: #1c1c1c;
-  --bg-secondary: #282828;
-  --bg-tertiary: #333333;
-  --accent: #e5a00d;
-  --accent-hover: #f0b020;
-  --grey: #9b9b9b;
-  --white: #ffffff;
-  --red: #e74c3c;
-  --amber: #f0a030;
-  --green: #2ecc71;
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
 
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell,
-    'Helvetica Neue', sans-serif;
-  color: var(--white);
-  background-color: var(--bg-primary);
+:root {
+  /* surfaces */
+  --bg-base: #0c0d10; /* app background */
+  --bg-panel: #15171b; /* cards, run rows */
+  --bg-elevated: #1c1f25; /* inputs, ghost buttons */
+  --bg-code: #0e1013; /* code blocks */
+
+  /* lines */
+  --border: #23262d;
+  --border-strong: #2a2e36;
+  --border-hairline: #1c1f25;
+
+  /* text */
+  --text: #eef1f6;
+  --text-muted: #9aa1ad;
+  --text-dim: #6b727e;
+  --text-faint: #5b616b;
+
+  /* brand / accent (primary action, active states) */
+  --accent: #6d6af2; /* violet */
+  --accent-text: #b9b8ff;
+  --accent-soft: rgba(109, 106, 242, 0.16);
+  --accent-ring: rgba(109, 106, 242, 0.5);
+  --accent-glow: rgba(109, 106, 242, 0.22);
+
+  /* build states */
+  --green: #34d399; /* GREEN phase / success */
+  --red: #fb6f73; /* RED phase / failures */
+  --amber: #e3a83c; /* warnings, code smells, MEDIUM */
+
+  /* provider accents (color-code the two engines) */
+  --provider-claude: #d2845f; /* warm coral */
+  --provider-copilot: #4d9fff; /* GitHub blue */
+
+  /* back-compat aliases — older components reference the previous palette names.
+     Mapping them onto the new tokens reskins those components for free. */
+  --bg-primary: var(--bg-base);
+  --bg-secondary: var(--bg-panel);
+  --bg-tertiary: var(--bg-elevated);
+  --accent-hover: #8987f5;
+  --grey: var(--text-muted);
+  --white: var(--text);
+
+  /* fonts */
+  --font-ui:
+    'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  font-family: var(--font-ui);
+  color: var(--text);
+  background-color: var(--bg-base);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 *,
@@ -43,5 +81,34 @@ button {
 
 code,
 pre {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: var(--font-mono);
+}
+
+/* scrollbars — match the design reference */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 2px solid var(--bg-base);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+select:focus,
+button:focus {
+  outline: none;
+}
+select option {
+  background: var(--bg-panel);
+  color: var(--text);
+}
+
+@keyframes vbspin {
+  to {
+    transform: rotate(360deg);
+  }
 }

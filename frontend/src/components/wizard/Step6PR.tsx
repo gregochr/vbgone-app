@@ -3,6 +3,8 @@ import type { WizardState } from './WizardShell'
 import type { ProjectMode } from './WizardShell'
 import { ConfirmDialog } from './ConfirmDialog'
 import { raisePR } from '../../api/migrateApi'
+import { useWizardConfig } from '../../config/WizardConfigContext'
+import { LANGS } from '../../config/engine'
 
 interface Props {
   state: WizardState
@@ -42,6 +44,12 @@ function Step6PRSingle({
   update: (partial: Partial<WizardState>) => void
   onReady: () => void
 }) {
+  const { provider, targetLanguage } = useWizardConfig()
+  const lang = LANGS[targetLanguage]
+  const isCopilot = provider === 'copilot'
+  const ciTools = isCopilot
+    ? `Copilot Code Review · ${lang.linter} · ${lang.mutationTool}`
+    : `${lang.linter} · ${lang.mutationTool} · CodeQL`
   const isMultiClass = (state.analysis?.suggestedMigrationOrder?.length ?? 1) > 1
   const [showConfirm, setShowConfirm] = useState(!state.prResult)
   const [loading, setLoading] = useState(false)
@@ -78,7 +86,8 @@ function Step6PRSingle({
   if (showConfirm) {
     return (
       <div>
-        <h2 className="step-title">Raise Pull Request</h2>
+        <div className="step-kicker">STEP 06 · PULL REQUEST</div>
+        <h2 className="step-title">Ship it</h2>
         <p className="step-subtitle">
           {isMultiClass
             ? `All ${totalClasses} classes migrated successfully. Review the summary below and raise a PR when ready.`
@@ -132,13 +141,35 @@ function Step6PRSingle({
   if (!loading && !error && !state.prResult) {
     return (
       <div>
-        <h2 className="step-title">Raise Pull Request</h2>
+        <div className="step-kicker">STEP 06 · PULL REQUEST</div>
+        <h2 className="step-title">Ship it</h2>
         <p className="step-subtitle">
-          Ready to raise a Pull Request{isMultiClass ? ' with all migrated classes' : ''}.
+          Interface, implementation, and tests are committed to a branch and a Pull Request is
+          raised against <code>{lang.outputRepo}</code>. The CI pipeline triggers automatically.
         </p>
-        <button className="btn-plex" onClick={() => setShowConfirm(true)}>
-          Raise Pull Request
-        </button>
+        <div className="run-card">
+          <div className="run-card-model">
+            <span className="model-caption">NO AI CALL · GITHUB API</span>
+          </div>
+          <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+            Raise Pull Request
+          </button>
+        </div>
+        {isCopilot && (
+          <div className="provider-callout" data-testid="copilot-callout">
+            <span className="provider-callout-icon">✦</span>
+            <div>
+              <div className="provider-callout-title">
+                Copilot Code Review will auto-review this PR
+              </div>
+              <div className="provider-callout-body">
+                Because the engine is GitHub Copilot, the PR is reviewed automatically on open —
+                inline suggestions on the generated {lang.lang}, no extra step. The Anthropic path
+                runs the {lang.linter} + {lang.mutationTool} pipeline instead.
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -146,11 +177,12 @@ function Step6PRSingle({
   if (loading) {
     return (
       <div>
-        <h2 className="step-title">Raising Pull Request</h2>
-        <p className="loading-text">
+        <div className="step-kicker">STEP 06 · PULL REQUEST</div>
+        <h2 className="step-title">Ship it</h2>
+        <div className="busy-row">
           <span className="spinner" />
-          Committing files and raising PR...
-        </p>
+          <span className="loading-text">Committing files and opening the Pull Request…</span>
+        </div>
       </div>
     )
   }
@@ -158,7 +190,8 @@ function Step6PRSingle({
   if (error) {
     return (
       <div>
-        <h2 className="step-title">Pull Request Failed</h2>
+        <div className="step-kicker">STEP 06 · PULL REQUEST</div>
+        <h2 className="step-title">Ship it</h2>
         <div className="build-status build-red">{error}</div>
       </div>
     )
@@ -169,7 +202,8 @@ function Step6PRSingle({
 
   return (
     <div>
-      <h2 className="step-title">Pull Request Raised</h2>
+      <div className="step-kicker">STEP 06 · PULL REQUEST</div>
+      <h2 className="step-title">Ship it</h2>
       <p className="step-subtitle">
         Migration complete! {totalClasses > 1 ? `All ${totalClasses} classes committed.` : ''} Your
         PR is ready for review.
@@ -196,6 +230,10 @@ function Step6PRSingle({
             <li key={f}>{f}</li>
           ))}
         </ul>
+
+        <div className="ci-footer" data-testid="ci-footer">
+          CI triggered · {ciTools}
+        </div>
       </div>
     </div>
   )

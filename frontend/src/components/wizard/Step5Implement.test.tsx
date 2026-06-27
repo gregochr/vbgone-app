@@ -57,10 +57,10 @@ describe('Step5Implement', () => {
   it('renders with Claude Implements pre-selected', () => {
     render(<Step5Implement state={baseState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText('Choose Implementation')).toBeInTheDocument()
-    expect(screen.getByText('Claude Implements')).toBeInTheDocument()
-    expect(screen.getByText('Manual (Stub)')).toBeInTheDocument()
+    expect(screen.getByText('Claude implements')).toBeInTheDocument()
+    expect(screen.getByText('Manual (stub)')).toBeInTheDocument()
     // Claude card should be pre-selected
-    const claudeCard = screen.getByText('Claude Implements').closest('.impl-choice')
+    const claudeCard = screen.getByText('Claude implements').closest('.impl-choice')
     expect(claudeCard).toHaveClass('selected')
   })
 
@@ -74,7 +74,8 @@ describe('Step5Implement', () => {
   it('displays mocked API response data after completion', () => {
     const doneState = { ...baseState, implementResult: mockImpl, greenBuild: mockGreenBuild }
     render(<Step5Implement state={doneState} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getAllByText('Implementation')).toHaveLength(2)
+    expect(screen.getByText('Make the tests pass')).toBeInTheDocument()
+    expect(screen.getByText('Implementation')).toBeInTheDocument()
     expect(screen.getByText(/Mode:.*AI/)).toBeInTheDocument()
     expect(
       screen.getByText(/10 \/ 10 tests passing — this is the GREEN phase of Red-Green TDD/),
@@ -105,7 +106,7 @@ describe('Step5Implement', () => {
     const update = vi.fn()
     render(<Step5Implement state={baseState} update={update} onReady={vi.fn()} />)
 
-    await user.click(screen.getByText('Manual (Stub)'))
+    await user.click(screen.getByText('Manual (stub)'))
     expect(screen.getByText(/You have chosen to implement the C# yourself/)).toBeInTheDocument()
     await user.click(screen.getByText('Continue'))
     await waitFor(() => {
@@ -193,7 +194,7 @@ describe('Step5Implement', () => {
 
     render(<Step5Implement state={baseState} update={vi.fn()} onReady={vi.fn()} />)
 
-    await user.click(screen.getByText('Claude Implements'))
+    await user.click(screen.getByText('Claude implements'))
     await user.click(screen.getByText('Continue'))
     expect(screen.getByText(/Claude is implementing/)).toBeInTheDocument()
   })
@@ -204,10 +205,10 @@ describe('Step5Implement', () => {
 
     render(<Step5Implement state={baseState} update={vi.fn()} onReady={vi.fn()} />)
 
-    await user.click(screen.getByText('Claude Implements'))
+    await user.click(screen.getByText('Claude implements'))
     await user.click(screen.getByText('Continue'))
     await waitFor(() => {
-      expect(screen.getByText('Implementation Failed')).toBeInTheDocument()
+      expect(screen.getByText('Make the tests pass')).toBeInTheDocument()
       expect(screen.getByText('Server error')).toBeInTheDocument()
     })
   })
@@ -314,7 +315,13 @@ describe('Step5Implement', () => {
     await user.click(screen.getByText('Continue'))
 
     await waitFor(() => {
-      expect(api.retryImplement).toHaveBeenCalledWith('session-1', 'Foo', ['Add_ReturnsSum'], 2)
+      expect(api.retryImplement).toHaveBeenCalledWith(
+        'session-1',
+        'Foo',
+        ['Add_ReturnsSum'],
+        2,
+        expect.anything(),
+      )
       expect(api.build).toHaveBeenCalledWith('session-1')
       expect(update).toHaveBeenCalledWith({ implementResult: retryImpl })
       expect(update).toHaveBeenCalledWith({ greenBuild: mockGreenBuild })
@@ -384,7 +391,7 @@ describe('Step5Implement', () => {
     const onReady = vi.fn()
     render(<Step5Implement state={baseState} update={update} onReady={onReady} />)
 
-    await user.click(screen.getByText('Claude Implements'))
+    await user.click(screen.getByText('Claude implements'))
     await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(update).toHaveBeenCalledWith({ implementResult: mockImpl })

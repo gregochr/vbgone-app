@@ -3,6 +3,8 @@ import type { WizardState } from './WizardShell'
 import { implement, buildAfterImplement, retryImplement, build } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CollapsibleCode } from './CollapsibleCode'
+import { useWizardConfig } from '../../config/WizardConfigContext'
+import { LANGS, PROVIDERS, modelLabelFor, providerColor } from '../../config/engine'
 
 interface Props {
   state: WizardState
@@ -13,6 +15,11 @@ interface Props {
 const MAX_ATTEMPTS = 3
 
 export function Step5Implement({ state, update, onReady }: Props) {
+  const { provider, targetLanguage, modelOverrides, engineParams } = useWizardConfig()
+  const prov = PROVIDERS[provider]
+  const lang = LANGS[targetLanguage]
+  const implementModel = modelLabelFor(provider, 'implementation', modelOverrides)
+  const escalationModel = modelLabelFor(provider, 'escalation', modelOverrides)
   const [mode, setMode] = useState<'STUB' | 'CLAUDE' | null>('CLAUDE')
   const [loading, setLoading] = useState(false)
   const [phase, setPhase] = useState('')
@@ -42,13 +49,13 @@ export function Step5Implement({ state, update, onReady }: Props) {
     try {
       setPhase(
         chosen === 'CLAUDE'
-          ? 'Claude is implementing...'
-          : 'Generating stub for manual implementation...',
+          ? `${prov.name} is implementing…`
+          : 'Generating stub for manual implementation…',
       )
-      const implResult = await implement(sessionId, className, chosen)
+      const implResult = await implement(sessionId, className, chosen, engineParams)
       update({ implementResult: implResult })
 
-      setPhase('Running .NET test...')
+      setPhase(`Running ${lang.testCmd}…`)
       const buildResult = await buildAfterImplement(sessionId, chosen)
       update({ greenBuild: buildResult })
 
@@ -73,14 +80,18 @@ export function Step5Implement({ state, update, onReady }: Props) {
     try {
       const isOpus = nextAttempt >= MAX_ATTEMPTS
       setPhase(
-        isOpus
-          ? 'Claude Opus is retrying implementation...'
-          : 'Claude is retrying implementation...',
+        isOpus ? `Escalating to ${escalationModel}…` : `${prov.name} is retrying implementation…`,
       )
-      const implResult = await retryImplement(sessionId, className, failingTests, nextAttempt)
+      const implResult = await retryImplement(
+        sessionId,
+        className,
+        failingTests,
+        nextAttempt,
+        engineParams,
+      )
       update({ implementResult: implResult })
 
-      setPhase('Running .NET test...')
+      setPhase(`Running ${lang.testCmd}…`)
       const buildResult = await build(sessionId)
       update({ greenBuild: buildResult })
 
@@ -108,11 +119,12 @@ export function Step5Implement({ state, update, onReady }: Props) {
   if (loading) {
     return (
       <div>
-        <h2 className="step-title">Implementation</h2>
-        <p className="loading-text">
+        <div className="step-kicker">STEP 05 · IMPLEMENT · GREEN BUILD</div>
+        <h2 className="step-title">Make the tests pass</h2>
+        <div className="busy-row">
           <span className="spinner" />
-          {phase}
-        </p>
+          <span className="loading-text">{phase}</span>
+        </div>
       </div>
     )
   }
@@ -127,7 +139,8 @@ export function Step5Implement({ state, update, onReady }: Props) {
 
     return (
       <div>
-        <h2 className="step-title">Implementation</h2>
+        <div className="step-kicker">STEP 05 · IMPLEMENT · GREEN BUILD</div>
+        <h2 className="step-title">Make the tests pass</h2>
         <p className="step-subtitle">
           Mode: {isClaude ? 'AI' : 'Manual'}
           {attempts > 1 && ` (attempt ${attempts} of ${MAX_ATTEMPTS})`}
@@ -211,7 +224,8 @@ export function Step5Implement({ state, update, onReady }: Props) {
   if (pendingMode) {
     return (
       <div>
-        <h2 className="step-title">Choose Implementation</h2>
+        <div className="step-kicker">STEP 05 · IMPLEMENT · GREEN BUILD</div>
+        <h2 className="step-title">Make the tests pass</h2>
         <ConfirmDialog onConfirm={() => run(pendingMode)} onCancel={handleCancel}>
           {pendingMode === 'CLAUDE' ? (
             <>
@@ -267,7 +281,8 @@ export function Step5Implement({ state, update, onReady }: Props) {
   if (error) {
     return (
       <div>
-        <h2 className="step-title">Implementation Failed</h2>
+        <div className="step-kicker">STEP 05 · IMPLEMENT · GREEN BUILD</div>
+        <h2 className="step-title">Make the tests pass</h2>
         <div className="build-status build-red">{error}</div>
       </div>
     )
@@ -277,26 +292,39 @@ export function Step5Implement({ state, update, onReady }: Props) {
     <div>
       <h2 className="step-title">Choose Implementation</h2>
       <p className="step-subtitle">
-        Let Claude implement the class, or download the stub and implement it yourself.
+        Let {prov.name} implement the class, or download the stub and write it yourself. Either way
+        the tests keep you honest.
       </p>
 
       <div className="impl-choices">
         <div
-          className={`impl-choice ${mode === 'CLAUDE' ? 'selected' : ''}`}
+          className={`impl-choice impl-choice-left ${mode === 'CLAUDE' ? 'selected' : ''}`}
           onClick={() => handleChoice('CLAUDE')}
         >
-          <div className="impl-choice-icon">{'\uD83E\uDD16'}</div>
-          <div className="impl-choice-title">Claude Implements</div>
-          <div className="impl-choice-desc">AI generates the full implementation</div>
+          <div className="impl-choice-head">
+            <span className="model-dot" style={{ background: providerColor(provider) }} />
+            <span className="impl-choice-title">{prov.name} implements</span>
+          </div>
+          <div className="impl-choice-desc">
+            AI writes idiomatic {lang.lang}, then <code>{lang.testCmd}</code> runs automatically.
+          </div>
+          <div className="impl-choice-meta">
+            {implementModel} \u00B7 retries escalate to {escalationModel}
+          </div>
         </div>
 
         <div
-          className={`impl-choice ${mode === 'STUB' ? 'selected' : ''}`}
+          className={`impl-choice impl-choice-left ${mode === 'STUB' ? 'selected' : ''}`}
           onClick={() => handleChoice('STUB')}
         >
-          <div className="impl-choice-icon">{'\uD83D\uDCBB'}</div>
-          <div className="impl-choice-title">Manual (Stub)</div>
-          <div className="impl-choice-desc">Download stub and implement in your IDE</div>
+          <div className="impl-choice-head">
+            <span className="impl-choice-glyph">{'\u232B'}</span>
+            <span className="impl-choice-title">Manual (stub)</span>
+          </div>
+          <div className="impl-choice-desc">
+            Download the stub and implement it in {lang.ide}. Recommended for production migrations.
+          </div>
+          <div className="impl-choice-meta">no API call \u00B7 you own every line</div>
         </div>
       </div>
     </div>

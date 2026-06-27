@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { WizardShell } from './WizardShell'
+import { WizardConfigProvider } from '../../config/WizardConfigContext'
+import { AppHeader } from '../AppHeader'
 
 // Mock all API calls to resolve instantly
 vi.mock('../../api/migrateApi', async () => {
@@ -87,7 +89,7 @@ vi.mock('../../api/migrateApi', async () => {
 describe('WizardShell', () => {
   it('renders Step 1 on load', () => {
     render(<WizardShell />)
-    expect(screen.getByText('Upload VB.NET Source')).toBeInTheDocument()
+    expect(screen.getByText('Upload legacy VB.NET')).toBeInTheDocument()
   })
 
   it('renders all 6 step labels', () => {
@@ -187,7 +189,7 @@ describe('WizardShell navigation', () => {
     await user.click(screen.getByText('Next'))
     // Step 2 shows confirm dialog first
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Test summary')).toBeInTheDocument())
   })
 
   it('Next button advances to the next step', async () => {
@@ -201,12 +203,12 @@ describe('WizardShell navigation', () => {
     // Advance to step 2 — confirm then wait for analysis
     await user.click(screen.getByText('Next'))
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Test summary')).toBeInTheDocument())
 
     // Advance to step 3 — confirm then wait for interface
     await user.click(screen.getByText('Next'))
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('IFoo.cs')).toBeInTheDocument())
   })
 
   it('Back button returns to the previous step', async () => {
@@ -217,29 +219,42 @@ describe('WizardShell navigation', () => {
     await user.click(screen.getByText('Load Demo File (Simple)'))
     await user.click(screen.getByText('Next'))
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Test summary')).toBeInTheDocument())
 
     // Go back to step 1
     await user.click(screen.getByText('Back'))
-    expect(screen.getByText('Upload VB.NET Source')).toBeInTheDocument()
+    expect(screen.getByText('Upload legacy VB.NET')).toBeInTheDocument()
   })
 
-  it('shows cost in USD and GBP after analysis completes', async () => {
+  it('shows cost in USD and GBP in the header after analysis completes', async () => {
     const user = userEvent.setup()
-    render(<WizardShell />)
+    // Cost now lives in the header (App), fed by the shell via shared config context.
+    render(
+      <WizardConfigProvider>
+        <AppHeader />
+        <WizardShell />
+      </WizardConfigProvider>,
+    )
 
     await user.click(screen.getByText('Load Demo File (Simple)'))
     await user.click(screen.getByText('Next'))
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Test summary')).toBeInTheDocument())
 
-    const costDisplay = screen.getByTestId('cost-display')
-    expect(costDisplay).toHaveTextContent('$0.0088')
-    expect(costDisplay).toHaveTextContent('£0.0070')
+    await waitFor(() => {
+      const costDisplay = screen.getByTestId('cost-display')
+      expect(costDisplay).toHaveTextContent('$0.0088')
+      expect(costDisplay).toHaveTextContent('£0.0070')
+    })
   })
 
   it('cost display is not visible before analysis', () => {
-    render(<WizardShell />)
+    render(
+      <WizardConfigProvider>
+        <AppHeader />
+        <WizardShell />
+      </WizardConfigProvider>,
+    )
     expect(screen.queryByTestId('cost-display')).not.toBeInTheDocument()
   })
 
@@ -281,12 +296,12 @@ describe('WizardShell navigation', () => {
 
     // Step 2 → confirm then wait for analysis
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Test summary')).toBeInTheDocument())
     await user.click(screen.getByText('Next'))
 
     // Step 3 → confirm then wait for interface
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('IFoo.cs')).toBeInTheDocument())
     await user.click(screen.getByText('Next'))
 
     // Step 4 → confirm then wait for tests + build
@@ -294,16 +309,18 @@ describe('WizardShell navigation', () => {
     await waitFor(() => expect(screen.getByText(/tests failing/)).toBeInTheDocument())
     await user.click(screen.getByText('Next'))
 
-    // Step 5 → click Claude Implements, confirm, wait for result
-    await user.click(screen.getByText('Claude Implements'))
+    // Step 5 → click Claude implements, confirm, wait for result
+    await user.click(screen.getByText('Claude implements'))
     await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
     await user.click(screen.getByText('Next'))
 
-    // Step 6 — confirm dialog, then PR raised
-    await waitFor(() => expect(screen.getByText('Raise Pull Request')).toBeInTheDocument())
+    // Step 6 — confirm dialog (title "Ship it"), then PR raised
+    await waitFor(() => expect(screen.getByText('Ship it')).toBeInTheDocument())
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('Pull Request Raised')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('https://github.com/test/repo/pull/1')).toBeInTheDocument(),
+    )
     expect(screen.queryByText('Next')).not.toBeInTheDocument()
   })
 })
@@ -316,7 +333,7 @@ describe('WizardShell multi-class iteration', () => {
     await user.click(screen.getByText('Load Demo File (Simple)'))
     await user.click(screen.getByText('Next'))
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Test summary')).toBeInTheDocument())
 
     // Single class — no progress banner or loop arc
     expect(screen.queryByTestId('class-progress-banner')).not.toBeInTheDocument()
@@ -333,7 +350,7 @@ describe('WizardShell multi-class iteration', () => {
 
     await user.click(screen.getByText('Next'))
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Two classes found')).toBeInTheDocument())
 
     // Advance to Step 3 — arc should appear in grey (not yet started)
     await user.click(screen.getByText('Next'))
@@ -354,12 +371,12 @@ describe('WizardShell multi-class iteration', () => {
 
     await user.click(screen.getByText('Next'))
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Two classes found')).toBeInTheDocument())
 
     // Step 2 → Step 3 → confirm and generate interface
     await user.click(screen.getByText('Next'))
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('IFoo.cs')).toBeInTheDocument())
 
     // Step 3 → Step 4 — arc should now be amber
     await user.click(screen.getByText('Next'))
@@ -383,7 +400,7 @@ describe('WizardShell multi-class iteration', () => {
       // Step 1 → Step 2
       await user.click(screen.getByText('Next'))
       await user.click(screen.getByText('Continue'))
-      await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Two classes found')).toBeInTheDocument())
 
       // Should show both classes in analysis (appear in class card + migration order)
       expect(screen.getAllByText('Alpha').length).toBeGreaterThanOrEqual(1)
@@ -398,7 +415,7 @@ describe('WizardShell multi-class iteration', () => {
 
       // Complete Step 3
       await user.click(screen.getByText('Continue'))
-      await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('IFoo.cs')).toBeInTheDocument())
 
       // Step 3 → Step 4
       await user.click(screen.getByText('Next'))
@@ -407,7 +424,7 @@ describe('WizardShell multi-class iteration', () => {
 
       // Step 4 → Step 5
       await user.click(screen.getByText('Next'))
-      await user.click(screen.getByText('Claude Implements'))
+      await user.click(screen.getByText('Claude implements'))
       await user.click(screen.getByText('Continue'))
       await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
 
@@ -431,12 +448,12 @@ describe('WizardShell multi-class iteration', () => {
       // Step 1 → Step 2 → Analysis
       await user.click(screen.getByText('Next'))
       await user.click(screen.getByText('Continue'))
-      await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Two classes found')).toBeInTheDocument())
 
       // Step 2 → Step 3 → Interface
       await user.click(screen.getByText('Next'))
       await user.click(screen.getByText('Continue'))
-      await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('IFoo.cs')).toBeInTheDocument())
 
       // Step 3 → Step 4 → Tests
       await user.click(screen.getByText('Next'))
@@ -445,7 +462,7 @@ describe('WizardShell multi-class iteration', () => {
 
       // Step 4 → Step 5 → Implement
       await user.click(screen.getByText('Next'))
-      await user.click(screen.getByText('Claude Implements'))
+      await user.click(screen.getByText('Claude implements'))
       await user.click(screen.getByText('Continue'))
       await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
 
@@ -472,13 +489,13 @@ describe('WizardShell multi-class iteration', () => {
     // Step 1 → Step 2 → Analysis
     await user.click(screen.getByText('Next'))
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('Analysis Complete')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Two classes found')).toBeInTheDocument())
 
     // --- Class 1 (Alpha) ---
     // Step 2 → Step 3 → Interface
     await user.click(screen.getByText('Next'))
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('IFoo.cs')).toBeInTheDocument())
 
     // Arc should be grey while iterating
     expect(screen.getByTestId('loop-back-arc')).toHaveAttribute('data-arc-colour', 'grey')
@@ -490,7 +507,7 @@ describe('WizardShell multi-class iteration', () => {
 
     // Step 4 → Step 5 → Implement
     await user.click(screen.getByText('Next'))
-    await user.click(screen.getByText('Claude Implements'))
+    await user.click(screen.getByText('Claude implements'))
     await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
 
@@ -501,7 +518,7 @@ describe('WizardShell multi-class iteration', () => {
     // --- Class 2 (Beta) ---
     // Step 3 → Interface
     await user.click(screen.getByText('Continue'))
-    await waitFor(() => expect(screen.getByText('IFoo')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('IFoo.cs')).toBeInTheDocument())
 
     // Step 3 → Step 4 → Tests
     await user.click(screen.getByText('Next'))
@@ -510,7 +527,7 @@ describe('WizardShell multi-class iteration', () => {
 
     // Step 4 → Step 5 → Implement
     await user.click(screen.getByText('Next'))
-    await user.click(screen.getByText('Claude Implements'))
+    await user.click(screen.getByText('Claude implements'))
     await user.click(screen.getByText('Continue'))
     await waitFor(() => expect(screen.getByText(/tests passing/)).toBeInTheDocument())
 

@@ -43,8 +43,8 @@ const emptyState: WizardState = {
 describe('Step1Upload', () => {
   it('renders correctly with upload prompt', () => {
     render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText('Upload VB.NET Source')).toBeInTheDocument()
-    expect(screen.getByText(/drop a .vb file/i)).toBeInTheDocument()
+    expect(screen.getByText('Upload legacy VB.NET')).toBeInTheDocument()
+    expect(screen.getByText(/drop a .vb file here or click to browse/i)).toBeInTheDocument()
     expect(screen.getByText('Load Demo File (Simple)')).toBeInTheDocument()
   })
 
@@ -150,7 +150,9 @@ describe('Step1Upload — mode toggle', () => {
 
   it('shows single file subtitle by default', () => {
     render(<Step1Upload state={emptyState} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText(/Upload a single .vb class file/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Drop a .vb file or a .zip project. VBGone extracts the business logic/),
+    ).toBeInTheDocument()
   })
 
   it('shows project subtitle when project mode selected', async () => {
@@ -159,7 +161,9 @@ describe('Step1Upload — mode toggle', () => {
 
     await user.click(screen.getByText('Project / Solution'))
     expect(screen.getByText(/Upload a .zip containing your VB.NET solution/)).toBeInTheDocument()
-    expect(screen.queryByText(/Upload a single .vb class file/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/Drop a .vb file or a .zip project. VBGone extracts the business logic/),
+    ).not.toBeInTheDocument()
   })
 
   it('switches to project mode on tab click', async () => {

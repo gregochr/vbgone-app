@@ -1,9 +1,15 @@
 package com.vbgone.service;
 
-import com.anthropic.models.messages.Model;
+import com.vbgone.ai.AiProvider;
+import com.vbgone.ai.AiProviderRegistry;
+import com.vbgone.ai.AiRequestOptions;
+import com.vbgone.ai.AiResponse;
+import com.vbgone.ai.ModelRole;
 import com.vbgone.model.*;
 import com.vbgone.session.SessionStore;
 import org.springframework.stereotype.Service;
+
+import java.util.Map;
 
 @Service
 public class GenerationService {
@@ -78,27 +84,31 @@ public class GenerationService {
             Return ONLY the complete C# class. No markdown. No backticks. No explanation. \
             No analysis. No discussion. No test code. Just the class starting with 'public class'.""";
 
-    private final ClaudeClient claudeClient;
+    private final AiProviderRegistry registry;
     private final SessionStore sessionStore;
 
-    public GenerationService(ClaudeClient claudeClient, SessionStore sessionStore) {
-        this.claudeClient = claudeClient;
+    public GenerationService(AiProviderRegistry registry, SessionStore sessionStore) {
+        this.registry = registry;
         this.sessionStore = sessionStore;
     }
 
     public InterfaceResult generateInterface(String sessionId, String className) {
+        return generateInterface(sessionId, className, null, null, null);
+    }
+
+    public InterfaceResult generateInterface(String sessionId, String className,
+                                             String provider, String targetLanguage,
+                                             Map<String, String> modelOverrides) {
+        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
         MigrationSession session = getSession(sessionId);
+        session.setTargetLanguage(options.targetLanguage());
         session.clearClassArtifacts();
         String userMessage = "Generate a C# interface named I" + className
                 + " for this VB.NET:\n" + session.getVbContentForClass(className);
 
-        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
-                INTERFACE_SYSTEM_PROMPT, userMessage, Model.CLAUDE_HAIKU_4_5, 4096L);
+        AiResponse response = call(options, ModelRole.MECHANICAL, INTERFACE_SYSTEM_PROMPT, userMessage, 4096L,
+                "interface", session);
         String code = stripNamespaceWrapper(stripCodeFences(response.text()));
-
-        String modelId = Model.CLAUDE_HAIKU_4_5.asString();
-        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
-        session.addTokenUsage(new TokenUsage("interface", modelId, response.inputTokens(), response.outputTokens(), cost));
 
         InterfaceResult result = new InterfaceResult(sessionId, className, "I" + className, code);
         session.setInterfaceResult(result);
@@ -106,7 +116,15 @@ public class GenerationService {
     }
 
     public TestsResult generateTests(String sessionId, String className) {
+        return generateTests(sessionId, className, null, null, null);
+    }
+
+    public TestsResult generateTests(String sessionId, String className,
+                                     String provider, String targetLanguage,
+                                     Map<String, String> modelOverrides) {
+        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
         MigrationSession session = getSession(sessionId);
+        session.setTargetLanguage(options.targetLanguage());
         InterfaceResult iface = session.getInterfaceResult();
         String ifaceCode = iface != null ? iface.code() : "";
         String userMessage = "Generate NUnit tests for I" + className
@@ -127,13 +145,9 @@ public class GenerationService {
                 + "    // test methods here — no namespace block\n"
                 + "}";
 
-        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
-                TESTS_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 16384L);
+        AiResponse response = call(options, ModelRole.REASONING, TESTS_SYSTEM_PROMPT, userMessage, 16384L,
+                "tests", session);
         String code = repairTruncatedCSharp(stripNamespaceWrapper(stripCodeFences(response.text())));
-
-        String modelId = Model.CLAUDE_SONNET_4_6.asString();
-        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
-        session.addTokenUsage(new TokenUsage("tests", modelId, response.inputTokens(), response.outputTokens(), cost));
 
         int testCount = countTests(code);
         TestsResult result = new TestsResult(sessionId, className, className + "Tests", code, testCount);
@@ -142,7 +156,15 @@ public class GenerationService {
     }
 
     public StubResult generateStub(String sessionId, String className) {
+        return generateStub(sessionId, className, null, null, null);
+    }
+
+    public StubResult generateStub(String sessionId, String className,
+                                   String provider, String targetLanguage,
+                                   Map<String, String> modelOverrides) {
+        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
         MigrationSession session = getSession(sessionId);
+        session.setTargetLanguage(options.targetLanguage());
         InterfaceResult iface = session.getInterfaceResult();
         if (iface == null) {
             throw new IllegalStateException("Interface must be generated before stub");
@@ -150,13 +172,9 @@ public class GenerationService {
 
         String userMessage = "Generate a stub class named " + className
                 + " that implements " + iface.interfaceName() + ".\n\nInterface:\n" + iface.code();
-        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
-                STUB_SYSTEM_PROMPT, userMessage, Model.CLAUDE_HAIKU_4_5, 4096L);
+        AiResponse response = call(options, ModelRole.MECHANICAL, STUB_SYSTEM_PROMPT, userMessage, 4096L,
+                "stub", session);
         String code = stripNamespaceWrapper(stripCodeFences(response.text()));
-
-        String modelId = Model.CLAUDE_HAIKU_4_5.asString();
-        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
-        session.addTokenUsage(new TokenUsage("stub", modelId, response.inputTokens(), response.outputTokens(), cost));
 
         StubResult result = new StubResult(sessionId, className, code);
         session.setStubResult(result);
@@ -164,7 +182,15 @@ public class GenerationService {
     }
 
     public ImplementResult implement(String sessionId, String className, ImplementMode mode) {
+        return implement(sessionId, className, mode, null, null, null);
+    }
+
+    public ImplementResult implement(String sessionId, String className, ImplementMode mode,
+                                     String provider, String targetLanguage,
+                                     Map<String, String> modelOverrides) {
+        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
         MigrationSession session = getSession(sessionId);
+        session.setTargetLanguage(options.targetLanguage());
 
         if (mode == ImplementMode.STUB) {
             StubResult stub = session.getStubResult();
@@ -189,8 +215,8 @@ public class GenerationService {
                 + "Interface:\n" + iface.code()
                 + "\n\nOriginal VB.NET behaviour:\n" + session.getVbContentForClass(className);
 
-        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
-                IMPLEMENT_SYSTEM_PROMPT, userMessage, Model.CLAUDE_SONNET_4_6, 16384L);
+        AiResponse response = call(options, ModelRole.IMPLEMENTATION, IMPLEMENT_SYSTEM_PROMPT, userMessage, 16384L,
+                "implement", session);
         String code = fixClassDeclaration(
                 stripNamespaceWrapper(stripCodeFences(response.text())),
                 className, iface.interfaceName());
@@ -200,10 +226,6 @@ public class GenerationService {
             throw new RuntimeException("Claude did not return valid C# code — try again");
         }
 
-        String modelId = Model.CLAUDE_SONNET_4_6.asString();
-        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
-        session.addTokenUsage(new TokenUsage("implement", modelId, response.inputTokens(), response.outputTokens(), cost));
-
         ImplementResult result = new ImplementResult(sessionId, className, code, mode);
         session.setImplementResult(result);
         return result;
@@ -211,7 +233,16 @@ public class GenerationService {
 
     public ImplementResult retryImplement(String sessionId, String className,
                                            java.util.List<String> failingTests, int attempt) {
+        return retryImplement(sessionId, className, failingTests, attempt, null, null, null);
+    }
+
+    public ImplementResult retryImplement(String sessionId, String className,
+                                          java.util.List<String> failingTests, int attempt,
+                                          String provider, String targetLanguage,
+                                          Map<String, String> modelOverrides) {
+        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
         MigrationSession session = getSession(sessionId);
+        session.setTargetLanguage(options.targetLanguage());
 
         InterfaceResult iface = session.getInterfaceResult();
         if (iface == null) {
@@ -235,28 +266,28 @@ public class GenerationService {
             }
         }
 
+        TestsResult tests = session.getTestsResult();
+        String fullTestFile = tests != null ? tests.code() : "";
+
         String userMessage = "Fix this C# class to make ALL tests pass. Do NOT break any currently passing tests.\n"
                 + "Class declaration MUST be: public class " + className + " : " + iface.interfaceName() + "\n\n"
+                + "FAILING TESTS: " + failingList + "\n\n"
                 + "FAILING TESTS (expected vs actual from test runner):\n"
                 + failureDetails + "\n"
+                + "Failing test source:\n" + testSnippets + "\n\n"
                 + "FULL TEST FILE (you must pass ALL of these, not just the failing ones):\n"
-                + session.getTestsResult().code() + "\n"
+                + fullTestFile + "\n"
                 + "CURRENT IMPLEMENTATION (fix this):\n" + previous.code() + "\n"
                 + "INTERFACE:\n" + iface.code();
 
-        // Escalate to Opus on the final attempt (attempt 3)
-        boolean useOpus = attempt >= 3;
-        Model model = useOpus ? Model.CLAUDE_OPUS_4_6 : Model.CLAUDE_SONNET_4_6;
+        // Escalate on the final attempt (attempt >= 3) — ESCALATION role, else IMPLEMENTATION.
+        ModelRole role = attempt >= 3 ? ModelRole.ESCALATION : ModelRole.IMPLEMENTATION;
 
-        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
-                IMPLEMENT_SYSTEM_PROMPT, userMessage, model, 16384L);
+        AiResponse response = call(options, role, IMPLEMENT_SYSTEM_PROMPT, userMessage, 16384L,
+                "retry-implement", session);
         String code = fixClassDeclaration(
                 stripNamespaceWrapper(stripCodeFences(response.text())),
                 className, iface.interfaceName());
-
-        String modelId = model.asString();
-        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
-        session.addTokenUsage(new TokenUsage("retry-implement", modelId, response.inputTokens(), response.outputTokens(), cost));
 
         // If Claude returned analysis instead of code, fall back to the previous implementation
         if (!code.contains("public class ")) {
@@ -266,6 +297,21 @@ public class GenerationService {
         ImplementResult result = new ImplementResult(sessionId, className, code, ImplementMode.CLAUDE);
         session.setImplementResult(result);
         return result;
+    }
+
+    /**
+     * Resolves the model + provider, calls the provider, records token usage,
+     * and returns the raw response.
+     */
+    private AiResponse call(AiRequestOptions options, ModelRole role, String systemPrompt,
+                            String userMessage, long maxTokens, String step, MigrationSession session) {
+        String modelId = registry.modelFor(options.provider(), role, options.modelOverrides());
+        AiProvider aiProvider = registry.provider(options.provider());
+        AiResponse response = aiProvider.generate(modelId, systemPrompt, userMessage, maxTokens);
+        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
+        session.addTokenUsage(new TokenUsage(step, modelId, response.inputTokens(),
+                response.outputTokens(), cost, response.provider()));
+        return response;
     }
 
     private MigrationSession getSession(String sessionId) {

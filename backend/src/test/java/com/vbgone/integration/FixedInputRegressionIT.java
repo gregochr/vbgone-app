@@ -1,6 +1,10 @@
 package com.vbgone.integration;
 
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vbgone.ai.AiProviderRegistry;
+import com.vbgone.ai.anthropic.AnthropicProvider;
+import com.vbgone.ai.github.GitHubModelsProvider;
 import com.vbgone.model.*;
 import com.vbgone.service.*;
 import com.vbgone.session.SessionStore;
@@ -45,12 +49,15 @@ class FixedInputRegressionIT {
                 .apiKey(apiKey)
                 .build();
         ClaudeClient claudeClient = new ClaudeClient(anthropicClient);
+        AiProviderRegistry registry = new AiProviderRegistry(List.of(
+                new AnthropicProvider(claudeClient),
+                new GitHubModelsProvider("", new ObjectMapper())));
 
         String workspace = tempDir.toString();
         String containerName = "vbgone-app-dotnet-runner-1";
         ProcessRunner processRunner = new DockerProcessRunner(containerName, tempDir);
 
-        generationService = new GenerationService(claudeClient, sessionStore);
+        generationService = new GenerationService(registry, sessionStore);
         buildService = new BuildService(sessionStore, workspace, containerName, processRunner);
     }
 

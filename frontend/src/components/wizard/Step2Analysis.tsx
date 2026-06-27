@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
 import { analyse } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
+import { useWizardConfig } from '../../config/WizardConfigContext'
+import { PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
 
 interface Props {
   state: WizardState
@@ -10,6 +12,10 @@ interface Props {
 }
 
 export function Step2Analysis({ state, update, onReady }: Props) {
+  const { provider, modelOverrides, engineParams } = useWizardConfig()
+  const prov = PROVIDERS[provider]
+  const reasoningModel = modelLabelFor(provider, 'reasoning', modelOverrides)
+  const reasoningModelId = modelFor(provider, 'reasoning', modelOverrides)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(!state.analysis)
@@ -23,7 +29,7 @@ export function Step2Analysis({ state, update, onReady }: Props) {
   const runAnalysis = () => {
     setShowConfirm(false)
     setLoading(true)
-    analyse(state.filename, state.content)
+    analyse(state.filename, state.content, engineParams)
       .then((result) => {
         update({ analysis: result })
         setLoading(false)
@@ -38,11 +44,12 @@ export function Step2Analysis({ state, update, onReady }: Props) {
   if (showConfirm) {
     return (
       <div>
-        <h2 className="step-title">Analysing VB.NET Source</h2>
+        <div className="step-kicker">STEP 02 · ANALYSIS</div>
+        <h2 className="step-title">Analyse the source</h2>
         <ConfirmDialog onConfirm={runAnalysis} onCancel={() => setShowConfirm(false)}>
           <p>
-            This will make an API call to Claude Sonnet (claude-sonnet-4-6) via the Anthropic Java
-            SDK.
+            This will make an API call to {prov.name} ({reasoningModelId}) via the {prov.vendor}{' '}
+            provider.
           </p>
           <p>
             {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored by Anthropic
@@ -65,11 +72,12 @@ export function Step2Analysis({ state, update, onReady }: Props) {
   if (loading) {
     return (
       <div>
-        <h2 className="step-title">Analysing VB.NET Source</h2>
-        <p className="loading-text">
+        <div className="step-kicker">STEP 02 · ANALYSIS</div>
+        <h2 className="step-title">Analyse the source</h2>
+        <div className="busy-row">
           <span className="spinner" />
-          Claude is analysing your code...
-        </p>
+          <span className="loading-text">{prov.name} is analysing the source…</span>
+        </div>
       </div>
     )
   }
@@ -77,7 +85,8 @@ export function Step2Analysis({ state, update, onReady }: Props) {
   if (error) {
     return (
       <div>
-        <h2 className="step-title">Analysis Failed</h2>
+        <div className="step-kicker">STEP 02 · ANALYSIS</div>
+        <h2 className="step-title">Analyse the source</h2>
         <div className="build-status build-red">{error}</div>
       </div>
     )
@@ -87,19 +96,34 @@ export function Step2Analysis({ state, update, onReady }: Props) {
   if (!analysis) {
     return (
       <div>
-        <h2 className="step-title">Analysing VB.NET Source</h2>
-        <p className="step-subtitle">Ready to analyse your VB.NET code with Claude.</p>
-        <button className="btn-plex" onClick={() => setShowConfirm(true)}>
-          Analyse with Claude
-        </button>
+        <div className="step-kicker">STEP 02 · ANALYSIS</div>
+        <h2 className="step-title">Analyse the source</h2>
+        <p className="step-subtitle">
+          {prov.name} reads the VB.NET, looks past the Windows Forms noise, and extracts the pure
+          business logic underneath.
+        </p>
+        <div className="run-card">
+          <div className="run-card-model">
+            <span className="model-dot" style={{ background: providerColor(provider) }} />
+            <span className="model-name">{reasoningModel}</span>
+            <span className="model-caption">REASONING · {prov.vendor}</span>
+          </div>
+          <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+            Analyse with {prov.name}
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
     <div>
-      <h2 className="step-title">Analysis Complete</h2>
-      <p className="step-subtitle">{analysis.summary}</p>
+      <div className="step-kicker">STEP 02 · ANALYSIS</div>
+      <h2 className="step-title">Analyse the source</h2>
+      <div className="summary-banner">
+        <span className="summary-check">✓</span>
+        <span>{analysis.summary}</span>
+      </div>
 
       {analysis.classes.map((cls) => (
         <div className="info-card" key={cls.name}>

@@ -11,6 +11,8 @@ import {
 } from '../../api/migrateApi'
 import type { ProjectAnalysis } from '../../api/migrateApi'
 import { InfoTip } from './InfoTip'
+import { useWizardConfig } from '../../config/WizardConfigContext'
+import { LANGS } from '../../config/engine'
 
 interface Props {
   state: WizardState
@@ -22,6 +24,8 @@ interface Props {
 type UploadMode = 'single' | 'project'
 
 export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props) {
+  const { targetLanguage } = useWizardConfig()
+  const lang = LANGS[targetLanguage]
   const [mode, setMode] = useState<UploadMode>('single')
   const [zipFile, setZipFile] = useState<File | null>(null)
   const [zipFiles, setZipFiles] = useState<{ path: string; size: number }[]>([])
@@ -146,10 +150,11 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
 
   return (
     <div>
-      <h2 className="step-title">Upload VB.NET Source</h2>
+      <div className="step-kicker">STEP 01 · SOURCE</div>
+      <h2 className="step-title">Upload legacy VB.NET</h2>
       <p className="step-subtitle">
         {mode === 'single'
-          ? 'Upload a single .vb class file. VBGone will migrate the business logic to modern, tested C#.'
+          ? `Drop a .vb file or a .zip project. VBGone extracts the business logic and migrates it to tested ${lang.lang}, one class at a time.`
           : 'Upload a .zip containing your VB.NET solution. VBGone will analyse all classes, build a dependency graph, and guide you through migrating each class in the optimal order.'}
       </p>
 
@@ -449,6 +454,14 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
           )}
         </>
       )}
+
+      <div className="lang-note" data-testid="lang-note">
+        <span className="lang-note-dot" />
+        <span>
+          This run targets <strong>{lang.lang}</strong> · {lang.testFw} · {lang.runner}. Change it
+          any time from the header.
+        </span>
+      </div>
     </div>
   )
 }

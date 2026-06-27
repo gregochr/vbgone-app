@@ -3,6 +3,8 @@ import type { WizardState } from './WizardShell'
 import { generateInterface } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CodeBlock } from './CodeBlock'
+import { useWizardConfig } from '../../config/WizardConfigContext'
+import { LANGS, PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
 
 interface Props {
   state: WizardState
@@ -11,6 +13,11 @@ interface Props {
 }
 
 export function Step3Interface({ state, update, onReady }: Props) {
+  const { provider, targetLanguage, modelOverrides, engineParams } = useWizardConfig()
+  const prov = PROVIDERS[provider]
+  const lang = LANGS[targetLanguage]
+  const mechanicalModel = modelLabelFor(provider, 'mechanical', modelOverrides)
+  const mechanicalModelId = modelFor(provider, 'mechanical', modelOverrides)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(!state.interfaceResult)
@@ -31,7 +38,7 @@ export function Step3Interface({ state, update, onReady }: Props) {
   const runGeneration = () => {
     setShowConfirm(false)
     setLoading(true)
-    generateInterface(sessionId, className)
+    generateInterface(sessionId, className, engineParams)
       .then((result) => {
         update({ interfaceResult: result })
         setLoading(false)
@@ -46,11 +53,12 @@ export function Step3Interface({ state, update, onReady }: Props) {
   if (showConfirm) {
     return (
       <div>
-        <h2 className="step-title">Generating C# Interface</h2>
+        <div className="step-kicker">STEP 03 · INTERFACE</div>
+        <h2 className="step-title">Define the contract</h2>
         <ConfirmDialog onConfirm={runGeneration} onCancel={() => setShowConfirm(false)}>
           <p>
-            This will make an API call to Claude Haiku (claude-haiku-4-5) via the Anthropic Java
-            SDK.
+            This will make an API call to {prov.name} ({mechanicalModelId}) via the {prov.vendor}{' '}
+            provider.
           </p>
           <p>
             {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored by Anthropic
@@ -74,11 +82,14 @@ export function Step3Interface({ state, update, onReady }: Props) {
   if (loading) {
     return (
       <div>
-        <h2 className="step-title">Generating C# Interface</h2>
-        <p className="loading-text">
+        <div className="step-kicker">STEP 03 · INTERFACE</div>
+        <h2 className="step-title">Define the contract</h2>
+        <div className="busy-row">
           <span className="spinner" />
-          Claude is generating the interface for {className}...
-        </p>
+          <span className="loading-text">
+            Generating the {lang.lang} interface for {className}…
+          </span>
+        </div>
       </div>
     )
   }
@@ -86,7 +97,8 @@ export function Step3Interface({ state, update, onReady }: Props) {
   if (error) {
     return (
       <div>
-        <h2 className="step-title">Interface Generation Failed</h2>
+        <div className="step-kicker">STEP 03 · INTERFACE</div>
+        <h2 className="step-title">Define the contract</h2>
         <div className="build-status build-red">{error}</div>
       </div>
     )
@@ -96,21 +108,41 @@ export function Step3Interface({ state, update, onReady }: Props) {
   if (!iface) {
     return (
       <div>
-        <h2 className="step-title">Generating C# Interface</h2>
-        <p className="step-subtitle">Ready to generate the C# interface for {className}.</p>
-        <button className="btn-plex" onClick={() => setShowConfirm(true)}>
-          Generate Interface
-        </button>
+        <div className="step-kicker">STEP 03 · INTERFACE</div>
+        <h2 className="step-title">Define the contract</h2>
+        <p className="step-subtitle">
+          A {lang.lang} interface is the seam of the Strangler Fig migration — the contract both the
+          legacy and the new code satisfy. UI types are stripped; only business logic remains.
+        </p>
+        <div className="run-card">
+          <div className="run-card-model">
+            <span className="model-dot" style={{ background: providerColor(provider) }} />
+            <span className="model-name">{mechanicalModel}</span>
+            <span className="model-caption">MECHANICAL · {prov.vendor}</span>
+          </div>
+          <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+            Generate interface
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
     <div>
-      <h2 className="step-title">{iface.interfaceName}</h2>
+      <div className="step-kicker">STEP 03 · INTERFACE</div>
+      <h2 className="step-title">Define the contract</h2>
       <p className="step-subtitle">
-        Generated C# interface for {iface.className}. Review and edit if needed before proceeding.
+        Generated {lang.lang} interface for {iface.className}. Review and edit if needed before
+        proceeding.
       </p>
+      <div className="code-header">
+        <span>
+          {iface.interfaceName}
+          {lang.ext}
+        </span>
+        <span className="code-header-caption">generated · editable</span>
+      </div>
       <CodeBlock
         code={iface.code}
         editable

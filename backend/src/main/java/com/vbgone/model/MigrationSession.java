@@ -9,6 +9,7 @@ public class MigrationSession {
     private final String sessionId;
     private String filename;
     private String vbContent;
+    private String targetLanguage = "csharp";
     private final Map<String, String> classSources = new HashMap<>();
     private AnalysisResult analysisResult;
     private InterfaceResult interfaceResult;
@@ -32,6 +33,9 @@ public class MigrationSession {
 
     public String getVbContent() { return vbContent; }
     public void setVbContent(String vbContent) { this.vbContent = vbContent; }
+
+    public String getTargetLanguage() { return targetLanguage; }
+    public void setTargetLanguage(String targetLanguage) { this.targetLanguage = targetLanguage; }
 
     public AnalysisResult getAnalysisResult() { return analysisResult; }
     public void setAnalysisResult(AnalysisResult analysisResult) { this.analysisResult = analysisResult; }

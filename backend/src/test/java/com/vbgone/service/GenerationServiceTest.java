@@ -1,6 +1,10 @@
 package com.vbgone.service;
 
 import com.anthropic.models.messages.Model;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vbgone.ai.AiProviderRegistry;
+import com.vbgone.ai.anthropic.AnthropicProvider;
+import com.vbgone.ai.github.GitHubModelsProvider;
 import com.vbgone.model.*;
 import com.vbgone.session.SessionStore;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,7 +34,10 @@ class GenerationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new GenerationService(claudeClient, sessionStore);
+        AnthropicProvider anthropicProvider = new AnthropicProvider(claudeClient);
+        GitHubModelsProvider copilotProvider = new GitHubModelsProvider("", new ObjectMapper());
+        AiProviderRegistry registry = new AiProviderRegistry(List.of(anthropicProvider, copilotProvider));
+        service = new GenerationService(registry, sessionStore);
     }
 
     private ClaudeClient.ClaudeResponse claudeResponse(String text) {

@@ -1,6 +1,21 @@
 import axios from 'axios'
+import type { EngineParams } from '../config/engine'
 
 const api = axios.create({ baseURL: '/api/migrate' })
+
+// Surface the backend's graceful error body ({ "error": "..." }, HTTP 422 — e.g. an
+// unconfigured Copilot credential or a preview Java target) as the thrown Error message,
+// so each wizard step can display it inline rather than a generic status code.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const data = error?.response?.data
+    if (data && typeof data === 'object' && typeof data.error === 'string') {
+      return Promise.reject(new Error(data.error))
+    }
+    return Promise.reject(error)
+  },
+)
 
 /* ── Types ── */
 
@@ -154,8 +169,9 @@ let lastMockTestCount = 30
 const mockMigratedClasses: string[] = []
 
 const mockApi = {
-  async analyse(filename: string, content: string): Promise<AnalysisResult> {
+  async analyse(filename: string, content: string, engine?: EngineParams): Promise<AnalysisResult> {
     void content
+    void engine
     await delay(1200)
 
     // Complex demo — return multi-class God class decomposition
@@ -264,8 +280,13 @@ const mockApi = {
     }
   },
 
-  async generateInterface(sessionId: string, className: string): Promise<InterfaceResult> {
+  async generateInterface(
+    sessionId: string,
+    className: string,
+    engine?: EngineParams,
+  ): Promise<InterfaceResult> {
     void sessionId
+    void engine
     await delay(800)
     if (!mockMigratedClasses.includes(className)) {
       mockMigratedClasses.push(className)
@@ -311,8 +332,13 @@ public interface IOrderProcessor
     }
   },
 
-  async generateTests(sessionId: string, className: string): Promise<TestsResult> {
+  async generateTests(
+    sessionId: string,
+    className: string,
+    engine?: EngineParams,
+  ): Promise<TestsResult> {
     void sessionId
+    void engine
     await delay(1000)
 
     const testCode: Record<string, { code: string; count: number }> = {
@@ -699,8 +725,13 @@ public class ${className}Tests
     }
   },
 
-  async generateStub(sessionId: string, className: string): Promise<StubResult> {
+  async generateStub(
+    sessionId: string,
+    className: string,
+    engine?: EngineParams,
+  ): Promise<StubResult> {
     void sessionId
+    void engine
     await delay(600)
 
     const stubCode: Record<string, string> = {
@@ -761,8 +792,10 @@ public class OrderProcessor : IOrderProcessor
     sessionId: string,
     className: string,
     mode: 'STUB' | 'CLAUDE',
+    engine?: EngineParams,
   ): Promise<ImplementResult> {
     void sessionId
+    void engine
     await delay(mode === 'CLAUDE' ? 2000 : 400)
 
     const implCode: Record<string, string> = {
@@ -892,10 +925,12 @@ public class OrderProcessor : IOrderProcessor
     className: string,
     failingTests: string[],
     attempt?: number,
+    engine?: EngineParams,
   ): Promise<ImplementResult> {
     void sessionId
     void failingTests
     void attempt
+    void engine
     await delay(2000)
     return {
       sessionId: MOCK_SESSION_ID,
@@ -979,23 +1014,39 @@ public class OrderProcessor : IOrderProcessor
 /* ── Real API calls ── */
 
 const realApi = {
-  async analyse(filename: string, content: string): Promise<AnalysisResult> {
-    const { data } = await api.post<AnalysisResult>('/analyse', { filename, content })
+  async analyse(filename: string, content: string, engine?: EngineParams): Promise<AnalysisResult> {
+    const { data } = await api.post<AnalysisResult>('/analyse', { filename, content, ...engine })
     return data
   },
 
-  async generateInterface(sessionId: string, className: string): Promise<InterfaceResult> {
-    const { data } = await api.post<InterfaceResult>('/interface', { sessionId, className })
+  async generateInterface(
+    sessionId: string,
+    className: string,
+    engine?: EngineParams,
+  ): Promise<InterfaceResult> {
+    const { data } = await api.post<InterfaceResult>('/interface', {
+      sessionId,
+      className,
+      ...engine,
+    })
     return data
   },
 
-  async generateTests(sessionId: string, className: string): Promise<TestsResult> {
-    const { data } = await api.post<TestsResult>('/tests', { sessionId, className })
+  async generateTests(
+    sessionId: string,
+    className: string,
+    engine?: EngineParams,
+  ): Promise<TestsResult> {
+    const { data } = await api.post<TestsResult>('/tests', { sessionId, className, ...engine })
     return data
   },
 
-  async generateStub(sessionId: string, className: string): Promise<StubResult> {
-    const { data } = await api.post<StubResult>('/stub', { sessionId, className })
+  async generateStub(
+    sessionId: string,
+    className: string,
+    engine?: EngineParams,
+  ): Promise<StubResult> {
+    const { data } = await api.post<StubResult>('/stub', { sessionId, className, ...engine })
     return data
   },
 
@@ -1008,8 +1059,14 @@ const realApi = {
     sessionId: string,
     className: string,
     mode: 'STUB' | 'CLAUDE',
+    engine?: EngineParams,
   ): Promise<ImplementResult> {
-    const { data } = await api.post<ImplementResult>('/implement', { sessionId, className, mode })
+    const { data } = await api.post<ImplementResult>('/implement', {
+      sessionId,
+      className,
+      mode,
+      ...engine,
+    })
     return data
   },
 
@@ -1024,12 +1081,14 @@ const realApi = {
     className: string,
     failingTests: string[],
     attempt?: number,
+    engine?: EngineParams,
   ): Promise<ImplementResult> {
     const { data } = await api.post<ImplementResult>('/retry-implement', {
       sessionId,
       className,
       failingTests,
       attempt: attempt ?? 1,
+      ...engine,
     })
     return data
   },

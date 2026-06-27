@@ -1,14 +1,35 @@
 package com.vbgone.service;
 
-import com.anthropic.models.messages.Model;
 import com.vbgone.model.CostResult;
 import com.vbgone.model.MigrationSession;
 import com.vbgone.model.TokenUsage;
 import com.vbgone.session.SessionStore;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+
 @Service
 public class CostService {
+
+    /**
+     * Per-canonical-model-id pricing in USD per million tokens: {input, output}.
+     * Covers both providers. Unknown ids fall back to the legacy contains()
+     * heuristic below.
+     */
+    static final Map<String, double[]> PRICING = Map.ofEntries(
+            // ── Anthropic ──
+            Map.entry("claude-opus-4-6", new double[]{15.0, 75.0}),
+            Map.entry("claude-sonnet-4-6", new double[]{3.0, 15.0}),
+            Map.entry("claude-haiku-4-5", new double[]{0.80, 4.0}),
+            // ── GitHub Models (Copilot) ──
+            // PLACEHOLDER GitHub Models pricing — verify against tenant
+            Map.entry("gpt-5", new double[]{5.0, 15.0}),
+            Map.entry("o3", new double[]{2.0, 8.0}),
+            Map.entry("gpt-4.1", new double[]{2.0, 8.0}),
+            Map.entry("gpt-4o", new double[]{2.5, 10.0}),
+            Map.entry("claude-sonnet-4", new double[]{3.0, 15.0}),
+            Map.entry("gemini-2.5-pro", new double[]{1.25, 10.0})
+    );
 
     private final SessionStore sessionStore;
 
@@ -38,10 +59,14 @@ public class CostService {
         double inputPricePerMillion;
         double outputPricePerMillion;
 
-        if (modelId.contains("haiku")) {
+        double[] explicit = modelId == null ? null : PRICING.get(modelId);
+        if (explicit != null) {
+            inputPricePerMillion = explicit[0];
+            outputPricePerMillion = explicit[1];
+        } else if (modelId != null && modelId.contains("haiku")) {
             inputPricePerMillion = 0.80;
             outputPricePerMillion = 4.0;
-        } else if (modelId.contains("opus")) {
+        } else if (modelId != null && modelId.contains("opus")) {
             inputPricePerMillion = 15.0;
             outputPricePerMillion = 75.0;
         } else {

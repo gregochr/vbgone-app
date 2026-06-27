@@ -1,7 +1,11 @@
 package com.vbgone.service;
 
-import com.anthropic.models.messages.Model;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vbgone.ai.AiProvider;
+import com.vbgone.ai.AiProviderRegistry;
+import com.vbgone.ai.AiRequestOptions;
+import com.vbgone.ai.AiResponse;
+import com.vbgone.ai.ModelRole;
 import com.vbgone.model.*;
 import com.vbgone.session.SessionStore;
 import org.springframework.stereotype.Service;
@@ -72,28 +76,37 @@ public class AnalysisService {
             IMPORTANT: suggestedMigrationOrder must contain ONLY class names — no descriptions, \
             no reasons, no dashes. Example: ["Calculator", "Form1"], NOT ["Calculator — simple class"].""";
 
-    private final ClaudeClient claudeClient;
+    private final AiProviderRegistry registry;
     private final SessionStore sessionStore;
     private final ObjectMapper objectMapper;
 
-    public AnalysisService(ClaudeClient claudeClient, SessionStore sessionStore, ObjectMapper objectMapper) {
-        this.claudeClient = claudeClient;
+    public AnalysisService(AiProviderRegistry registry, SessionStore sessionStore, ObjectMapper objectMapper) {
+        this.registry = registry;
         this.sessionStore = sessionStore;
         this.objectMapper = objectMapper;
     }
 
     public AnalysisResult analyse(String filename, String content) {
+        return analyse(filename, content, null, null, null);
+    }
+
+    public AnalysisResult analyse(String filename, String content,
+                                  String provider, String targetLanguage,
+                                  Map<String, String> modelOverrides) {
+        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
+
         MigrationSession session = sessionStore.create();
         session.setFilename(filename);
         session.setVbContent(content);
+        session.setTargetLanguage(options.targetLanguage());
 
-        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
-                SYSTEM_PROMPT, content, Model.CLAUDE_SONNET_4_6, 4096L);
+        String modelId = registry.modelFor(options.provider(), ModelRole.REASONING, options.modelOverrides());
+        AiProvider aiProvider = registry.provider(options.provider());
+        AiResponse response = aiProvider.generate(modelId, SYSTEM_PROMPT, content, 4096L);
         String json = stripMarkdownFences(response.text());
 
-        String modelId = Model.CLAUDE_SONNET_4_6.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
-        session.addTokenUsage(new TokenUsage("analyse", modelId, response.inputTokens(), response.outputTokens(), cost));
+        session.addTokenUsage(new TokenUsage("analyse", modelId, response.inputTokens(), response.outputTokens(), cost, response.provider()));
 
         AnalysisResult result = parseAnalysis(session.getSessionId(), json);
         session.setAnalysisResult(result);
@@ -124,8 +137,17 @@ public class AnalysisService {
     }
 
     public ProjectAnalysis analyseProject(ZipManifest manifest) {
+        return analyseProject(manifest, null, null, null);
+    }
+
+    public ProjectAnalysis analyseProject(ZipManifest manifest,
+                                          String provider, String targetLanguage,
+                                          Map<String, String> modelOverrides) {
+        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
+
         MigrationSession session = sessionStore.get(manifest.sessionId())
                 .orElseThrow(() -> new IllegalArgumentException("Session not found: " + manifest.sessionId()));
+        session.setTargetLanguage(options.targetLanguage());
 
         String combinedContent = manifest.files().stream()
                 .map(f -> "// === File: " + f.relativePath() + " ===\n" + f.content())
@@ -133,13 +155,13 @@ public class AnalysisService {
 
         session.setVbContent(combinedContent);
 
-        ClaudeClient.ClaudeResponse response = claudeClient.sendWithCachedSystemPrompt(
-                PROJECT_SYSTEM_PROMPT, combinedContent, Model.CLAUDE_SONNET_4_6, 8192L);
+        String modelId = registry.modelFor(options.provider(), ModelRole.REASONING, options.modelOverrides());
+        AiProvider aiProvider = registry.provider(options.provider());
+        AiResponse response = aiProvider.generate(modelId, PROJECT_SYSTEM_PROMPT, combinedContent, 8192L);
         String json = stripMarkdownFences(response.text());
 
-        String modelId = Model.CLAUDE_SONNET_4_6.asString();
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
-        session.addTokenUsage(new TokenUsage("analyse-project", modelId, response.inputTokens(), response.outputTokens(), cost));
+        session.addTokenUsage(new TokenUsage("analyse-project", modelId, response.inputTokens(), response.outputTokens(), cost, response.provider()));
 
         ProjectAnalysis result = parseProjectAnalysis(manifest.sessionId(), json);
         session.setAnalysisResult(new AnalysisResult(

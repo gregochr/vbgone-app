@@ -3,6 +3,8 @@ import type { WizardState } from './WizardShell'
 import { generateTests, generateStub, build } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CollapsibleCode } from './CollapsibleCode'
+import { useWizardConfig } from '../../config/WizardConfigContext'
+import { LANGS, PROVIDERS, modelLabelFor, providerColor } from '../../config/engine'
 
 interface Props {
   state: WizardState
@@ -13,6 +15,11 @@ interface Props {
 type Phase = 'tests' | 'stub' | 'build' | 'done'
 
 export function Step4Tests({ state, update, onReady }: Props) {
+  const { provider, targetLanguage, modelOverrides, engineParams } = useWizardConfig()
+  const prov = PROVIDERS[provider]
+  const lang = LANGS[targetLanguage]
+  const reasoningModel = modelLabelFor(provider, 'reasoning', modelOverrides)
+  const mechanicalModel = modelLabelFor(provider, 'mechanical', modelOverrides)
   const [phase, setPhase] = useState<Phase>(state.redBuild ? 'done' : 'tests')
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(!state.redBuild)
@@ -38,12 +45,12 @@ export function Step4Tests({ state, update, onReady }: Props) {
     ;(async () => {
       try {
         setPhase('tests')
-        const testsResult = await generateTests(sessionId, className)
+        const testsResult = await generateTests(sessionId, className, engineParams)
         if (cancelled) return
         update({ tests: testsResult })
 
         setPhase('stub')
-        const stubResult = await generateStub(sessionId, className)
+        const stubResult = await generateStub(sessionId, className, engineParams)
         if (cancelled) return
         update({ stubResult })
 
@@ -67,18 +74,19 @@ export function Step4Tests({ state, update, onReady }: Props) {
   }
 
   const phaseMessages: Record<Phase, string> = {
-    tests: `Generating NUnit tests for ${className}...`,
-    stub: 'Generating stub implementation...',
-    build: 'Running .NET test...',
+    tests: `Generating ${lang.testFw} tests for ${className}…`,
+    stub: 'Generating stub implementation…',
+    build: `Running ${lang.testCmd}…`,
     done: '',
   }
 
   if (showConfirm) {
     return (
       <div>
-        <h2 className="step-title">Tests + Red Build</h2>
+        <div className="step-kicker">STEP 04 · TESTS · RED BUILD</div>
+        <h2 className="step-title">Write the tests first</h2>
         <ConfirmDialog onConfirm={runPipeline} onCancel={() => setShowConfirm(false)}>
-          <p>This will make two API calls via the Anthropic Java SDK:</p>
+          <p>This will make two API calls via the {prov.vendor} provider:</p>
           <p>
             1. <strong>Claude Sonnet (claude-sonnet-4-6)</strong> — generates the NUnit test suite.
             Sonnet is used here because writing good tests requires reasoning about behaviour, edge
@@ -111,11 +119,24 @@ export function Step4Tests({ state, update, onReady }: Props) {
   if (!showConfirm && !pipelineStarted && !state.tests && !error) {
     return (
       <div>
-        <h2 className="step-title">Tests + Red Build</h2>
-        <p className="step-subtitle">Ready to generate tests and run the red build.</p>
-        <button className="btn-plex" onClick={() => setShowConfirm(true)}>
-          Generate Tests
-        </button>
+        <div className="step-kicker">STEP 04 · TESTS · RED BUILD</div>
+        <h2 className="step-title">Write the tests first</h2>
+        <p className="step-subtitle">
+          {prov.name} generates a {lang.testFw} suite from the original behaviour, then a stub that
+          throws {lang.notImpl}. <code>{lang.testCmd}</code> runs — everything fails. That's the{' '}
+          <strong style={{ color: 'var(--red)' }}>RED</strong> phase, and it's the migration
+          contract.
+        </p>
+        <div className="run-card">
+          <div className="run-card-model">
+            <span className="model-dot" style={{ background: providerColor(provider) }} />
+            <span className="model-name">{reasoningModel}</span>
+            <span className="model-caption">TESTS · stub on {mechanicalModel}</span>
+          </div>
+          <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+            Generate tests &amp; run red build
+          </button>
+        </div>
       </div>
     )
   }
@@ -123,7 +144,8 @@ export function Step4Tests({ state, update, onReady }: Props) {
   if (error) {
     return (
       <div>
-        <h2 className="step-title">Tests + Red Build</h2>
+        <div className="step-kicker">STEP 04 · TESTS · RED BUILD</div>
+        <h2 className="step-title">Write the tests first</h2>
         <div className="build-status build-red">{error}</div>
       </div>
     )
@@ -132,20 +154,22 @@ export function Step4Tests({ state, update, onReady }: Props) {
   if (phase !== 'done') {
     return (
       <div>
-        <h2 className="step-title">Tests + Red Build</h2>
-        <p className="loading-text">
+        <div className="step-kicker">STEP 04 · TESTS · RED BUILD</div>
+        <h2 className="step-title">Write the tests first</h2>
+        <div className="busy-row">
           <span className="spinner" />
-          {phaseMessages[phase]}
-        </p>
+          <span className="loading-text">{phaseMessages[phase]}</span>
+        </div>
       </div>
     )
   }
 
   return (
     <div>
-      <h2 className="step-title">Tests + Red Build</h2>
+      <div className="step-kicker">STEP 04 · TESTS · RED BUILD</div>
+      <h2 className="step-title">Write the tests first</h2>
       <p className="step-subtitle">
-        {state.tests?.testCount} NUnit tests generated.
+        {state.tests?.testCount} {lang.testFw} tests generated.
         {state.redBuild?.buildStatus === 'ERROR'
           ? ' Build failed — see compilation errors below.'
           : ' All failing against the stub — this is the RED phase of Red-Green TDD.'}
