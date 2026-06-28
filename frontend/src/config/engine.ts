@@ -26,8 +26,6 @@ export interface LangSpec {
   outputRepo: string
   ifaceName: string
   implName: string
-  /** Java backend execution is not wired yet — surfaced as a preview. */
-  preview: boolean
 }
 
 export const LANGS: Record<TargetLanguage, LangSpec> = {
@@ -44,7 +42,6 @@ export const LANGS: Record<TargetLanguage, LangSpec> = {
     outputRepo: 'vbgone-output',
     ifaceName: 'IOrderProcessor',
     implName: 'OrderProcessor',
-    preview: false,
   },
   java: {
     lang: 'Java',
@@ -59,7 +56,6 @@ export const LANGS: Record<TargetLanguage, LangSpec> = {
     outputRepo: 'vbgone-output',
     ifaceName: 'OrderProcessor',
     implName: 'OrderProcessorImpl',
-    preview: true,
   },
 }
 

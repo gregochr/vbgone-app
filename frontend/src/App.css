@@ -159,21 +159,6 @@
   box-shadow: inset 0 0 0 1px var(--accent-ring);
 }
 
-.target-seg-preview {
-  font-family: var(--font-mono);
-  font-size: 8.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  border: 1px solid var(--border-strong);
-  border-radius: 5px;
-  padding: 1px 4px;
-}
-.target-seg.active .target-seg-preview {
-  color: var(--accent-text);
-  border-color: var(--accent-ring);
-}
-
 /* Engine button */
 .engine-button {
   display: flex;

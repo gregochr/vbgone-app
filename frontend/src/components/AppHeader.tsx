@@ -20,7 +20,6 @@ export function AppHeader() {
       aria-pressed={targetLanguage === value}
     >
       {label}
-      {LANGS[value].preview && <span className="target-seg-preview">preview</span>}
     </button>
   )
 
