@@ -26,7 +26,8 @@ public class JavaRuntime implements BuildRuntime {
 
     private static final String PACKAGE = "com.vbgone.generated";
 
-    static final String POM = """
+    /** Minimal Maven project descriptor — shared with the GitHub PR path so Java PRs are buildable. */
+    public static final String POM = """
             <?xml version="1.0" encoding="UTF-8"?>
             <project xmlns="http://maven.apache.org/POM/4.0.0"
                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

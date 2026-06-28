@@ -2,6 +2,9 @@ package com.vbgone.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vbgone.build.JavaRuntime;
+import com.vbgone.lang.LanguageConventions;
+import com.vbgone.lang.LanguageConventionsRegistry;
 import com.vbgone.model.*;
 import com.vbgone.session.SessionStore;
 import okhttp3.*;
@@ -18,25 +21,31 @@ import java.util.Map;
 public class GitHubService {
 
     private static final MediaType JSON_MEDIA = MediaType.get("application/json; charset=utf-8");
+    private static final String JAVA_PACKAGE_DIR = "com/vbgone/generated";
 
     private final SessionStore sessionStore;
     private final OkHttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final String githubToken;
     private final String apiBaseUrl;
+    private final LanguageConventionsRegistry conventionsRegistry;
 
     @Autowired
     public GitHubService(SessionStore sessionStore,
                          ObjectMapper objectMapper,
+                         LanguageConventionsRegistry conventionsRegistry,
                          @Value("${github.token:not-set}") String githubToken) {
-        this(sessionStore, new OkHttpClient(), objectMapper, githubToken, "https://api.github.com");
+        this(sessionStore, new OkHttpClient(), objectMapper, conventionsRegistry,
+                githubToken, "https://api.github.com");
     }
 
     GitHubService(SessionStore sessionStore, OkHttpClient httpClient,
-                  ObjectMapper objectMapper, String githubToken, String apiBaseUrl) {
+                  ObjectMapper objectMapper, LanguageConventionsRegistry conventionsRegistry,
+                  String githubToken, String apiBaseUrl) {
         this.sessionStore = sessionStore;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
+        this.conventionsRegistry = conventionsRegistry;
         this.githubToken = githubToken;
         this.apiBaseUrl = apiBaseUrl;
     }
@@ -58,18 +67,39 @@ public class GitHubService {
         }
 
         String className = iface.className();
+        String targetLanguage = session.getTargetLanguage();
+        boolean java = "java".equalsIgnoreCase(targetLanguage);
+        LanguageConventions conv = conventionsRegistry.forLanguage(targetLanguage);
 
-        List<String> filePaths = List.of(
-                className + "/I" + className + ".cs",
-                className + "/" + className + ".cs",
-                className + ".Tests/" + tests.testClassName() + ".cs"
-        );
-
-        List<String> fileContents = List.of(
-                iface.code(),
-                impl.code(),
-                tests.code()
-        );
+        List<String> filePaths;
+        List<String> fileContents;
+        if (java) {
+            String mainDir = "src/main/java/" + JAVA_PACKAGE_DIR + "/";
+            String testDir = "src/test/java/" + JAVA_PACKAGE_DIR + "/";
+            filePaths = List.of(
+                    mainDir + iface.interfaceName() + ".java",
+                    mainDir + iface.implName() + ".java",
+                    testDir + tests.testClassName() + ".java",
+                    "pom.xml"
+            );
+            fileContents = List.of(
+                    iface.code(),
+                    impl.code(),
+                    tests.code(),
+                    JavaRuntime.POM
+            );
+        } else {
+            filePaths = List.of(
+                    className + "/" + conv.interfaceName(className) + ".cs",
+                    className + "/" + conv.implName(className) + ".cs",
+                    className + ".Tests/" + tests.testClassName() + ".cs"
+            );
+            fileContents = List.of(
+                    iface.code(),
+                    impl.code(),
+                    tests.code()
+            );
+        }
 
         try {
             String mainSha = getRefSha(repoOwner, repoName, "heads/main");
@@ -85,12 +115,13 @@ public class GitHubService {
 
             String treeSha = createTree(repoOwner, repoName, baseTreeSha, filePaths, blobShas);
 
-            String commitMessage = "Migrate " + className + " from VB.NET to C#";
+            String targetName = java ? "Java" : "C#";
+            String commitMessage = "Migrate " + className + " from VB.NET to " + targetName;
             String commitSha = createCommit(repoOwner, repoName, commitMessage, treeSha, mainSha);
 
             updateRef(repoOwner, repoName, "heads/" + branchName, commitSha);
 
-            String prUrl = createPullRequest(repoOwner, repoName, branchName, className, filePaths);
+            String prUrl = createPullRequest(repoOwner, repoName, branchName, className, filePaths, targetName);
 
             PullRequestResult result = new PullRequestResult(sessionId, prUrl, branchName, filePaths);
             session.setPrResult(result);
@@ -153,19 +184,26 @@ public class GitHubService {
     }
 
     private String createPullRequest(String owner, String repo, String branch,
-                                     String className, List<String> filePaths) throws IOException {
-        String title = "Migrate " + className + " from VB.NET to C#";
-        String body = buildPrBody(className, filePaths);
+                                     String className, List<String> filePaths,
+                                     String targetName) throws IOException {
+        String title = "Migrate " + className + " from VB.NET to " + targetName;
+        String body = buildPrBody(className, filePaths, targetName);
 
         JsonNode response = post("/repos/%s/%s/pulls".formatted(owner, repo),
                 Map.of("title", title, "body", body, "head", branch, "base", "main"));
         return response.get("html_url").asText();
     }
 
+    /** Back-compat: defaults to the C# wording. */
     String buildPrBody(String className, List<String> filePaths) {
+        return buildPrBody(className, filePaths, "C#");
+    }
+
+    String buildPrBody(String className, List<String> filePaths, String targetName) {
         StringBuilder sb = new StringBuilder();
-        sb.append("## VB.NET to C# Migration: ").append(className).append("\n\n");
-        sb.append("This PR migrates **").append(className).append("** from VB.NET to modern C#.\n\n");
+        sb.append("## VB.NET to ").append(targetName).append(" Migration: ").append(className).append("\n\n");
+        sb.append("This PR migrates **").append(className).append("** from VB.NET to modern ")
+                .append(targetName).append(".\n\n");
         sb.append("### Files\n");
         for (String path : filePaths) {
             sb.append("- `").append(path).append("`\n");

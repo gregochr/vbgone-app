@@ -198,6 +198,34 @@ class MigrationControllerTest {
     }
 
     @Test
+    void generateInterface_acceptsJavaTarget() throws Exception {
+        // Java is no longer gated — it flows through to the generation service.
+        when(generationService.generateInterface(eq(SESSION_ID), eq("Form1"), any(), eq("java"), any()))
+                .thenReturn(new InterfaceResult(SESSION_ID, "Form1", "Form1",
+                        "package com.vbgone.generated;\n\npublic interface Form1 {}", "Form1Impl"));
+
+        mockMvc.perform(post("/api/migrate/interface")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ClassRequest(SESSION_ID, "Form1", null, "java", null))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interfaceName").value("Form1"))
+                .andExpect(jsonPath("$.implName").value("Form1Impl"));
+    }
+
+    @Test
+    void analyse_acceptsJavaTarget() throws Exception {
+        when(analysisService.analyse(any(), any(), any(), eq("java"), any()))
+                .thenReturn(new AnalysisResult(SESSION_ID, List.of(), List.of(), "OK"));
+
+        mockMvc.perform(post("/api/migrate/analyse")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AnalyseRequest("Form1.vb", "content", null, "java", null))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void analyse_returns400ForEmptyFilename() throws Exception {
         mockMvc.perform(post("/api/migrate/analyse")
                         .contentType(MediaType.APPLICATION_JSON)
