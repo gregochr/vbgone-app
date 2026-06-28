@@ -5,7 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vbgone.ai.AiProviderRegistry;
 import com.vbgone.ai.anthropic.AnthropicProvider;
 import com.vbgone.ai.github.GitHubModelsProvider;
+import com.vbgone.lang.CSharpConventions;
+import com.vbgone.lang.JavaConventions;
+import com.vbgone.lang.LanguageConventionsRegistry;
 import com.vbgone.model.*;
+import com.vbgone.prompt.CSharpPrompts;
+import com.vbgone.prompt.JavaPrompts;
+import com.vbgone.prompt.PromptLanguageRegistry;
 import com.vbgone.session.SessionStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,7 +43,11 @@ class GenerationServiceTest {
         AnthropicProvider anthropicProvider = new AnthropicProvider(claudeClient);
         GitHubModelsProvider copilotProvider = new GitHubModelsProvider("", new ObjectMapper());
         AiProviderRegistry registry = new AiProviderRegistry(List.of(anthropicProvider, copilotProvider));
-        service = new GenerationService(registry, sessionStore);
+        PromptLanguageRegistry promptRegistry =
+                new PromptLanguageRegistry(List.of(new CSharpPrompts(), new JavaPrompts()));
+        LanguageConventionsRegistry conventionsRegistry =
+                new LanguageConventionsRegistry(List.of(new CSharpConventions(), new JavaConventions()));
+        service = new GenerationService(registry, sessionStore, promptRegistry, conventionsRegistry);
     }
 
     private ClaudeClient.ClaudeResponse claudeResponse(String text) {
@@ -130,6 +140,28 @@ class GenerationServiceTest {
         verify(claudeClient).sendWithCachedSystemPrompt(
                 eq(GenerationService.INTERFACE_SYSTEM_PROMPT),
                 contains("Public Class Form1..."),
+                eq(Model.CLAUDE_HAIKU_4_5),
+                eq(4096L));
+    }
+
+    @Test
+    void generateInterface_javaTarget_usesJavaNamingAndImplName() {
+        MigrationSession session = sessionWithVb("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse("package com.vbgone.generated;\n\npublic interface Form1 { int add(int a, int b); }"));
+
+        InterfaceResult result = service.generateInterface("s1", "Form1", null, "java", null);
+
+        // Java interface drops the I prefix; impl gains Impl.
+        assertThat(result.interfaceName()).isEqualTo("Form1");
+        assertThat(result.implName()).isEqualTo("Form1Impl");
+        assertThat(result.code()).contains("package com.vbgone.generated;");
+        assertThat(session.getTargetLanguage()).isEqualTo("java");
+
+        verify(claudeClient).sendWithCachedSystemPrompt(
+                contains("VB.NET to Java migration expert"),
+                contains("no 'I' prefix"),
                 eq(Model.CLAUDE_HAIKU_4_5),
                 eq(4096L));
     }
