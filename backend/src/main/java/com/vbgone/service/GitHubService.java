@@ -104,7 +104,10 @@ public class GitHubService {
         try {
             String mainSha = getRefSha(repoOwner, repoName, "heads/main");
 
-            createRef(repoOwner, repoName, "refs/heads/" + branchName, mainSha);
+            // A class can be migrated more than once (a re-run, or C# then Java),
+            // so the requested branch may already exist. Create it, falling back to
+            // <branch>-2, -3, … on a "Reference already exists" collision.
+            branchName = createBranchOnFreeName(repoOwner, repoName, branchName, mainSha);
 
             String baseTreeSha = getCommitTreeSha(repoOwner, repoName, mainSha);
 
@@ -142,6 +145,38 @@ public class GitHubService {
     private void createRef(String owner, String repo, String ref, String sha) throws IOException {
         post("/repos/%s/%s/git/refs".formatted(owner, repo),
                 Map.of("ref", ref, "sha", sha));
+    }
+
+    /**
+     * Creates the requested branch, or on a "Reference already exists" collision
+     * the first free {@code <branch>-2}, {@code <branch>-3}, … Returns the branch
+     * name that was actually created. The happy path is a single createRef call.
+     */
+    String createBranchOnFreeName(String owner, String repo, String desired, String sha) throws IOException {
+        try {
+            createRef(owner, repo, "refs/heads/" + desired, sha);
+            return desired;
+        } catch (IOException e) {
+            if (!isAlreadyExists(e)) {
+                throw e;
+            }
+        }
+        for (int i = 2; i <= 50; i++) {
+            String candidate = desired + "-" + i;
+            try {
+                createRef(owner, repo, "refs/heads/" + candidate, sha);
+                return candidate;
+            } catch (IOException e) {
+                if (!isAlreadyExists(e)) {
+                    throw e;
+                }
+            }
+        }
+        throw new IOException("Could not find a free branch name based on '" + desired + "'");
+    }
+
+    private boolean isAlreadyExists(IOException e) {
+        return e.getMessage() != null && e.getMessage().contains("Reference already exists");
     }
 
     private String getCommitTreeSha(String owner, String repo, String sha) throws IOException {
