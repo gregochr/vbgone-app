@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vbgone.ai.AiProviderRegistry;
 import com.vbgone.ai.anthropic.AnthropicProvider;
 import com.vbgone.ai.github.GitHubModelsProvider;
+import com.vbgone.build.BuildRuntimeRegistry;
+import com.vbgone.build.DotNetRuntime;
 import com.vbgone.model.*;
 import com.vbgone.service.*;
 import com.vbgone.session.SessionStore;
@@ -58,7 +60,9 @@ class FixedInputRegressionIT {
         ProcessRunner processRunner = new DockerProcessRunner(containerName, tempDir);
 
         generationService = new GenerationService(registry, sessionStore);
-        buildService = new BuildService(sessionStore, workspace, containerName, processRunner);
+        DotNetRuntime dotnetRuntime = new DotNetRuntime(sessionStore, workspace, containerName, processRunner);
+        BuildRuntimeRegistry runtimeRegistry = new BuildRuntimeRegistry(List.of(dotnetRuntime));
+        buildService = new BuildService(sessionStore, runtimeRegistry);
     }
 
     static String loadFixture(String path) {

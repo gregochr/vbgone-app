@@ -29,8 +29,10 @@ services:
       # defaults (which already include the Mini's Tailscale/LAN origins).
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
       - DOTNET_RUNNER_CONTAINER=vbgone-dotnet-runner
+      - JAVA_RUNNER_CONTAINER=vbgone-jdk-maven-runner
     depends_on:
       - dotnet-runner
+      - jdk-maven-runner
     volumes:
       - generated-code:/workspace
       # ⚠️ Mounting the host docker socket gives this container root over EVERY
@@ -46,5 +48,15 @@ services:
       - generated-code:/workspace
     command: tail -f /dev/null
 
+  jdk-maven-runner:
+    image: maven:3.9-eclipse-temurin-21
+    container_name: vbgone-jdk-maven-runner # pinned so the backend can `docker exec` it by name
+    restart: unless-stopped
+    volumes:
+      - generated-code:/workspace
+      - maven-cache:/root/.m2
+    command: tail -f /dev/null
+
 volumes:
   generated-code:
+  maven-cache:

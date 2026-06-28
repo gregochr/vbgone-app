@@ -8,9 +8,10 @@ pulls and restarts the stack.** State is in-memory, so there is no database.
 ./release.sh 1.1.0  ──tag v1.1.0──▶  .github/workflows/deploy.yml
    build-images (github-hosted) ──push──▶ ghcr.io/gregochr/vbgone-{frontend,backend}:{1.1.0,latest}
    deploy ([self-hosted, dockermacmini]) ──▶ cd ~/services/vbgone && docker compose pull && up -d
-                                              ├── vbgone-frontend     :8086 → nginx :3000
-                                              ├── vbgone-backend       (internal :8080)
-                                              └── vbgone-dotnet-runner (.NET 10 SDK sidecar)
+                                              ├── vbgone-frontend       :8086 → nginx :3000
+                                              ├── vbgone-backend         (internal :8080)
+                                              ├── vbgone-dotnet-runner   (.NET 10 SDK sidecar — C# builds)
+                                              └── vbgone-jdk-maven-runner (Maven/JDK 21 sidecar — Java builds)
 ```
 
 ## Normal release flow
@@ -50,6 +51,19 @@ EOF
 
 > If you ever change `docker-compose.yml` in the repo, re-`scp` it to
 > `~/services/vbgone/` — the deploy job runs the box's copy, not the repo's.
+
+> **Java target — one-time per-box step.** The Java build path runs `mvn test`
+> in a new `vbgone-jdk-maven-runner` sidecar (`maven:3.9-eclipse-temurin-21`).
+> Because the deploy job only `docker compose pull && up -d`s the box's copy of
+> the compose, the updated `docker-compose.yml` (new sidecar + maven base image)
+> must be re-`scp`'d to `~/services/vbgone/docker-compose.yml` and pulled/started
+> **before** the first Java release:
+> ```bash
+> scp docker-compose.yml dockermac:~/services/vbgone/
+> ssh dockermac 'cd ~/services/vbgone && docker compose pull && docker compose up -d'
+> ```
+> Otherwise the backend's `docker exec vbgone-jdk-maven-runner …` will fail
+> because the container won't exist on the box.
 
 GHCR pull access: the new packages default to **private**; the Mini already runs
 other `ghcr.io/gregochr/*` images so it's authenticated, but if a pull is denied,
