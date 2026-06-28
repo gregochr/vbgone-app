@@ -1,6 +1,5 @@
 package com.vbgone.controller;
 
-import com.vbgone.ai.ProviderUnavailableException;
 import com.vbgone.model.*;
 import com.vbgone.service.AnalysisService;
 import com.vbgone.service.BuildService;
@@ -54,21 +53,8 @@ public class MigrationController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Only .vb and .zip files are supported. Received: " + filename);
         }
-        rejectJavaTarget(request.targetLanguage());
         return analysisService.analyse(filename, request.content(),
                 request.provider(), request.targetLanguage(), request.modelOverrides());
-    }
-
-    /**
-     * Defensive guard: Java code generation is a frontend-gated preview and is
-     * not yet executable on the backend. The frontend never sends "java", so
-     * this path only triggers on a misuse of the API.
-     */
-    private void rejectJavaTarget(String targetLanguage) {
-        if (targetLanguage != null && "java".equalsIgnoreCase(targetLanguage)) {
-            throw new ProviderUnavailableException(
-                    "Java target is in preview and not yet executable on the backend.");
-        }
     }
 
     @PostMapping(value = "/upload-project", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -79,21 +65,18 @@ public class MigrationController {
 
     @PostMapping("/interface")
     public InterfaceResult generateInterface(@RequestBody ClassRequest request) {
-        rejectJavaTarget(request.targetLanguage());
         return generationService.generateInterface(request.sessionId(), request.className(),
                 request.provider(), request.targetLanguage(), request.modelOverrides());
     }
 
     @PostMapping("/tests")
     public TestsResult generateTests(@RequestBody ClassRequest request) {
-        rejectJavaTarget(request.targetLanguage());
         return generationService.generateTests(request.sessionId(), request.className(),
                 request.provider(), request.targetLanguage(), request.modelOverrides());
     }
 
     @PostMapping("/stub")
     public StubResult generateStub(@RequestBody ClassRequest request) {
-        rejectJavaTarget(request.targetLanguage());
         return generationService.generateStub(request.sessionId(), request.className(),
                 request.provider(), request.targetLanguage(), request.modelOverrides());
     }
@@ -105,14 +88,12 @@ public class MigrationController {
 
     @PostMapping("/implement")
     public ImplementResult implement(@RequestBody ImplementRequest request) {
-        rejectJavaTarget(request.targetLanguage());
         return generationService.implement(request.sessionId(), request.className(), request.mode(),
                 request.provider(), request.targetLanguage(), request.modelOverrides());
     }
 
     @PostMapping("/retry-implement")
     public ImplementResult retryImplement(@RequestBody RetryRequest request) {
-        rejectJavaTarget(request.targetLanguage());
         return generationService.retryImplement(
                 request.sessionId(), request.className(), request.failingTests(), request.attempt(),
                 request.provider(), request.targetLanguage(), request.modelOverrides());

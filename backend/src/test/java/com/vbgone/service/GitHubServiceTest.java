@@ -2,6 +2,9 @@ package com.vbgone.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vbgone.lang.CSharpConventions;
+import com.vbgone.lang.JavaConventions;
+import com.vbgone.lang.LanguageConventionsRegistry;
 import com.vbgone.model.*;
 import com.vbgone.session.SessionStore;
 import okhttp3.OkHttpClient;
@@ -16,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -39,8 +43,10 @@ class GitHubServiceTest {
         mockWebServer = new MockWebServer();
         mockWebServer.start();
         String baseUrl = mockWebServer.url("/").toString().replaceAll("/$", "");
+        LanguageConventionsRegistry conventionsRegistry =
+                new LanguageConventionsRegistry(List.of(new CSharpConventions(), new JavaConventions()));
         service = new GitHubService(sessionStore, new OkHttpClient(),
-                objectMapper, "ghp_test123", baseUrl);
+                objectMapper, conventionsRegistry, "ghp_test123", baseUrl);
     }
 
     @AfterEach
@@ -63,6 +69,40 @@ class GitHubServiceTest {
                 "public class Form1 : IForm1 { public int Add(int a, int b) => a + b; }",
                 ImplementMode.CLAUDE));
         return session;
+    }
+
+    private MigrationSession javaSession(String sessionId) {
+        MigrationSession session = new MigrationSession(sessionId);
+        session.setTargetLanguage("java");
+        session.setVbContent("Public Class Form1...");
+        session.setInterfaceResult(new InterfaceResult(
+                sessionId, "Form1", "Form1",
+                "package com.vbgone.generated;\n\npublic interface Form1 { int add(int a, int b); }",
+                "Form1Impl"));
+        session.setTestsResult(new TestsResult(
+                sessionId, "Form1", "Form1Test",
+                "package com.vbgone.generated;\n\nclass Form1Test { }",
+                1));
+        session.setImplementResult(new ImplementResult(
+                sessionId, "Form1",
+                "package com.vbgone.generated;\n\npublic class Form1Impl implements Form1 { public int add(int a, int b) { return a + b; } }",
+                ImplementMode.CLAUDE));
+        return session;
+    }
+
+    private void enqueueJavaHappyPathResponses() {
+        enqueue(Map.of("object", Map.of("sha", "main-sha-123")));
+        enqueue(Map.of("ref", "refs/heads/migrate/form1"));
+        enqueue(Map.of("tree", Map.of("sha", "base-tree-sha")));
+        // 4 blobs: interface, impl, tests, pom
+        enqueue(Map.of("sha", "blob-iface"));
+        enqueue(Map.of("sha", "blob-impl"));
+        enqueue(Map.of("sha", "blob-tests"));
+        enqueue(Map.of("sha", "blob-pom"));
+        enqueue(Map.of("sha", "new-tree-sha"));
+        enqueue(Map.of("sha", "new-commit-sha"));
+        enqueue(Map.of("ref", "refs/heads/migrate/form1"));
+        enqueue(Map.of("html_url", "https://github.com/owner/repo/pull/43"));
     }
 
     private void enqueueHappyPathResponses() {
@@ -115,6 +155,33 @@ class GitHubServiceTest {
                 "Form1/Form1.cs",
                 "Form1.Tests/Form1Tests.cs");
         assertThat(session.getPrResult()).isEqualTo(result);
+    }
+
+    @Test
+    void raisePR_javaTarget_usesMavenPathsAndJavaWording() throws Exception {
+        MigrationSession session = javaSession("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        enqueueJavaHappyPathResponses();
+
+        PullRequestResult result = service.raisePR("s1", "owner", "repo", "migrate/form1");
+
+        assertThat(result.filesCommitted()).containsExactly(
+                "src/main/java/com/vbgone/generated/Form1.java",
+                "src/main/java/com/vbgone/generated/Form1Impl.java",
+                "src/test/java/com/vbgone/generated/Form1Test.java",
+                "pom.xml");
+
+        // Skip to the PR request (11th — Java commits 4 files, so 4 blob calls) and assert Java wording.
+        for (int i = 0; i < 10; i++) {
+            mockWebServer.takeRequest();
+        }
+        RecordedRequest prRequest = mockWebServer.takeRequest();
+        JsonNode body = objectMapper.readTree(prRequest.getBody().readUtf8());
+        assertThat(body.get("title").asText()).isEqualTo("Migrate Form1 from VB.NET to Java");
+        String prBody = body.get("body").asText();
+        assertThat(prBody).contains("VB.NET to Java Migration: Form1");
+        assertThat(prBody).contains("`pom.xml`");
+        assertThat(prBody).contains("`src/main/java/com/vbgone/generated/Form1Impl.java`");
     }
 
     // ── Request verification ──
