@@ -29,7 +29,15 @@ export function AppHeader() {
       <div className="header-brand">
         <div className="brand-mark">
           <svg className="brand-glyph" viewBox="0 0 40 40" aria-hidden="true">
-            <rect x="1" y="1" width="38" height="38" rx="11" fill="var(--bg-elevated)" stroke="var(--border-strong)" />
+            <rect
+              x="1"
+              y="1"
+              width="38"
+              height="38"
+              rx="11"
+              fill="var(--bg-elevated)"
+              stroke="var(--border-strong)"
+            />
             <path
               d="M13 14 L21 20 L13 26"
               fill="none"
