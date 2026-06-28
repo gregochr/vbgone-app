@@ -302,6 +302,56 @@ class GitHubServiceTest {
         assertThat(blob3Body.get("content").asText()).contains("Form1Tests");
     }
 
+    // ── Branch collision ──
+
+    @Test
+    void raisePR_whenBranchExists_fallsBackToSuffixedBranch() throws Exception {
+        MigrationSession session = fullSession("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+
+        enqueue(Map.of("object", Map.of("sha", "main-sha-123")));     // GET ref/heads/main
+        mockWebServer.enqueue(new MockResponse()                       // createRef migrate/form1 → 422
+                .setResponseCode(422)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{\"message\":\"Reference already exists\"}"));
+        enqueue(Map.of("ref", "refs/heads/migrate/form1-2"));         // createRef migrate/form1-2 → 200
+        enqueue(Map.of("tree", Map.of("sha", "base-tree-sha")));       // GET commits (tree)
+        enqueue(Map.of("sha", "blob-iface"));
+        enqueue(Map.of("sha", "blob-impl"));
+        enqueue(Map.of("sha", "blob-tests"));
+        enqueue(Map.of("sha", "new-tree-sha"));
+        enqueue(Map.of("sha", "new-commit-sha"));
+        enqueue(Map.of("ref", "refs/heads/migrate/form1-2"));         // PATCH ref
+        enqueue(Map.of("html_url", "https://github.com/owner/repo/pull/99")); // POST pulls
+
+        PullRequestResult result = service.raisePR("s1", "owner", "repo", "migrate/form1");
+
+        assertThat(result.branchName()).isEqualTo("migrate/form1-2");
+        assertThat(result.prUrl()).isEqualTo("https://github.com/owner/repo/pull/99");
+
+        mockWebServer.takeRequest(); // GET ref/heads/main
+        RecordedRequest firstCreate = mockWebServer.takeRequest();
+        assertThat(objectMapper.readTree(firstCreate.getBody().readUtf8()).get("ref").asText())
+                .isEqualTo("refs/heads/migrate/form1");
+        RecordedRequest secondCreate = mockWebServer.takeRequest();
+        assertThat(objectMapper.readTree(secondCreate.getBody().readUtf8()).get("ref").asText())
+                .isEqualTo("refs/heads/migrate/form1-2");
+    }
+
+    @Test
+    void raisePR_propagatesNonCollisionRefError() {
+        MigrationSession session = fullSession("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        enqueue(Map.of("object", Map.of("sha", "main-sha-123")));     // GET ref/heads/main
+        mockWebServer.enqueue(new MockResponse()                       // createRef → 403 (not a collision)
+                .setResponseCode(403)
+                .setBody("{\"message\":\"Forbidden\"}"));
+
+        assertThatThrownBy(() -> service.raisePR("s1", "owner", "repo", "migrate/form1"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("GitHub API");
+    }
+
     // ── Precondition tests ──
 
     @Test
