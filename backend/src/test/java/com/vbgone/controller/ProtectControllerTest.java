@@ -3,6 +3,7 @@ package com.vbgone.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vbgone.config.RateLimitFilter;
 import com.vbgone.model.*;
+import com.vbgone.service.ProtectAssessmentService;
 import com.vbgone.service.ProtectService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,7 +35,33 @@ class ProtectControllerTest {
     @MockitoBean
     private ProtectService protectService;
 
+    @MockitoBean
+    private ProtectAssessmentService assessmentService;
+
     private static final String SESSION_ID = "s-protect";
+
+    @Test
+    void assess_returns200WithReadinessReport() throws Exception {
+        ReadinessReport report = new ReadinessReport(
+                SESSION_ID,
+                new ReadinessReport.ReadinessTotals(2, 5, 1, 0, 1, 3, 0, 2),
+                "static",
+                List.of(new ClassReadiness("OrderProcessor", "OrderProcessor.vb", Bucket.NET_READY,
+                        "public, no WinForms references",
+                        List.of(new MethodReadiness("CalculateTotal", "public", Bucket.NET_READY,
+                                "params in, value out")))));
+        when(assessmentService.assess(eq("OrderProcessor.vb"), anyString())).thenReturn(report);
+
+        mockMvc.perform(post("/api/protect/assess")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AssessRequest("OrderProcessor.vb", "Public Class OrderProcessor..."))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.confidence").value("static"))
+                .andExpect(jsonPath("$.totals.netReady").value(1))
+                .andExpect(jsonPath("$.classes[0].bucket").value("net-ready"))
+                .andExpect(jsonPath("$.classes[0].methods[0].bucket").value("net-ready"));
+    }
 
     @Test
     void baseline_returns200WithPinnedSurface() throws Exception {
