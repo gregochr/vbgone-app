@@ -7,6 +7,7 @@ import { useWizardConfig } from '../../../config/WizardConfigContext'
 import {
   PROVIDERS,
   PROTECT_TEST_FW,
+  looksUiCoupled,
   modelFor,
   modelLabelFor,
   providerColor,
@@ -162,6 +163,7 @@ export function Step4BaselineTests({ state, update, onReady }: Props) {
   // A compile failure (e.g. WinForms-coupled VB on the Linux sidecar) — distinct from a
   // drifted assertion. Surface the compiler output rather than the assertion framing.
   const compileError = tests.build.errors.length > 0
+  const uiCoupled = compileError && looksUiCoupled(state.content)
 
   return (
     <div>
@@ -194,6 +196,32 @@ export function Step4BaselineTests({ state, update, onReady }: Props) {
               </span>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Compile failure — explain Protect's headless precondition, tailored to the cause. */}
+      {compileError && (
+        <div className="net-precondition" data-testid="net-precondition">
+          <span className="net-precondition-glyph" aria-hidden="true">
+            {'ⓘ'}
+          </span>
+          {uiCoupled ? (
+            <span>
+              This source looks <strong>UI-coupled</strong> (WinForms). Protect runs your original
+              VB.NET headless on the CLR, so it can only net a{' '}
+              <strong>business-logic surface</strong> with no UI dependencies — a class that doesn't
+              import <code>System.Windows.Forms</code>, inherit <code>Form</code>, or touch
+              controls. If the logic already lives in a separate class, point Protect at that file;
+              if it's inside the form's event handlers, it has to be separated first (that's a
+              Migrate-style change).
+            </span>
+          ) : (
+            <span>
+              Protect compiles your original VB.NET headless on the CLR. The source needs to be
+              self-contained with no UI or platform dependencies. Fix the errors above (or upload
+              just the business-logic class) and re-run.
+            </span>
+          )}
         </div>
       )}
 

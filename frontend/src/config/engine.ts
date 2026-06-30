@@ -187,6 +187,17 @@ export const PROTECT_STEP_ROLES: (Role | 'source' | 'github')[] = [
 export const PROTECT_TEST_FW = 'MSTest'
 export const PROTECT_RUNTIME = 'CLR'
 
+/**
+ * Heuristic: does this VB.NET source depend on the WinForms UI? Protect compiles and runs
+ * the original headless on the Linux CLR sidecar, which can't host WinForms — so UI-coupled
+ * source can't be netted. Used to explain the compile-failure (ERROR) state.
+ */
+export function looksUiCoupled(vb: string): boolean {
+  return /\bImports\s+System\.Windows\.Forms\b|\bInherits\s+(System\.Windows\.Forms\.)?Form\b|\bHandles\s+\w+\.\w+|\bAs\s+(TextBox|Button|Label|Form|ComboBox|CheckBox|ListBox|DataGridView)\b|\bMsgBox\b|\bMessageBox\b/i.test(
+    vb,
+  )
+}
+
 /** Engine-panel rows — the four user-tunable stages. */
 export const ENGINE_ROWS: { label: string; role: Role; desc: string }[] = [
   { label: 'Analysis', role: 'reasoning', desc: 'Reads VB.NET, extracts business logic' },

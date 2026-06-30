@@ -1771,3 +1771,29 @@
   font-size: 12.5px;
   color: var(--text-dim);
 }
+
+/* Step 4 — headless-precondition hint shown on a compile failure */
+.net-precondition {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  background: rgba(227, 168, 60, 0.07);
+  border: 1px solid rgba(227, 168, 60, 0.28);
+  border-radius: 11px;
+  margin-bottom: 16px;
+  font-size: 13.5px;
+  color: #cdd2d9;
+  line-height: 1.55;
+}
+.net-precondition-glyph {
+  color: var(--amber);
+  font-size: 14px;
+  line-height: 1.4;
+  flex: none;
+}
+.net-precondition code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #c3c7cf;
+}
