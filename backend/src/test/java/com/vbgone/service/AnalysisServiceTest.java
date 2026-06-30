@@ -83,6 +83,47 @@ class AnalysisServiceTest {
     }
 
     @Test
+    void analyse_protectMode_usesForensicPromptAndParsesObservedBehaviour() {
+        MigrationSession session = new MigrationSession("s-protect");
+        when(sessionStore.create()).thenReturn(session);
+        String protectJson = """
+                {
+                  "classes": [{
+                    "name": "OrderProcessor",
+                    "methods": ["SplitPerHead"],
+                    "dependencies": [],
+                    "complexity": "MEDIUM",
+                    "codeQuality": "FAIR",
+                    "codeSmells": ["Headcount read straight off a TextBox"],
+                    "observedBehaviour": [{
+                      "method": "SplitPerHead",
+                      "cls": "OrderProcessor",
+                      "rows": [
+                        { "cond": "headcount = 0", "outcome": "throws DivideByZeroException", "kind": "throws" }
+                      ]
+                    }]
+                  }],
+                  "suggestedMigrationOrder": ["OrderProcessor"],
+                  "summary": "Characterised against the live assemblies."
+                }""";
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse(protectJson));
+
+        AnalysisResult result = analysisService.analyse(
+                "OrderProcessor.vb", "Public Class OrderProcessor...", null, null, null, "protect");
+
+        // The forensic persona is used, not the migrate one.
+        verify(claudeClient).sendWithCachedSystemPrompt(
+                eq(AnalysisService.PROTECT_SYSTEM_PROMPT), anyString(), any(), anyLong());
+
+        var observed = result.classes().get(0).observedBehaviour();
+        assertThat(observed).hasSize(1);
+        assertThat(observed.get(0).method()).isEqualTo("SplitPerHead");
+        assertThat(observed.get(0).rows().get(0).kind()).isEqualTo("throws");
+        assertThat(observed.get(0).rows().get(0).outcome()).contains("DivideByZeroException");
+    }
+
+    @Test
     void analyse_storesFilenameAndContentInSession() {
         MigrationSession session = new MigrationSession("test-session-123");
         when(sessionStore.create()).thenReturn(session);

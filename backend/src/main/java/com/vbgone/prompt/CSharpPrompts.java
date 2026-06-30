@@ -85,6 +85,67 @@ public class CSharpPrompts implements PromptLanguage {
             Return ONLY the complete C# class. No markdown. No backticks. No explanation. \
             No analysis. No discussion. No test code. Just the class starting with 'public class'.""";
 
+    // ── Protect-mode prompts (C#-only; Protect locks TARGET to C#) ──
+
+    public static final String BASELINE_SURFACE_SYSTEM_PROMPT = """
+            You are a VB.NET behaviour archaeologist. Given a VB.NET class, list its ACTUAL public \
+            surface — every public method as a C#-style signature — exactly as it exists today. You \
+            do NOT synthesise a clean interface and you do NOT change anything. For any member whose \
+            behaviour is a known defect (silent wrong result, unhandled exception on edge inputs), \
+            add a short defect note describing what it does today. Return JSON only, no preamble, no \
+            markdown, matching this exact structure:
+            {
+              "members": [
+                { "signature": "decimal CalculateTotal(IReadOnlyList<LineItem> items)", "defect": null },
+                { "signature": "decimal ApplyDiscount(decimal subtotal, string code)", "defect": "returns subtotal unchanged on unknown code" }
+              ]
+            }
+            Use "defect": null for members with no flagged defect. Signatures use C# type names.""";
+
+    public static final String BASELINE_TESTS_SYSTEM_PROMPT = """
+            You are a VB.NET behaviour archaeologist writing a CHARACTERISATION suite. Generate an \
+            MSTest class in C# that pins the CURRENT behaviour of the legacy class exactly as it runs \
+            today — defects included. Assert the REAL outcomes: the actual exception types it throws \
+            on edge inputs (e.g. DivideByZeroException, InvalidCastException, NullReferenceException) \
+            and the real coerced/stringified results — NOT idealised or corrected behaviour. A test \
+            that documents a silent fault (e.g. an unknown discount code returning the subtotal \
+            unchanged) must assert that fault as-is.
+
+            GREEN means behaviour is unchanged; it does NOT mean correct. Use [TestClass] on the \
+            class and [TestMethod] on each test. Instantiate the real class directly. The class and \
+            its types are in the root namespace — do NOT add a namespace block and do NOT add 'using' \
+            statements for the class under test.
+
+            Return only raw C# code. No markdown. No backticks. No explanation.""";
+
+    /** Protect step 3 — asks the model for the concrete public surface as JSON. */
+    public String baselineSurfaceUserMessage(String className, String vbSource) {
+        return "List the actual public surface of the VB.NET class " + className
+                + " as C# signatures, flagging known defects. VB.NET source:\n" + vbSource;
+    }
+
+    /** Protect step 4 — asks for an MSTest characterisation suite over the original behaviour. */
+    public String baselineTestsUserMessage(String className, String vbSource) {
+        return "Generate an MSTest characterisation suite named " + className + "Baseline that pins "
+                + "the CURRENT behaviour of " + className + " — assert the real exception types and "
+                + "coerced results, defects included. Instantiate new " + className + "().\n\n"
+                + "The test class MUST follow this structure exactly:\n"
+                + "[TestClass]\npublic class " + className + "Baseline\n{\n"
+                + "    // [TestMethod] characterisation tests here — no namespace block\n}\n\n"
+                + "Original VB.NET behaviour:\n" + vbSource;
+    }
+
+    /** Counts MSTest test methods ([TestMethod] / [DataTestMethod]). */
+    public int countMsTests(String code) {
+        if (code == null) return 0;
+        return (int) code.lines()
+                .filter(line -> {
+                    String t = line.trim();
+                    return t.startsWith("[TestMethod]") || t.startsWith("[DataTestMethod]");
+                })
+                .count();
+    }
+
     @Override
     public String id() {
         return "csharp";

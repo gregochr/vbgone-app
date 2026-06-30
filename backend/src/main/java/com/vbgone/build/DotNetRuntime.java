@@ -7,10 +7,7 @@ import com.vbgone.session.SessionStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -187,41 +184,10 @@ public class DotNetRuntime implements BuildRuntime {
     }
 
     BuildResult parseTrx(String sessionId, String trxContent) {
-        try {
-            var doc = DocumentBuilderFactory.newInstance()
-                    .newDocumentBuilder()
-                    .parse(new ByteArrayInputStream(trxContent.getBytes(StandardCharsets.UTF_8)));
-
-            var counters = (org.w3c.dom.Element) doc.getElementsByTagName("Counters").item(0);
-            int total = Integer.parseInt(counters.getAttribute("total"));
-            int passed = Integer.parseInt(counters.getAttribute("passed"));
-            int failed = Integer.parseInt(counters.getAttribute("failed"));
-
-            List<String> failedTests = new java.util.ArrayList<>();
-            java.util.Map<String, String> failureMessages = new java.util.LinkedHashMap<>();
-            var results = doc.getElementsByTagName("UnitTestResult");
-            for (int i = 0; i < results.getLength(); i++) {
-                var el = (org.w3c.dom.Element) results.item(i);
-                if ("Failed".equals(el.getAttribute("outcome"))) {
-                    String testName = el.getAttribute("testName");
-                    failedTests.add(testName);
-                    // Extract assertion failure message from Output/ErrorInfo/Message
-                    var outputNodes = el.getElementsByTagName("Message");
-                    if (outputNodes.getLength() > 0) {
-                        failureMessages.put(testName, outputNodes.item(0).getTextContent().trim());
-                    }
-                }
-            }
-
-            // Store failure messages on session for retry prompts
-            sessionStore.get(sessionId).ifPresent(s -> s.setFailureMessages(failureMessages));
-
-            BuildStatus status = (failed == 0) ? BuildStatus.GREEN : BuildStatus.RED;
-            return new BuildResult(sessionId, status, total, passed, failed, List.of(), failedTests);
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse .trx results: " + e.getMessage(), e);
-        }
+        TrxParser.Parsed parsed = TrxParser.parse(sessionId, trxContent);
+        // Store failure messages on session for retry prompts.
+        sessionStore.get(sessionId).ifPresent(s -> s.setFailureMessages(parsed.failureMessages()));
+        return parsed.result();
     }
 
     List<String> parseCompilationErrors(String stderr, String stdout) {

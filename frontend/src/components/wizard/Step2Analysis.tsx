@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
 import { analyse } from '../../api/migrateApi'
+import type { AnalysisResult, ObservedRow } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
@@ -12,13 +13,16 @@ interface Props {
 }
 
 export function Step2Analysis({ state, update, onReady }: Props) {
-  const { provider, modelOverrides, engineParams } = useWizardConfig()
+  const { mode, provider, modelOverrides, engineParams } = useWizardConfig()
+  const protect = mode === 'protect'
   const prov = PROVIDERS[provider]
   const reasoningModel = modelLabelFor(provider, 'reasoning', modelOverrides)
   const reasoningModelId = modelFor(provider, 'reasoning', modelOverrides)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(!state.analysis)
+
+  const title = protect ? 'Characterise current behaviour' : 'Analyse the source'
 
   useEffect(() => {
     if (state.analysis) {
@@ -45,7 +49,7 @@ export function Step2Analysis({ state, update, onReady }: Props) {
     return (
       <div>
         <div className="step-kicker">STEP 02 · ANALYSIS</div>
-        <h2 className="step-title">Analyse the source</h2>
+        <h2 className="step-title">{title}</h2>
         <ConfirmDialog onConfirm={runAnalysis} onCancel={() => setShowConfirm(false)}>
           <p>
             This will make an API call to {prov.name} ({reasoningModelId}) via the {prov.vendor}{' '}
@@ -73,10 +77,12 @@ export function Step2Analysis({ state, update, onReady }: Props) {
     return (
       <div>
         <div className="step-kicker">STEP 02 · ANALYSIS</div>
-        <h2 className="step-title">Analyse the source</h2>
+        <h2 className="step-title">{title}</h2>
         <div className="busy-row">
           <span className="spinner" />
-          <span className="loading-text">{prov.name} is analysing the source…</span>
+          <span className="loading-text">
+            {prov.name} is {protect ? 'characterising current behaviour' : 'analysing the source'}…
+          </span>
         </div>
       </div>
     )
@@ -86,7 +92,7 @@ export function Step2Analysis({ state, update, onReady }: Props) {
     return (
       <div>
         <div className="step-kicker">STEP 02 · ANALYSIS</div>
-        <h2 className="step-title">Analyse the source</h2>
+        <h2 className="step-title">{title}</h2>
         <div className="build-status build-red">{error}</div>
       </div>
     )
@@ -97,10 +103,20 @@ export function Step2Analysis({ state, update, onReady }: Props) {
     return (
       <div>
         <div className="step-kicker">STEP 02 · ANALYSIS</div>
-        <h2 className="step-title">Analyse the source</h2>
+        <h2 className="step-title">{title}</h2>
         <p className="step-subtitle">
-          {prov.name} reads the VB.NET, looks past the Windows Forms noise, and extracts the pure
-          business logic underneath.
+          {protect ? (
+            <>
+              {prov.name} reads the VB.NET and records what each path actually does today — the
+              return values and the exact exceptions it throws on edge inputs. It describes the
+              faults; it does <strong>not</strong> fix them.
+            </>
+          ) : (
+            <>
+              {prov.name} reads the VB.NET, looks past the Windows Forms noise, and extracts the
+              pure business logic underneath.
+            </>
+          )}
         </p>
         <div className="run-card">
           <div className="run-card-model">
@@ -109,7 +125,7 @@ export function Step2Analysis({ state, update, onReady }: Props) {
             <span className="model-caption">REASONING · {prov.vendor}</span>
           </div>
           <button className="btn-plex" onClick={() => setShowConfirm(true)}>
-            Analyse with {prov.name}
+            {protect ? 'Characterise' : 'Analyse'} with {prov.name}
           </button>
         </div>
       </div>
@@ -119,7 +135,7 @@ export function Step2Analysis({ state, update, onReady }: Props) {
   return (
     <div>
       <div className="step-kicker">STEP 02 · ANALYSIS</div>
-      <h2 className="step-title">Analyse the source</h2>
+      <h2 className="step-title">{title}</h2>
       <div className="summary-banner">
         <span className="summary-check">✓</span>
         <span>{analysis.summary}</span>
@@ -175,7 +191,8 @@ export function Step2Analysis({ state, update, onReady }: Props) {
                   </ul>
                 </div>
               )}
-              {cls.refactoringSuggestions && cls.refactoringSuggestions.length > 0 && (
+              {/* Refactoring & anti-pattern framing imply change — hidden in Protect. */}
+              {!protect && cls.refactoringSuggestions && cls.refactoringSuggestions.length > 0 && (
                 <div className="code-quality-group">
                   <h4>Refactoring Suggestions</h4>
                   <ul>
@@ -185,7 +202,7 @@ export function Step2Analysis({ state, update, onReady }: Props) {
                   </ul>
                 </div>
               )}
-              {cls.vbAntiPatterns && cls.vbAntiPatterns.length > 0 && (
+              {!protect && cls.vbAntiPatterns && cls.vbAntiPatterns.length > 0 && (
                 <div className="code-quality-group">
                   <h4>VB.NET Anti-Patterns</h4>
                   <ul>
@@ -200,8 +217,10 @@ export function Step2Analysis({ state, update, onReady }: Props) {
         </div>
       ))}
 
+      {protect && <ObservedBehaviourBlock analysis={analysis} />}
+
       <div className="info-card">
-        <h4 style={{ marginBottom: 0 }}>Migration Order</h4>
+        <h4 style={{ marginBottom: 0 }}>{protect ? 'Coverage order' : 'Migration Order'}</h4>
         <p
           style={{
             color: '#9b9b9b',
@@ -211,8 +230,9 @@ export function Step2Analysis({ state, update, onReady }: Props) {
             fontStyle: 'italic',
           }}
         >
-          Simplest and least dependent first — building confidence and test coverage before tackling
-          complex classes
+          {protect
+            ? 'Simplest, least-coupled paths get netted first.'
+            : 'Simplest and least dependent first — building confidence and test coverage before tackling complex classes'}
         </p>
         <ol style={{ paddingLeft: 20, color: 'var(--grey)' }}>
           {analysis.suggestedMigrationOrder.map((name) => (
@@ -220,6 +240,51 @@ export function Step2Analysis({ state, update, onReady }: Props) {
           ))}
         </ol>
       </div>
+    </div>
+  )
+}
+
+const ROW_KIND_CLASS: Record<ObservedRow['kind'], string> = {
+  throws: 'observed-throws',
+  fault: 'observed-fault',
+  returns: 'observed-returns',
+}
+
+/**
+ * Protect's dominant "Observed Behaviour" panel — what each method does today, faults
+ * included. Renders every class's observedBehaviour as condition → outcome rows.
+ */
+function ObservedBehaviourBlock({ analysis }: { analysis: AnalysisResult }) {
+  const methods = analysis.classes.flatMap((c) => c.observedBehaviour ?? [])
+  if (methods.length === 0) return null
+
+  return (
+    <div className="observed-behaviour" data-testid="observed-behaviour">
+      <div className="observed-header">
+        <span className="observed-title">OBSERVED BEHAVIOUR</span>
+        <span className="observed-caption">what it does today · faults included</span>
+      </div>
+      <p className="observed-lede">
+        Per method, the real return value and the exact exception thrown on edge inputs. This is
+        what the net will pin — not how to fix it.
+      </p>
+      {methods.map((ob) => (
+        <div className="observed-method" key={`${ob.cls}.${ob.method}`}>
+          <div className="observed-method-head">
+            <span className="observed-method-name">{ob.method}</span>
+            <span className="observed-method-cls">{ob.cls}</span>
+          </div>
+          {ob.rows.map((r, i) => (
+            <div className="observed-row" key={i}>
+              <span className="observed-cond">{r.cond}</span>
+              <span className="observed-arrow" aria-hidden="true">
+                →
+              </span>
+              <span className={`observed-outcome ${ROW_KIND_CLASS[r.kind]}`}>{r.outcome}</span>
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   )
 }

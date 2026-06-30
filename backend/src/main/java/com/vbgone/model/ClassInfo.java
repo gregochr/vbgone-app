@@ -12,5 +12,22 @@ public record ClassInfo(
         CodeQuality codeQuality,
         List<String> codeSmells,
         List<String> refactoringSuggestions,
-        List<String> vbAntiPatterns
-) {}
+        List<String> vbAntiPatterns,
+        /** Protect mode only — what each method does today, faults included. Null in Migrate. */
+        List<ObservedBehaviour> observedBehaviour
+) {
+    /** Back-compat constructor for Migrate-mode analysis (no observed behaviour). */
+    public ClassInfo(
+            String name,
+            List<String> methods,
+            List<String> dependencies,
+            Complexity complexity,
+            CodeQuality codeQuality,
+            List<String> codeSmells,
+            List<String> refactoringSuggestions,
+            List<String> vbAntiPatterns
+    ) {
+        this(name, methods, dependencies, complexity, codeQuality, codeSmells,
+                refactoringSuggestions, vbAntiPatterns, null);
+    }
+}

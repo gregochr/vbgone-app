@@ -6,6 +6,7 @@ import {
   DEMO_FILENAME,
   DEMO_COMPLEX_CONTENT,
   DEMO_COMPLEX_FILENAME,
+  DEMO_PROTECT_CONTENT,
   DEMO_PROJECT_FILES,
   uploadProject,
 } from '../../api/migrateApi'
@@ -24,8 +25,9 @@ interface Props {
 type UploadMode = 'single' | 'project'
 
 export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props) {
-  const { targetLanguage } = useWizardConfig()
+  const { targetLanguage, mode: wizardMode } = useWizardConfig()
   const lang = LANGS[targetLanguage]
+  const protect = wizardMode === 'protect'
   const [mode, setMode] = useState<UploadMode>('single')
   const [zipFile, setZipFile] = useState<File | null>(null)
   const [zipFiles, setZipFiles] = useState<{ path: string; size: number }[]>([])
@@ -95,7 +97,12 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
   }
 
   const loadComplexDemo = () => {
-    update({ filename: DEMO_COMPLEX_FILENAME, content: DEMO_COMPLEX_CONTENT })
+    // Protect runs the original VB headless on the CLR, so it needs UI-free source. Same
+    // filename → the same OrderProcessor analysis/observed-behaviour; clean compilable body.
+    update({
+      filename: DEMO_COMPLEX_FILENAME,
+      content: protect ? DEMO_PROTECT_CONTENT : DEMO_COMPLEX_CONTENT,
+    })
     onReady()
   }
 
@@ -153,9 +160,11 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
       <div className="step-kicker">STEP 01 · SOURCE</div>
       <h2 className="step-title">Upload legacy VB.NET</h2>
       <p className="step-subtitle">
-        {mode === 'single'
-          ? `Drop a .vb file or a .zip project. VBGone extracts the business logic and migrates it to tested ${lang.lang}, one class at a time.`
-          : 'Upload a .zip containing your VB.NET solution. VBGone will analyse all classes, build a dependency graph, and guide you through migrating each class in the optimal order.'}
+        {protect
+          ? 'Drop a .vb file or a .zip project. VBGone reads the legacy VB.NET and builds a behavioural safety-net around it — so you can patch vulnerable dependencies without changing how it works.'
+          : mode === 'single'
+            ? `Drop a .vb file or a .zip project. VBGone extracts the business logic and migrates it to tested ${lang.lang}, one class at a time.`
+            : 'Upload a .zip containing your VB.NET solution. VBGone will analyse all classes, build a dependency graph, and guide you through migrating each class in the optimal order.'}
       </p>
 
       {/* Mode toggle */}
@@ -457,10 +466,17 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
 
       <div className="lang-note" data-testid="lang-note">
         <span className="lang-note-dot" />
-        <span>
-          This run targets <strong>{lang.lang}</strong> · {lang.testFw} · {lang.runner}. Change it
-          any time from the header.
-        </span>
+        {protect ? (
+          <span>
+            <strong>Protect mode</strong> · tests are emitted in C# but run against your original
+            VB.NET on the CLR · MSTest.
+          </span>
+        ) : (
+          <span>
+            This run targets <strong>{lang.lang}</strong> · {lang.testFw} · {lang.runner}. Change it
+            any time from the header.
+          </span>
+        )}
       </div>
     </div>
   )

@@ -54,7 +54,7 @@ public class MigrationController {
                     "Only .vb and .zip files are supported. Received: " + filename);
         }
         return analysisService.analyse(filename, request.content(),
-                request.provider(), request.targetLanguage(), request.modelOverrides());
+                request.provider(), request.targetLanguage(), request.modelOverrides(), request.mode());
     }
 
     @PostMapping(value = "/upload-project", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

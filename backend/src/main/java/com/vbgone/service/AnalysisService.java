@@ -43,6 +43,48 @@ public class AnalysisService {
             IMPORTANT: suggestedMigrationOrder must contain ONLY class names — no descriptions, \
             no reasons, no dashes. Example: ["Calculator", "Form1"], NOT ["Calculator — simple class"].""";
 
+    /**
+     * Protect mode's analysis persona: forensic, not prescriptive. It records what each
+     * path does today — return values and the exact exceptions thrown on edge inputs —
+     * and explicitly does NOT suggest fixes. The extra observedBehaviour array drives the
+     * UI's dominant "Observed Behaviour" block.
+     */
+    static final String PROTECT_SYSTEM_PROMPT = """
+            You are a VB.NET behaviour archaeologist. Analyse VB.NET source code and record \
+            EXACTLY what it does today — defects included. Business logic may be embedded in \
+            Windows Forms event handlers — characterise the pure logic and ignore UI wiring. \
+            You are forensic, NOT prescriptive: describe the faults precisely; do NOT suggest \
+            how to fix them, refactor them, or migrate them. For each method, record the real \
+            return value and the EXACT exception type thrown on edge inputs (null, empty, zero, \
+            negative, non-numeric). Identify code smells. Do NOT include refactoring suggestions. \
+            Return your analysis as JSON only, no preamble, no markdown, matching this exact \
+            structure:
+            {
+              "classes": [{
+                "name": "string",
+                "methods": ["string"],
+                "dependencies": ["string"],
+                "complexity": "LOW | MEDIUM | HIGH",
+                "codeQuality": "POOR | FAIR | GOOD",
+                "codeSmells": ["string"],
+                "observedBehaviour": [{
+                  "method": "string",
+                  "cls": "string",
+                  "rows": [{
+                    "cond": "edge condition, e.g. headcount = 0",
+                    "outcome": "what it does today, e.g. throws DivideByZeroException",
+                    "kind": "throws | fault | returns"
+                  }]
+                }]
+              }],
+              "suggestedMigrationOrder": ["ClassName"],
+              "summary": "string"
+            }
+            For each row, "kind" is "throws" for an exception, "fault" for a silent wrong result \
+            (no error raised), or "returns" for normal/benign output. \
+            IMPORTANT: suggestedMigrationOrder must contain ONLY class names — no descriptions, \
+            no reasons, no dashes.""";
+
     static final String PROJECT_SYSTEM_PROMPT = """
             You are a VB.NET to C# migration expert. You are given multiple VB.NET source files \
             from the same project. Analyse ALL files together and identify every class, their \
@@ -93,7 +135,14 @@ public class AnalysisService {
     public AnalysisResult analyse(String filename, String content,
                                   String provider, String targetLanguage,
                                   Map<String, String> modelOverrides) {
+        return analyse(filename, content, provider, targetLanguage, modelOverrides, null);
+    }
+
+    public AnalysisResult analyse(String filename, String content,
+                                  String provider, String targetLanguage,
+                                  Map<String, String> modelOverrides, String mode) {
         AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
+        boolean protect = "protect".equalsIgnoreCase(mode);
 
         MigrationSession session = sessionStore.create();
         session.setFilename(filename);
@@ -102,7 +151,10 @@ public class AnalysisService {
 
         String modelId = registry.modelFor(options.provider(), ModelRole.REASONING, options.modelOverrides());
         AiProvider aiProvider = registry.provider(options.provider());
-        AiResponse response = aiProvider.generate(modelId, SYSTEM_PROMPT, content, 4096L);
+        // Protect uses a forensic persona and emits the richer observedBehaviour array.
+        String systemPrompt = protect ? PROTECT_SYSTEM_PROMPT : SYSTEM_PROMPT;
+        long maxTokens = protect ? 8192L : 4096L;
+        AiResponse response = aiProvider.generate(modelId, systemPrompt, content, maxTokens);
         String json = stripMarkdownFences(response.text());
 
         double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());

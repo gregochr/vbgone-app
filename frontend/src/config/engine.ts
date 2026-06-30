@@ -11,6 +11,13 @@ export type ProviderId = 'anthropic' | 'copilot'
 export type Role = 'reasoning' | 'mechanical' | 'implementation' | 'escalation'
 export type ModelOverrides = Partial<Record<Role, string>>
 
+/**
+ * Wizard mode. `migrate` (default) replaces VB.NET with fresh tested code;
+ * `protect` leaves the original VB.NET running and pins its behaviour with a
+ * characterisation net. Protect is C#-only — see AppHeader's TARGET lock.
+ */
+export type Mode = 'migrate' | 'protect'
+
 /* ── Target language map ── */
 
 export interface LangSpec {
@@ -165,6 +172,21 @@ export const STEP_ROLES: (Role | 'source' | 'github')[] = [
   'github', // Raise PR
 ]
 
+/**
+ * Protect mode's four steps map to roles for the stepper sub-line:
+ * Upload (source) · Analysis (reasoning) · Baseline (mechanical) · Baseline Tests (reasoning).
+ */
+export const PROTECT_STEP_ROLES: (Role | 'source' | 'github')[] = [
+  'source', // Upload
+  'reasoning', // Analysis (characterise)
+  'mechanical', // Baseline (pin surface)
+  'reasoning', // Baseline Tests
+]
+
+/** Protect runs against the original VB.NET on the CLR — always C#/MSTest. */
+export const PROTECT_TEST_FW = 'MSTest'
+export const PROTECT_RUNTIME = 'CLR'
+
 /** Engine-panel rows — the four user-tunable stages. */
 export const ENGINE_ROWS: { label: string; role: Role; desc: string }[] = [
   { label: 'Analysis', role: 'reasoning', desc: 'Reads VB.NET, extracts business logic' },
@@ -178,4 +200,5 @@ export interface EngineParams {
   provider: ProviderId
   targetLanguage: TargetLanguage
   modelOverrides: ModelOverrides
+  mode: Mode
 }

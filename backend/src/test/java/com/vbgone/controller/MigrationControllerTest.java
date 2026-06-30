@@ -62,7 +62,7 @@ class MigrationControllerTest {
 
     @Test
     void analyse_returns200WithAnalysisResult() throws Exception {
-        when(analysisService.analyse(any(), any(), any(), any(), any()))
+        when(analysisService.analyse(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new AnalysisResult(
                         SESSION_ID,
                         List.of(new ClassInfo("Form1", List.of("Add", "Subtract"), List.of(), Complexity.LOW, null, null, null, null)),
@@ -80,6 +80,25 @@ class MigrationControllerTest {
                 .andExpect(jsonPath("$.classes[0].complexity").value("LOW"))
                 .andExpect(jsonPath("$.suggestedMigrationOrder[0]").value("Form1"))
                 .andExpect(jsonPath("$.summary").value("One class found."));
+    }
+
+    @Test
+    void analyse_passesProtectModeThrough() throws Exception {
+        when(analysisService.analyse(any(), any(), any(), any(), any(), eq("protect")))
+                .thenReturn(new AnalysisResult(
+                        SESSION_ID,
+                        List.of(new ClassInfo("OrderProcessor", List.of("SplitPerHead"), List.of(),
+                                Complexity.MEDIUM, null, null, null, null)),
+                        List.of("OrderProcessor"),
+                        "Characterised."));
+
+        mockMvc.perform(post("/api/migrate/analyse")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AnalyseRequest("OrderProcessor.vb", "Public Class OrderProcessor...",
+                                        null, null, null, "protect"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary").value("Characterised."));
     }
 
     @Test
