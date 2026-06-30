@@ -8,6 +8,7 @@ import { Step3Baseline } from './Step3Baseline'
 import { Step4BaselineTests } from './Step4BaselineTests'
 import type { WizardState } from '../WizardShell'
 import type { BaselineResult, BaselineTestsResult } from '../../../api/migrateApi'
+import { looksUiCoupled } from '../../../config/engine'
 
 const baseState: WizardState = {
   filename: 'OrderProcessor.vb',
@@ -190,25 +191,78 @@ describe('Step4BaselineTests', () => {
     expect(screen.queryByTestId('baseline-closing')).not.toBeInTheDocument()
   })
 
+  const erroredResult = (errors: string[]): BaselineTestsResult => ({
+    ...mockBaselineTests,
+    netFaithful: false,
+    testCount: 0,
+    build: {
+      ...mockBaselineTests.build,
+      buildStatus: 'ERROR',
+      total: 0,
+      passed: 0,
+      failed: 0,
+      errors,
+    },
+    failures: [],
+  })
+
   it('surfaces compile errors (the WinForms/degraded path) distinctly from drifted assertions', () => {
-    const errored: BaselineTestsResult = {
-      ...mockBaselineTests,
-      netFaithful: false,
-      testCount: 0,
-      build: {
-        ...mockBaselineTests.build,
-        buildStatus: 'ERROR',
-        total: 0,
-        passed: 0,
-        failed: 0,
-        errors: ['OrderProcessor.vb(8): error BC30002: Type Form is not defined'],
-      },
-      failures: [],
-    }
+    const errored = erroredResult(['OrderProcessor.vb(8): error BC30002: Type Form is not defined'])
     const state = { ...baseState, baselineTests: errored, netFaithful: false }
     renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
 
     expect(screen.getByText(/didn't compile against the CLR/)).toBeInTheDocument()
     expect(screen.getByText(/error BC30002/)).toBeInTheDocument()
+  })
+
+  it('explains the UI-coupled precondition when the original is WinForms', () => {
+    const errored = erroredResult(['Form1.vb(3): error BC30451: TextBox1 is not declared'])
+    const state = {
+      ...baseState,
+      content: 'Imports System.Windows.Forms\nPublic Class Form1\n  Inherits Form\nEnd Class',
+      baselineTests: errored,
+      netFaithful: false,
+    }
+    renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
+
+    const hint = screen.getByTestId('net-precondition')
+    expect(hint).toHaveTextContent(/UI-coupled/)
+    expect(hint).toHaveTextContent(/business-logic surface/)
+  })
+
+  it('gives a generic compile hint when the source is not obviously UI-coupled', () => {
+    const errored = erroredResult([
+      'OrderProcessor.vb(5): error BC30456: SomeHelper is not a member',
+    ])
+    const state = {
+      ...baseState,
+      content:
+        'Public Class OrderProcessor\n  Public Function F() As Integer\n    Return 1\n  End Function\nEnd Class',
+      baselineTests: errored,
+      netFaithful: false,
+    }
+    renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
+
+    const hint = screen.getByTestId('net-precondition')
+    expect(hint).toHaveTextContent(/self-contained with no UI or platform dependencies/)
+    expect(hint).not.toHaveTextContent(/UI-coupled/)
+  })
+})
+
+describe('looksUiCoupled', () => {
+  it('flags WinForms-coupled source', () => {
+    expect(looksUiCoupled('Imports System.Windows.Forms')).toBe(true)
+    expect(looksUiCoupled('Public Class Form1\n  Inherits Form')).toBe(true)
+    expect(looksUiCoupled('Private Sub Button1_Click() Handles Button1.Click')).toBe(true)
+    expect(looksUiCoupled('Dim txt As TextBox')).toBe(true)
+    expect(looksUiCoupled('MsgBox("hi")')).toBe(true)
+  })
+
+  it('passes clean business-logic source', () => {
+    expect(
+      looksUiCoupled(
+        'Public Class OrderProcessor\n  Public Function CalculateTotal() As Decimal\n  End Function\nEnd Class',
+      ),
+    ).toBe(false)
   })
 })

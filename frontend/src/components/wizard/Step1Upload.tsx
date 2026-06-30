@@ -469,7 +469,8 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
         {protect ? (
           <span>
             <strong>Protect mode</strong> · tests are emitted in C# but run against your original
-            VB.NET on the CLR · MSTest.
+            VB.NET on the CLR · MSTest. Point it at a business-logic class — UI-coupled forms can't
+            run headless.
           </span>
         ) : (
           <span>
