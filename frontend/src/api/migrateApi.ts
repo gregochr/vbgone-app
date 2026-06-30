@@ -3,21 +3,39 @@ import type { EngineParams } from '../config/engine'
 
 const api = axios.create({ baseURL: '/api/migrate' })
 
+// Protect-mode endpoints live under a sibling base path (hybrid API: analyse is
+// shared via /api/migrate with a `mode` param; baseline + baseline-tests are dedicated).
+const protectApi = axios.create({ baseURL: '/api/protect' })
+
 // Surface the backend's graceful error body ({ "error": "..." }, HTTP 422 — e.g. an
 // unconfigured Copilot credential or a preview Java target) as the thrown Error message,
 // so each wizard step can display it inline rather than a generic status code.
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const data = error?.response?.data
-    if (data && typeof data === 'object' && typeof data.error === 'string') {
-      return Promise.reject(new Error(data.error))
-    }
-    return Promise.reject(error)
-  },
-)
+const surfaceErrorBody = (error: { response?: { data?: unknown } }): Promise<never> => {
+  const data = error?.response?.data
+  if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
+    return Promise.reject(new Error(data.error))
+  }
+  return Promise.reject(error)
+}
+api.interceptors.response.use((response) => response, surfaceErrorBody)
+protectApi.interceptors.response.use((response) => response, surfaceErrorBody)
 
 /* ── Types ── */
+
+/** One edge-case row in Protect's Observed Behaviour block. */
+export interface ObservedRow {
+  cond: string
+  outcome: string
+  /** Colours the outcome: an exception, a silent fault, or a benign return. */
+  kind: 'throws' | 'fault' | 'returns'
+}
+
+/** Per-method observed behaviour — populated only in Protect-mode analysis. */
+export interface ObservedBehaviour {
+  method: string
+  cls: string
+  rows: ObservedRow[]
+}
 
 export interface ClassInfo {
   name: string
@@ -28,6 +46,8 @@ export interface ClassInfo {
   codeSmells?: string[]
   refactoringSuggestions?: string[]
   vbAntiPatterns?: string[]
+  /** Protect mode only — what each method does today, faults included. */
+  observedBehaviour?: ObservedBehaviour[]
 }
 
 export interface AnalysisResult {
@@ -73,6 +93,41 @@ export interface ImplementResult {
   className: string
   code: string
   mode: 'STUB' | 'CLAUDE'
+}
+
+/** A single public member of the pinned baseline surface (Protect step 3). */
+export interface BaselineMember {
+  signature: string
+  /** Amber defect tag shown when the analysis flagged this member. */
+  defect?: string
+}
+
+export interface BaselineResult {
+  sessionId: string
+  className: string
+  /** e.g. "OrderProcessor.dll · public surface" */
+  surfaceFile: string
+  members: BaselineMember[]
+}
+
+/** One failing characterisation assertion in the "net not faithful" state. */
+export interface TestFailure {
+  name: string
+  message: string
+}
+
+/** Result of generating the MSTest characterisation suite and running it (Protect step 4). */
+export interface BaselineTestsResult {
+  sessionId: string
+  className: string
+  testClassName: string
+  code: string
+  testCount: number
+  /** true = the net passes (green/required); false = "net not faithful" (red error). */
+  netFaithful: boolean
+  build: BuildResult
+  /** Failing assertions to correct when the net isn't faithful. Empty when green. */
+  failures: TestFailure[]
 }
 
 export interface PullRequestResult {
@@ -162,6 +217,120 @@ const DEMO_FILENAME = 'Form1.vb'
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/* Protect-mode mock data — mirrors the design prototype's OrderProcessor demo. */
+
+const MOCK_BASELINE_MEMBERS: BaselineMember[] = [
+  { signature: 'decimal CalculateTotal(IReadOnlyList<LineItem> items)' },
+  {
+    signature: 'decimal ApplyDiscount(decimal subtotal, string code)',
+    defect: 'returns subtotal unchanged on unknown code',
+  },
+  {
+    signature: 'decimal SplitPerHead(decimal total, int headcount)',
+    defect: 'throws DivideByZeroException when headcount = 0',
+  },
+  { signature: 'bool ValidateOrder(Order order)' },
+]
+
+const MOCK_OBSERVED_BEHAVIOUR: ObservedBehaviour[] = [
+  {
+    method: 'CalculateTotal',
+    cls: 'OrderProcessor',
+    rows: [
+      { cond: 'normal line items', outcome: 'Σ unitPrice × qty (decimal)', kind: 'returns' },
+      { cond: 'empty list', outcome: 'returns 0m', kind: 'returns' },
+      {
+        cond: 'item with null UnitPrice',
+        outcome: 'throws NullReferenceException',
+        kind: 'throws',
+      },
+    ],
+  },
+  {
+    method: 'ApplyDiscount',
+    cls: 'OrderProcessor',
+    rows: [
+      { cond: 'code "SAVE10"', outcome: 'subtotal × 0.90 (decimal)', kind: 'returns' },
+      {
+        cond: 'unknown code',
+        outcome: 'returns subtotal unchanged — no error raised',
+        kind: 'fault',
+      },
+      {
+        cond: 'negative subtotal',
+        outcome: 'returns a negative total — not guarded',
+        kind: 'fault',
+      },
+    ],
+  },
+  {
+    method: 'SplitPerHead',
+    cls: 'OrderProcessor',
+    rows: [
+      { cond: 'headcount = 0', outcome: 'throws DivideByZeroException', kind: 'throws' },
+      {
+        cond: 'non-numeric headcount (TextBox)',
+        outcome: 'throws InvalidCastException',
+        kind: 'throws',
+      },
+    ],
+  },
+]
+
+const MOCK_BASELINE_TEST_CODE = `[TestClass]
+public class OrderProcessorBaseline
+{
+    // Characterises OrderProcessor.dll exactly as it runs today.
+    // GREEN = behaviour unchanged. It does NOT mean correct.
+
+    [TestMethod]
+    public void ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged()
+    {
+        // Legacy silently ignores unknown codes — pinned as-is.
+        var sut = new OrderProcessor();
+        Assert.AreEqual(100m, sut.ApplyDiscount(100m, "BOGUS"));
+    }
+
+    [TestMethod]
+    public void SplitPerHead_ZeroHeadcount_ThrowsDivideByZero()
+    {
+        var sut = new OrderProcessor();
+        Assert.ThrowsException<DivideByZeroException>(
+            () => sut.SplitPerHead(100m, headcount: 0));
+    }
+
+    [TestMethod]
+    public void SplitPerHead_NonNumeric_ThrowsInvalidCast()
+    {
+        // Headcount comes straight off a TextBox — never parsed.
+        var sut = new OrderProcessor();
+        Assert.ThrowsException<InvalidCastException>(
+            () => sut.SplitPerHead(100m, ParseQty("twelve")));
+    }
+}`
+
+const mockGreenNet = (sessionId: string, className: string, code: string): BaselineTestsResult => {
+  const total = 43
+  return {
+    sessionId,
+    className,
+    testClassName: `${className}Baseline`,
+    code,
+    testCount: total,
+    netFaithful: true,
+    build: {
+      sessionId,
+      buildStatus: 'GREEN',
+      total,
+      passed: total,
+      failed: 0,
+      errors: [],
+      failedTests: [],
+    },
+    failures: [],
+  }
+}
+
 /* ── Mock API calls ── */
 
 // Track state across mock calls so build/PR can return consistent data
@@ -240,6 +409,8 @@ const mockApi = {
               'SQL injection via string concatenation',
               'MsgBox for user feedback in business logic',
             ],
+            // Protect mode renders this; Migrate ignores it.
+            observedBehaviour: MOCK_OBSERVED_BEHAVIOUR,
           },
         ],
         suggestedMigrationOrder: [
@@ -1005,6 +1176,41 @@ public class OrderProcessor : IOrderProcessor
     }
   },
 
+  async generateBaseline(
+    sessionId: string,
+    className: string,
+    engine?: EngineParams,
+  ): Promise<BaselineResult> {
+    void engine
+    await delay(900)
+    return {
+      sessionId,
+      className,
+      surfaceFile: `${className}.dll · public surface`,
+      members: MOCK_BASELINE_MEMBERS,
+    }
+  },
+
+  async runBaselineTests(
+    sessionId: string,
+    className: string,
+    engine?: EngineParams,
+  ): Promise<BaselineTestsResult> {
+    void engine
+    await delay(1400)
+    return mockGreenNet(sessionId, className, MOCK_BASELINE_TEST_CODE)
+  },
+
+  async rerunBaselineTests(
+    sessionId: string,
+    className: string,
+    code: string,
+  ): Promise<BaselineTestsResult> {
+    // Demo: a corrected-and-re-run net goes green.
+    await delay(1200)
+    return mockGreenNet(sessionId, className, code)
+  },
+
   async fetchCost(sessionId: string): Promise<CostResult> {
     void sessionId
     return { sessionId: MOCK_SESSION_ID, steps: [], totalCost: 0 }
@@ -1117,6 +1323,45 @@ const realApi = {
     return data
   },
 
+  async generateBaseline(
+    sessionId: string,
+    className: string,
+    engine?: EngineParams,
+  ): Promise<BaselineResult> {
+    const { data } = await protectApi.post<BaselineResult>('/baseline', {
+      sessionId,
+      className,
+      ...engine,
+    })
+    return data
+  },
+
+  async runBaselineTests(
+    sessionId: string,
+    className: string,
+    engine?: EngineParams,
+  ): Promise<BaselineTestsResult> {
+    const { data } = await protectApi.post<BaselineTestsResult>('/baseline-tests', {
+      sessionId,
+      className,
+      ...engine,
+    })
+    return data
+  },
+
+  async rerunBaselineTests(
+    sessionId: string,
+    className: string,
+    code: string,
+  ): Promise<BaselineTestsResult> {
+    const { data } = await protectApi.post<BaselineTestsResult>('/rerun-baseline-tests', {
+      sessionId,
+      className,
+      code,
+    })
+    return data
+  },
+
   async fetchCost(sessionId: string): Promise<CostResult> {
     const { data } = await api.get<CostResult>(`/cost/${sessionId}`)
     return data
@@ -1137,6 +1382,9 @@ export const buildAfterImplement = active.buildAfterImplement
 export const retryImplement = active.retryImplement
 export const raisePR = active.raisePR
 export const uploadProject = active.uploadProject
+export const generateBaseline = active.generateBaseline
+export const runBaselineTests = active.runBaselineTests
+export const rerunBaselineTests = active.rerunBaselineTests
 export const fetchCost = active.fetchCost
 
 /* Export the axios instance for when we wire to real backend */
@@ -1516,4 +1764,71 @@ End Class`
 
 const DEMO_COMPLEX_FILENAME = 'OrderProcessor.vb'
 
-export { DEMO_VB_CONTENT, DEMO_FILENAME, DEMO_COMPLEX_CONTENT, DEMO_COMPLEX_FILENAME }
+// Protect demo. Unlike the Migrate complex demo (a WinForms God class that inherits Form
+// and can't run headless), this is the SAME OrderProcessor business logic with the UI
+// severed — pure, self-contained, and compilable standalone on the Linux CLR sidecar, so
+// the real characterisation run reaches GREEN instead of the WinForms ERROR path. It keeps
+// the supporting types (LineItem, Order) the suite needs, and preserves the observed faults
+// (silent unknown-code discount, divide-by-zero, non-numeric cast).
+const DEMO_PROTECT_CONTENT = `' OrderProcessor.vb — order-processing business logic (no UI; runs headless on the CLR)
+Imports System
+Imports System.Collections.Generic
+
+Public Class LineItem
+    Public Property UnitPrice As Decimal
+    Public Property Quantity As Integer
+    Public Sub New(unitPrice As Decimal, quantity As Integer)
+        Me.UnitPrice = unitPrice
+        Me.Quantity = quantity
+    End Sub
+End Class
+
+Public Class Order
+    Public Property Items As List(Of LineItem) = New List(Of LineItem)()
+    Public Property Total As Decimal
+End Class
+
+Public Class OrderProcessor
+    ' Sum of unitPrice * quantity. A null line item throws NullReferenceException.
+    Public Function CalculateTotal(items As IReadOnlyList(Of LineItem)) As Decimal
+        Dim total As Decimal = 0D
+        For Each item In items
+            total += item.UnitPrice * item.Quantity
+        Next
+        Return total
+    End Function
+
+    ' Known codes discount; an unknown code silently returns the subtotal unchanged.
+    Public Function ApplyDiscount(subtotal As Decimal, code As String) As Decimal
+        Select Case code
+            Case "SAVE10"
+                Return subtotal * 0.9D
+            Case "HALF"
+                Return subtotal * 0.5D
+            Case Else
+                Return subtotal
+        End Select
+    End Function
+
+    ' Integer division — a headcount of 0 throws DivideByZeroException.
+    Public Function SplitPerHead(total As Decimal, headcount As Integer) As Decimal
+        Return CDec(CLng(total) \\ headcount)
+    End Function
+
+    ' Quantities come straight off a text field; a non-numeric value throws InvalidCastException.
+    Public Function ParseQty(text As String) As Integer
+        Return CInt(text)
+    End Function
+
+    Public Function ValidateOrder(order As Order) As Boolean
+        Return order.Items.Count > 0 AndAlso order.Total >= 0D
+    End Function
+End Class`
+
+export {
+  DEMO_VB_CONTENT,
+  DEMO_FILENAME,
+  DEMO_COMPLEX_CONTENT,
+  DEMO_COMPLEX_FILENAME,
+  DEMO_PROTECT_CONTENT,
+}

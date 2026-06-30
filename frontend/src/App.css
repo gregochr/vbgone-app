@@ -158,6 +158,16 @@
   color: var(--accent-text);
   box-shadow: inset 0 0 0 1px var(--accent-ring);
 }
+/* Locked segment — e.g. Java in Protect mode (CLR is C#-only). */
+.target-seg.locked {
+  color: #454b54;
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.target-seg.locked:hover {
+  background: transparent;
+  color: #454b54;
+}
 
 /* Engine button */
 .engine-button {

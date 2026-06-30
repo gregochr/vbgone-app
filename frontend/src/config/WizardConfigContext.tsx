@@ -1,14 +1,17 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { DEFAULTS } from './engine'
-import type { EngineParams, ModelOverrides, ProviderId, Role, TargetLanguage } from './engine'
+import type { EngineParams, Mode, ModelOverrides, ProviderId, Role, TargetLanguage } from './engine'
 
 export interface WizardConfig {
+  mode: Mode
   targetLanguage: TargetLanguage
   provider: ProviderId
   modelOverrides: ModelOverrides
   engineOpen: boolean
 
+  /** Switching mode forces C# in Protect; WizardShell resets its step state. */
+  setMode: (mode: Mode) => void
   setTargetLanguage: (lang: TargetLanguage) => void
   /** Switching provider resets all per-step overrides to that provider's defaults. */
   setProvider: (provider: ProviderId) => void
@@ -36,10 +39,12 @@ const noop = () => {}
  * WizardConfigProvider via App.tsx, so this only affects standalone renders.
  */
 const DEFAULT_CONFIG: WizardConfig = {
+  mode: 'migrate',
   targetLanguage: 'csharp',
   provider: 'anthropic',
   modelOverrides: EMPTY_OVERRIDES,
   engineOpen: false,
+  setMode: noop,
   setTargetLanguage: noop,
   setProvider: noop,
   setOverride: noop,
@@ -52,17 +57,27 @@ const DEFAULT_CONFIG: WizardConfig = {
     provider: 'anthropic',
     targetLanguage: 'csharp',
     modelOverrides: EMPTY_OVERRIDES,
+    mode: 'migrate',
   },
 }
 
 const WizardConfigContext = createContext<WizardConfig>(DEFAULT_CONFIG)
 
 export function WizardConfigProvider({ children }: { children: ReactNode }) {
+  const [mode, setModeState] = useState<Mode>('migrate')
   const [targetLanguage, setTargetLanguageState] = useState<TargetLanguage>('csharp')
   const [provider, setProviderState] = useState<ProviderId>('anthropic')
   const [modelOverrides, setModelOverrides] = useState<ModelOverrides>(EMPTY_OVERRIDES)
   const [engineOpen, setEngineOpen] = useState(false)
   const [sessionCost, setSessionCost] = useState(0)
+
+  const setMode = useCallback((next: Mode) => {
+    setModeState(next)
+    // Protect runs against the original VB.NET on the CLR — C# only.
+    if (next === 'protect') setTargetLanguageState('csharp')
+    // A fresh mode is a fresh run — drop the accumulated session cost.
+    setSessionCost(0)
+  }, [])
 
   const setTargetLanguage = useCallback((lang: TargetLanguage) => {
     setTargetLanguageState(lang)
@@ -94,16 +109,18 @@ export function WizardConfigProvider({ children }: { children: ReactNode }) {
   const closeEngine = useCallback(() => setEngineOpen(false), [])
 
   const engineParams = useMemo<EngineParams>(
-    () => ({ provider, targetLanguage, modelOverrides }),
-    [provider, targetLanguage, modelOverrides],
+    () => ({ provider, targetLanguage, modelOverrides, mode }),
+    [provider, targetLanguage, modelOverrides, mode],
   )
 
   const value = useMemo<WizardConfig>(
     () => ({
+      mode,
       targetLanguage,
       provider,
       modelOverrides,
       engineOpen,
+      setMode,
       setTargetLanguage,
       setProvider,
       setOverride,
@@ -115,10 +132,12 @@ export function WizardConfigProvider({ children }: { children: ReactNode }) {
       engineParams,
     }),
     [
+      mode,
       targetLanguage,
       provider,
       modelOverrides,
       engineOpen,
+      setMode,
       setTargetLanguage,
       setProvider,
       setOverride,

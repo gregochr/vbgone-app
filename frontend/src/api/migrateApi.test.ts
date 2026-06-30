@@ -9,6 +9,11 @@ import {
   buildAfterImplement,
   raisePR,
   fetchCost,
+  generateBaseline,
+  runBaselineTests,
+  rerunBaselineTests,
+  DEMO_PROTECT_CONTENT,
+  DEMO_COMPLEX_CONTENT,
 } from './migrateApi'
 
 describe('migrateApi mock functions', () => {
@@ -97,5 +102,62 @@ describe('migrateApi mock functions', () => {
     expect(result.sessionId).toBeTruthy()
     expect(result.steps).toEqual([])
     expect(result.totalCost).toBe(0)
+  })
+
+  it('generateBaseline returns the pinned public surface with defect tags', async () => {
+    const result = await generateBaseline('session-1', 'OrderProcessor')
+    expect(result.surfaceFile).toBe('OrderProcessor.dll · public surface')
+    expect(result.members.length).toBeGreaterThan(0)
+    const flagged = result.members.find((m) => m.defect)
+    expect(flagged?.defect).toBeTruthy()
+  })
+
+  it('runBaselineTests returns a faithful green net against the original', async () => {
+    const result = await runBaselineTests('session-1', 'OrderProcessor')
+    expect(result.netFaithful).toBe(true)
+    expect(result.testClassName).toBe('OrderProcessorBaseline')
+    expect(result.build.buildStatus).toBe('GREEN')
+    expect(result.build.passed).toBe(result.build.total)
+    expect(result.code).toContain('[TestClass]')
+    expect(result.failures).toEqual([])
+  })
+
+  it('rerunBaselineTests runs the edited net (no regeneration) and reflects it', async () => {
+    const edited = '[TestClass] public class OrderProcessorBaseline { /* corrected */ }'
+    const result = await rerunBaselineTests('session-1', 'OrderProcessor', edited)
+    expect(result.netFaithful).toBe(true)
+    expect(result.code).toBe(edited)
+  })
+})
+
+describe('Protect demo source', () => {
+  // The real characterisation run compiles the original VB headless on the Linux CLR sidecar,
+  // which can't host WinForms. The Protect demo must therefore be UI-free or it lands in the
+  // degraded ERROR path instead of green. (The Migrate complex demo, by contrast, IS WinForms.)
+  const WINFORMS_MARKERS = [
+    'System.Windows.Forms',
+    'Inherits Form',
+    'MsgBox',
+    'MessageBox',
+    'Handles ',
+    'As TextBox',
+    'As Button',
+    '.Click',
+  ]
+
+  it('the Protect demo has no WinForms references (compiles standalone)', () => {
+    for (const marker of WINFORMS_MARKERS) {
+      expect(DEMO_PROTECT_CONTENT).not.toContain(marker)
+    }
+  })
+
+  it('keeps the supporting types the characterisation suite instantiates', () => {
+    expect(DEMO_PROTECT_CONTENT).toContain('Public Class OrderProcessor')
+    expect(DEMO_PROTECT_CONTENT).toContain('Public Class LineItem')
+    expect(DEMO_PROTECT_CONTENT).toContain('Public Class Order')
+  })
+
+  it('confirms the Migrate complex demo is the WinForms variant (contrast)', () => {
+    expect(DEMO_COMPLEX_CONTENT).toContain('System.Windows.Forms')
   })
 })

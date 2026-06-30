@@ -1,27 +1,56 @@
 import { useWizardConfig } from '../config/WizardConfigContext'
 import { LANGS, PROVIDERS, hasOverrides, providerColor } from '../config/engine'
-import type { TargetLanguage } from '../config/engine'
+import type { Mode, TargetLanguage } from '../config/engine'
 
 const USD_TO_GBP = 0.79
 
+const JAVA_LOCK_TITLE =
+  "Protect runs tests against your original VB.NET on the CLR, so it's C# only. Switch to Migrate for Java."
+
 export function AppHeader() {
-  const { targetLanguage, provider, modelOverrides, setTargetLanguage, openEngine, sessionCost } =
-    useWizardConfig()
+  const {
+    mode,
+    targetLanguage,
+    provider,
+    modelOverrides,
+    setMode,
+    setTargetLanguage,
+    openEngine,
+    sessionCost,
+  } = useWizardConfig()
 
   const lang = LANGS[targetLanguage]
   const prov = PROVIDERS[provider]
   const overridden = hasOverrides(modelOverrides)
+  const protect = mode === 'protect'
 
-  const segment = (value: TargetLanguage, label: string) => (
+  const modeSegment = (value: Mode, label: string) => (
     <button
       type="button"
-      className={`target-seg ${targetLanguage === value ? 'active' : ''}`}
-      onClick={() => setTargetLanguage(value)}
-      aria-pressed={targetLanguage === value}
+      className={`target-seg ${mode === value ? 'active' : ''}`}
+      onClick={() => setMode(value)}
+      aria-pressed={mode === value}
     >
       {label}
     </button>
   )
+
+  const segment = (value: TargetLanguage, label: string) => {
+    // Protect is C#-only: the Java segment is locked, not just inactive.
+    const locked = protect && value === 'java'
+    return (
+      <button
+        type="button"
+        className={`target-seg ${targetLanguage === value ? 'active' : ''}${locked ? ' locked' : ''}`}
+        onClick={locked ? undefined : () => setTargetLanguage(value)}
+        aria-pressed={targetLanguage === value}
+        aria-disabled={locked || undefined}
+        title={locked ? JAVA_LOCK_TITLE : undefined}
+      >
+        {label}
+      </button>
+    )
+  }
 
   return (
     <header className="app-header">
@@ -49,10 +78,22 @@ export function AppHeader() {
           </svg>
           <span className="brand-word">vbgone</span>
         </div>
-        <span className="brand-caption">VB.NET → {lang.lang}</span>
+        <span className="brand-caption">
+          {protect ? 'VB.NET · behavioural net' : `VB.NET → ${lang.lang}`}
+        </span>
       </div>
 
       <div className="header-controls">
+        <div className="control-group">
+          <span className="micro-label">MODE</span>
+          <div className="target-toggle" role="group" aria-label="Wizard mode">
+            {modeSegment('migrate', 'Migrate')}
+            {modeSegment('protect', 'Protect')}
+          </div>
+        </div>
+
+        <div className="header-divider" />
+
         <div className="control-group">
           <span className="micro-label">TARGET</span>
           <div className="target-toggle" role="group" aria-label="Target language">

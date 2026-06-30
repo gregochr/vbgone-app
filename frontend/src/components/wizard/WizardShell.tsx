@@ -6,10 +6,12 @@ import { Step3Interface } from './Step3Interface'
 import { Step4Tests } from './Step4Tests'
 import { Step5Implement } from './Step5Implement'
 import { Step6PR } from './Step6PR'
+import { Step3Baseline } from './protect/Step3Baseline'
+import { Step4BaselineTests } from './protect/Step4BaselineTests'
 import { InfoTip } from './InfoTip'
 import { fetchCost } from '../../api/migrateApi'
 import { useWizardConfig } from '../../config/WizardConfigContext'
-import { STEP_ROLES, modelLabelFor } from '../../config/engine'
+import { STEP_ROLES, PROTECT_STEP_ROLES, modelLabelFor } from '../../config/engine'
 import type {
   AnalysisResult,
   InterfaceResult,
@@ -18,6 +20,8 @@ import type {
   BuildResult,
   ImplementResult,
   PullRequestResult,
+  BaselineResult,
+  BaselineTestsResult,
 } from '../../api/migrateApi'
 
 const STEPS: { label: string; tip: React.ReactNode }[] = [
@@ -198,6 +202,76 @@ const STEPS: { label: string; tip: React.ReactNode }[] = [
   },
 ]
 
+// Protect mode renders four steps. Upload reuses the Migrate dropzone; Analysis is the
+// same engine with a forensic persona; Baseline and Baseline Tests are Protect-only.
+const PROTECT_STEPS: { label: string; tip: React.ReactNode }[] = [
+  {
+    label: 'Upload',
+    tip: (
+      <>
+        <p>
+          <strong>Protect builds a behavioural safety-net around your legacy VB.NET</strong> — it
+          changes nothing. Upload a <strong>.vb</strong> file or a <strong>.zip</strong> to start.
+        </p>
+        <p>
+          Reach for Protect when the job is "we have CVEs in our libraries and no test coverage to
+          patch safely" — not "we want off VB.NET". The net lets you upgrade a vulnerable dependency
+          and prove nothing else changed.
+        </p>
+      </>
+    ),
+  },
+  {
+    label: 'Analysis',
+    tip: (
+      <>
+        <p>
+          <strong>Claude Sonnet</strong> reads the VB.NET and records what each path actually does
+          today — the return values and the exact exceptions it throws on edge inputs.
+        </p>
+        <p>
+          This is <strong>forensic, not prescriptive</strong>: it describes the faults, it does not
+          fix them. The Observed Behaviour block is what the net will pin.
+        </p>
+      </>
+    ),
+  },
+  {
+    label: 'Baseline',
+    tip: (
+      <>
+        <p>
+          Protect doesn't synthesise a clean interface — there's nothing to extract toward, because
+          we keep the original. <strong>Claude Haiku</strong> pins the concrete class's actual
+          public surface, against the real assemblies, including the behaviours flagged as defects.
+        </p>
+        <p>
+          <strong>Green means unchanged, not correct.</strong> The baseline locks in current
+          behaviour so that patching a dependency surfaces any change.
+        </p>
+      </>
+    ),
+  },
+  {
+    label: 'Baseline Tests',
+    tip: (
+      <>
+        <p>
+          <strong>Claude Sonnet</strong> emits an MSTest characterisation suite that asserts the
+          real behaviour — actual exception types and coerced results — then runs it against your
+          original VB.NET on the CLR.
+        </p>
+        <p>
+          The polarity flips from Migrate: <strong>green is the success state</strong>. A red result
+          means an assertion drifted into aspiration — the net isn't faithful yet,{' '}
+          <strong>not that your code is broken</strong>. Once green, you have a behavioural
+          baseline: upgrade a dependency, re-run, and any failure is a real change to investigate.
+        </p>
+      </>
+    ),
+  },
+]
+
 export interface CompletedClass {
   className: string
   interfaceResult: InterfaceResult
@@ -219,6 +293,10 @@ export interface WizardState {
   implementResult: ImplementResult | null
   greenBuild: BuildResult | null
   prResult: PullRequestResult | null
+  // Protect-mode artifacts:
+  baselineResult: BaselineResult | null
+  baselineTests: BaselineTestsResult | null
+  netFaithful: boolean
 }
 
 const initialState: WizardState = {
@@ -234,6 +312,9 @@ const initialState: WizardState = {
   implementResult: null,
   greenBuild: null,
   prResult: null,
+  baselineResult: null,
+  baselineTests: null,
+  netFaithful: true,
 }
 
 const NEXT_TITLES = [
@@ -297,8 +378,13 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     return initialState
   })
   const [stepReady, setStepReady] = useState(false)
-  const { provider, modelOverrides, setSessionCost } = useWizardConfig()
+  const { mode, provider, modelOverrides, setSessionCost } = useWizardConfig()
   const sessionIdRef = useRef<string | undefined>(projectMode ? projectMode.sessionId : undefined)
+
+  const protect = mode === 'protect'
+  const activeSteps = protect ? PROTECT_STEPS : STEPS
+  const activeRoles = protect ? PROTECT_STEP_ROLES : STEP_ROLES
+  const lastIndex = activeSteps.length - 1
 
   const update = (partial: Partial<WizardState>) => {
     setState((prev) => {
@@ -320,6 +406,27 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     refreshCost()
   }, [step, refreshCost])
 
+  // Switching MODE resets the wizard: step semantics differ too much to carry state.
+  // Keep the uploaded file (Upload is identical in both modes); clear everything else.
+  // Done during render (the documented "reset state when a value changes" pattern)
+  // rather than in an effect, so there's no extra render pass. The session-cost reset
+  // lives in the context's setMode (where that state is owned).
+  const [prevMode, setPrevMode] = useState(mode)
+  if (mode !== prevMode) {
+    setPrevMode(mode)
+    if (!projectMode) {
+      setStep(0)
+      setStepReady(false)
+      setState((prev) => ({ ...initialState, filename: prev.filename, content: prev.content }))
+    }
+  }
+
+  // Drop the stale session id after a mode-switch reset so cost doesn't refetch the
+  // old session. Done in an effect (refs must not be written during render).
+  useEffect(() => {
+    sessionIdRef.current = state.analysis?.sessionId
+  }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Notify project queue when class migration is complete
   useEffect(() => {
     if (projectMode && step === 5) {
@@ -329,7 +436,8 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalClasses = state.analysis?.suggestedMigrationOrder?.length ?? 1
-  const isMultiClass = !projectMode && totalClasses > 1
+  // Multi-class iteration (queue + loop-back arc) is a Migrate-only flow.
+  const isMultiClass = !projectMode && !protect && totalClasses > 1
   const minStep = projectMode ? 2 : state.currentClassIndex > 0 ? 2 : 0
 
   const next = () => {
@@ -369,7 +477,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     }
 
     setStepReady(false)
-    setStep((s) => Math.min(s + 1, 5))
+    setStep((s) => Math.min(s + 1, lastIndex))
   }
   const back = () => {
     setStepReady(false)
@@ -428,20 +536,37 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   }, [isMultiClass, step, state.currentClassIndex])
 
   const classKey = state.currentClassIndex
-  const steps = [
+  const upload = (
     <Step1Upload
       key={0}
       state={state}
       update={update}
       onReady={() => setStepReady(true)}
       onProjectAnalysed={onProjectAnalysed}
-    />,
-    <Step2Analysis key={1} state={state} update={update} onReady={onReady} />,
-    <Step3Interface key={`2-${classKey}`} state={state} update={update} onReady={onReady} />,
-    <Step4Tests key={`3-${classKey}`} state={state} update={update} onReady={onReady} />,
-    <Step5Implement key={`4-${classKey}`} state={state} update={update} onReady={onReady} />,
-    <Step6PR key={5} state={state} update={update} onReady={onReady} projectMode={projectMode} />,
-  ]
+    />
+  )
+  const analysis = <Step2Analysis key={1} state={state} update={update} onReady={onReady} />
+  const steps = protect
+    ? [
+        upload,
+        analysis,
+        <Step3Baseline key="2-protect" state={state} update={update} onReady={onReady} />,
+        <Step4BaselineTests key="3-protect" state={state} update={update} onReady={onReady} />,
+      ]
+    : [
+        upload,
+        analysis,
+        <Step3Interface key={`2-${classKey}`} state={state} update={update} onReady={onReady} />,
+        <Step4Tests key={`3-${classKey}`} state={state} update={update} onReady={onReady} />,
+        <Step5Implement key={`4-${classKey}`} state={state} update={update} onReady={onReady} />,
+        <Step6PR
+          key={5}
+          state={state}
+          update={update}
+          onReady={onReady}
+          projectMode={projectMode}
+        />,
+      ]
 
   return (
     <div className="wizard">
@@ -450,10 +575,10 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
         ref={navRef}
         style={{ position: 'relative' }}
       >
-        {STEPS.map(({ label, tip }, i) => {
-          const isCompleted = i < step || (i === 5 && !!state.prResult)
+        {activeSteps.map(({ label, tip }, i) => {
+          const isCompleted = i < step || (!protect && i === 5 && !!state.prResult)
           const isActive = i === step
-          const role = STEP_ROLES[i]
+          const role = activeRoles[i]
           const sub =
             role === 'source' || role === 'github'
               ? role
@@ -495,7 +620,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
                   <InfoTip>{tip}</InfoTip>
                 </span>
               </div>
-              {i < STEPS.length - 1 && (
+              {i < activeSteps.length - 1 && (
                 <div className={`wizard-step-connector ${i < step ? 'completed' : ''}`} />
               )}
             </div>
@@ -580,22 +705,24 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
           Back
         </button>
         <span className="step-counter" data-testid="step-counter">
-          STEP {step + 1} / 6
+          STEP {step + 1} / {activeSteps.length}
         </span>
-        {step < 5 && (
+        {step < lastIndex && (
           <button
             className="btn-next"
             onClick={next}
             disabled={!stepReady}
             title={
-              step === 4 && state.greenBuild && state.greenBuild.buildStatus !== 'GREEN'
-                ? 'Fix failing tests before raising a PR'
-                : step === 4 && isMultiClass && state.currentClassIndex < totalClasses - 1
-                  ? `Next class: ${state.analysis!.suggestedMigrationOrder[state.currentClassIndex + 1]}`
-                  : NEXT_TITLES[step]
+              protect
+                ? 'Next step'
+                : step === 4 && state.greenBuild && state.greenBuild.buildStatus !== 'GREEN'
+                  ? 'Fix failing tests before raising a PR'
+                  : step === 4 && isMultiClass && state.currentClassIndex < totalClasses - 1
+                    ? `Next class: ${state.analysis!.suggestedMigrationOrder[state.currentClassIndex + 1]}`
+                    : NEXT_TITLES[step]
             }
           >
-            {step === 4 && isMultiClass && state.currentClassIndex < totalClasses - 1
+            {!protect && step === 4 && isMultiClass && state.currentClassIndex < totalClasses - 1
               ? 'Next Class'
               : 'Next'}
           </button>

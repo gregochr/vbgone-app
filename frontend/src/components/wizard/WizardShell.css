@@ -1461,3 +1461,313 @@
   font-size: 13.5px;
   color: #cdd2d9;
 }
+
+/* ────────────────────────────────────────────────────────────
+   Protect mode panels
+   ──────────────────────────────────────────────────────────── */
+
+/* Step 2 — Observed Behaviour (the heart of Protect, visually dominant) */
+.observed-behaviour {
+  background: var(--bg-code);
+  border: 1px solid rgba(227, 168, 60, 0.26);
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin: 4px 0 14px;
+}
+.observed-header {
+  display: flex;
+  align-items: baseline;
+  gap: 11px;
+  margin-bottom: 5px;
+}
+.observed-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--amber);
+}
+.observed-caption {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.observed-lede {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 6px;
+  max-width: 640px;
+}
+.observed-method {
+  padding: 15px 0;
+  border-top: 1px solid #1c1f25;
+}
+.observed-method-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.observed-method-name {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.observed-method-cls {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.observed-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) 18px minmax(0, 1.25fr);
+  gap: 12px;
+  align-items: start;
+  padding: 5px 0;
+}
+.observed-cond {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.observed-arrow {
+  color: #4b515b;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.observed-outcome {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.observed-throws {
+  color: var(--red);
+}
+.observed-fault {
+  color: var(--amber);
+}
+.observed-returns {
+  color: #cdd2d9;
+}
+
+/* Step 3 — inverted "pinned as-is" amber notice */
+.pin-notice {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 18px 20px;
+  background: rgba(227, 168, 60, 0.08);
+  border: 1px solid rgba(227, 168, 60, 0.32);
+  border-radius: 12px;
+  margin-bottom: 18px;
+}
+.pin-notice-glyph {
+  font-size: 18px;
+  line-height: 1.2;
+}
+.pin-notice-body {
+  flex: 1;
+}
+.pin-notice-heading {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.pin-notice-body p {
+  font-size: 14px;
+  color: #cdd2d9;
+  line-height: 1.55;
+  margin: 0;
+}
+.pin-subbar {
+  margin-top: 12px;
+  padding: 11px 14px;
+  background: rgba(227, 168, 60, 0.1);
+  border: 1px solid rgba(227, 168, 60, 0.4);
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--amber);
+}
+
+/* Step 3 — pinned public surface */
+.pinned-surface {
+  background: var(--bg-code);
+  border: 1px solid #1f2228;
+  border-top: none;
+  border-radius: 0 0 11px 11px;
+  padding: 2px 0;
+}
+.pinned-surface-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 13px 20px;
+  border-top: 1px solid #15171b;
+}
+.pinned-surface-sig {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #c8cdd6;
+  line-height: 1.5;
+}
+.defect-tag {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--amber);
+  background: rgba(227, 168, 60, 0.1);
+  border: 1px solid rgba(227, 168, 60, 0.3);
+  padding: 4px 10px;
+  border-radius: 7px;
+  max-width: 320px;
+  line-height: 1.4;
+}
+
+/* Step 4 — net banner pair (green = success/required, red = not faithful) */
+.net-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 18px;
+  border-radius: 11px;
+  margin-bottom: 18px;
+}
+.net-banner.net-green {
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.32);
+}
+.net-banner.net-red {
+  align-items: flex-start;
+  background: rgba(251, 111, 115, 0.08);
+  border: 1px solid rgba(251, 111, 115, 0.34);
+}
+.net-banner-label {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.net-green .net-banner-label {
+  color: var(--green);
+}
+.net-red .net-banner-label {
+  color: var(--red);
+  font-size: 12.5px;
+  padding-top: 2px;
+}
+.net-banner-text {
+  font-size: 14px;
+  color: #cdd2d9;
+  line-height: 1.5;
+}
+.net-banner-body {
+  flex: 1;
+}
+.net-rerun {
+  margin-top: 12px;
+}
+
+/* Step 4 — closing baseline panel (only when green) */
+.baseline-closing {
+  background: #14171b;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  border-radius: 14px;
+  padding: 24px 26px;
+  margin-top: 18px;
+}
+.baseline-closing-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.baseline-closing-check {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(52, 211, 153, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+  font-size: 19px;
+}
+.baseline-closing-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+.baseline-closing-body {
+  font-size: 15px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  max-width: 640px;
+  margin: 0;
+}
+.baseline-closing-foot {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #1f2228;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* Step 4 — failing assertions / compile errors in the not-faithful state */
+.net-failures {
+  background: var(--bg-code);
+  border: 1px solid rgba(251, 111, 115, 0.26);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.net-failures-head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--red);
+  margin-bottom: 10px;
+}
+.net-failure-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 0;
+  border-top: 1px solid #1c1f25;
+}
+.net-failure-row:first-of-type {
+  border-top: none;
+}
+.net-failure-name {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: #fb6f73;
+}
+.net-failure-msg {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Step 4 — edit-and-re-run row beneath the net code block */
+.net-rerun-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.net-rerun-hint {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
