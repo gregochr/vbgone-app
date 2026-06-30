@@ -19,6 +19,10 @@ public class MigrationSession {
     private BuildResult redBuild;
     private BuildResult greenBuild;
     private PullRequestResult prResult;
+    // Protect-mode artifacts:
+    private BaselineResult baselineResult;
+    private TestsResult baselineSuite;
+    private BuildResult netBuild;
     private final List<TokenUsage> tokenUsages = new ArrayList<>();
     private final Map<String, String> failureMessages = new HashMap<>();
 
@@ -60,6 +64,15 @@ public class MigrationSession {
 
     public PullRequestResult getPrResult() { return prResult; }
     public void setPrResult(PullRequestResult prResult) { this.prResult = prResult; }
+
+    public BaselineResult getBaselineResult() { return baselineResult; }
+    public void setBaselineResult(BaselineResult baselineResult) { this.baselineResult = baselineResult; }
+
+    public TestsResult getBaselineSuite() { return baselineSuite; }
+    public void setBaselineSuite(TestsResult baselineSuite) { this.baselineSuite = baselineSuite; }
+
+    public BuildResult getNetBuild() { return netBuild; }
+    public void setNetBuild(BuildResult netBuild) { this.netBuild = netBuild; }
 
     public List<TokenUsage> getTokenUsages() { return tokenUsages; }
     public void addTokenUsage(TokenUsage usage) { tokenUsages.add(usage); }
