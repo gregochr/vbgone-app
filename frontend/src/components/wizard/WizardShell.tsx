@@ -8,6 +8,7 @@ import { Step5Implement } from './Step5Implement'
 import { Step6PR } from './Step6PR'
 import { Step3Baseline } from './protect/Step3Baseline'
 import { Step4BaselineTests } from './protect/Step4BaselineTests'
+import { StepReadiness } from './protect/StepReadiness'
 import { InfoTip } from './InfoTip'
 import { fetchCost } from '../../api/migrateApi'
 import { useWizardConfig } from '../../config/WizardConfigContext'
@@ -22,6 +23,7 @@ import type {
   PullRequestResult,
   BaselineResult,
   BaselineTestsResult,
+  ReadinessReport,
 } from '../../api/migrateApi'
 
 const STEPS: { label: string; tip: React.ReactNode }[] = [
@@ -210,7 +212,7 @@ const PROTECT_STEPS: { label: string; tip: React.ReactNode }[] = [
     tip: (
       <>
         <p>
-          <strong>Protect builds a behavioural safety-net around your legacy VB.NET</strong> — it
+          <strong>Protect builds a behavioural baseline around your legacy VB.NET</strong> — it
           changes nothing. Upload a <strong>.vb</strong> file or a <strong>.zip</strong> to start.
         </p>
         <p>
@@ -222,16 +224,19 @@ const PROTECT_STEPS: { label: string; tip: React.ReactNode }[] = [
     ),
   },
   {
-    label: 'Analysis',
+    label: 'Readiness',
     tip: (
       <>
         <p>
-          <strong>Claude Sonnet</strong> reads the VB.NET and records what each path actually does
-          today — the return values and the exact exceptions it throws on edge inputs.
+          A <strong>static, no-AI</strong> pass — nothing leaves your tenant. Before any model is
+          spent, VBGone checks whether the source exposes a{' '}
+          <strong>headless business-logic surface</strong>: a class that compiles and runs on the
+          CLR without WinForms.
         </p>
         <p>
-          This is <strong>forensic, not prescriptive</strong>: it describes the faults, it does not
-          fix them. The Observed Behaviour block is what the net will pin.
+          A portfolio is bucketed into <strong>Ready to protect</strong>,{' '}
+          <strong>Needs Windows runner</strong>, and <strong>Tangled in the UI</strong>. Only ready
+          classes can be protected today.
         </p>
       </>
     ),
@@ -263,7 +268,7 @@ const PROTECT_STEPS: { label: string; tip: React.ReactNode }[] = [
         </p>
         <p>
           The polarity flips from Migrate: <strong>green is the success state</strong>. A red result
-          means an assertion drifted into aspiration — the net isn't faithful yet,{' '}
+          means an assertion drifted into aspiration — the baseline isn't faithful yet,{' '}
           <strong>not that your code is broken</strong>. Once green, you have a behavioural
           baseline: upgrade a dependency, re-run, and any failure is a real change to investigate.
         </p>
@@ -294,6 +299,7 @@ export interface WizardState {
   greenBuild: BuildResult | null
   prResult: PullRequestResult | null
   // Protect-mode artifacts:
+  readiness: ReadinessReport | null
   baselineResult: BaselineResult | null
   baselineTests: BaselineTestsResult | null
   netFaithful: boolean
@@ -312,6 +318,7 @@ const initialState: WizardState = {
   implementResult: null,
   greenBuild: null,
   prResult: null,
+  readiness: null,
   baselineResult: null,
   baselineTests: null,
   netFaithful: true,
@@ -549,7 +556,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   const steps = protect
     ? [
         upload,
-        analysis,
+        <StepReadiness key="1-protect" state={state} update={update} onReady={onReady} />,
         <Step3Baseline key="2-protect" state={state} update={update} onReady={onReady} />,
         <Step4BaselineTests key="3-protect" state={state} update={update} onReady={onReady} />,
       ]
@@ -580,7 +587,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
           const isActive = i === step
           const role = activeRoles[i]
           const sub =
-            role === 'source' || role === 'github'
+            role === 'source' || role === 'github' || role === 'static'
               ? role
               : modelLabelFor(provider, role, modelOverrides)
           const clickable = i >= minStep && i <= step

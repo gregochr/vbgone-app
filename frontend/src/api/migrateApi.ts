@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { EngineParams } from '../config/engine'
+import type { Bucket, EngineParams } from '../config/engine'
 
 const api = axios.create({ baseURL: '/api/migrate' })
 
@@ -93,6 +93,43 @@ export interface ImplementResult {
   className: string
   code: string
   mode: 'STUB' | 'CLAUDE'
+}
+
+/* ── Readiness assessment (Protect's front gate) ── */
+
+export interface MethodReadiness {
+  name: string
+  visibility: string
+  bucket: Bucket
+  reason: string
+}
+
+export interface ClassReadiness {
+  name: string
+  file: string
+  /** Worst-case rollup of the class's methods. */
+  bucket: Bucket
+  reason: string
+  methods: MethodReadiness[]
+}
+
+export interface ReadinessTotals {
+  classes: number
+  methods: number
+  netReady: number
+  windowsGated: number
+  refactorFirst: number
+  methodNetReady: number
+  methodWindowsGated: number
+  methodRefactorFirst: number
+}
+
+/** Static (no-AI) classification of an uploaded estate into the three readiness buckets. */
+export interface ReadinessReport {
+  sessionId: string
+  totals: ReadinessTotals
+  confidence: 'static' | 'llm-refined'
+  classes: ClassReadiness[]
 }
 
 /** A single public member of the pinned baseline surface (Protect step 3). */
@@ -308,6 +345,301 @@ public class OrderProcessorBaseline
             () => sut.SplitPerHead(100m, ParseQty("twelve")));
     }
 }`
+
+/* Readiness mock datasets — mirror the design prototype's four demos. */
+const mr = (name: string, visibility: string, bucket: Bucket, reason: string): MethodReadiness => ({
+  name,
+  visibility,
+  bucket,
+  reason,
+})
+
+const MOCK_READINESS: Record<
+  'singleReady' | 'singleBlocked' | 'portfolioMixed' | 'portfolioBlocked',
+  ReadinessReport
+> = {
+  singleReady: {
+    sessionId: MOCK_SESSION_ID,
+    confidence: 'static',
+    totals: {
+      classes: 1,
+      methods: 4,
+      netReady: 1,
+      windowsGated: 0,
+      refactorFirst: 0,
+      methodNetReady: 4,
+      methodWindowsGated: 0,
+      methodRefactorFirst: 0,
+    },
+    classes: [
+      {
+        name: 'OrderProcessor',
+        file: 'OrderProcessor.vb',
+        bucket: 'net-ready',
+        reason: 'public, no WinForms references — compiles & runs on the CLR today',
+        methods: [
+          mr('CalculateTotal', 'public', 'net-ready', 'params in, value out; no control access'),
+          mr('ApplyDiscount', 'public', 'net-ready', 'pure switch over a string code'),
+          mr(
+            'SplitPerHead',
+            'public',
+            'net-ready',
+            'arithmetic only; exception behaviour pinnable',
+          ),
+          mr('ValidateOrder', 'public', 'net-ready', 'reads the Order model, returns bool'),
+        ],
+      },
+    ],
+  },
+  singleBlocked: {
+    sessionId: MOCK_SESSION_ID,
+    confidence: 'static',
+    totals: {
+      classes: 1,
+      methods: 5,
+      netReady: 0,
+      windowsGated: 0,
+      refactorFirst: 1,
+      methodNetReady: 0,
+      methodWindowsGated: 0,
+      methodRefactorFirst: 5,
+    },
+    classes: [
+      {
+        name: 'Form1',
+        file: 'Form1.vb',
+        bucket: 'refactor-first',
+        reason:
+          'every handler reads TextBox.Text and writes Label.Text — logic welded into Button_Click',
+        methods: [
+          mr(
+            'btnAdd_Click',
+            'private',
+            'refactor-first',
+            'reads txtA.Text / txtB.Text, writes lblResult.Text',
+          ),
+          mr('btnEquals_Click', 'private', 'refactor-first', 'mutates controls; no return value'),
+          mr(
+            'btnDivide_Click',
+            'private',
+            'refactor-first',
+            'pops MessageBox on error; reads controls',
+          ),
+          mr('ClearDisplay', 'private', 'refactor-first', 'writes directly to label controls'),
+          mr('Form1_Load', 'private', 'refactor-first', 'wires up control state on load'),
+        ],
+      },
+    ],
+  },
+  portfolioMixed: {
+    sessionId: MOCK_SESSION_ID,
+    confidence: 'static',
+    totals: {
+      classes: 142,
+      methods: 1180,
+      netReady: 68,
+      windowsGated: 41,
+      refactorFirst: 33,
+      methodNetReady: 540,
+      methodWindowsGated: 360,
+      methodRefactorFirst: 280,
+    },
+    classes: [
+      {
+        name: 'OrderService',
+        file: 'Services/OrderService.vb',
+        bucket: 'net-ready',
+        reason: 'public, no WinForms references',
+        methods: [
+          mr('PlaceOrder', 'public', 'net-ready', 'orchestrates pure domain calls'),
+          mr('CalculateTotal', 'public', 'net-ready', 'params in, value out'),
+          mr('ApplyDiscount', 'public', 'net-ready', 'pure switch over code'),
+        ],
+      },
+      {
+        name: 'PricingEngine',
+        file: 'Domain/PricingEngine.vb',
+        bucket: 'net-ready',
+        reason: 'pure calculation surface; no UI types',
+        methods: [
+          mr('Quote', 'public', 'net-ready', 'no control access'),
+          mr('Margin', 'public', 'net-ready', 'arithmetic only'),
+          mr('RoundToTier', 'public', 'net-ready', 'deterministic'),
+        ],
+      },
+      {
+        name: 'TaxCalculator',
+        file: 'Domain/TaxCalculator.vb',
+        bucket: 'net-ready',
+        reason: 'static helpers; params in, value out',
+        methods: [
+          mr('VatFor', 'public', 'net-ready', 'lookup + multiply'),
+          mr('NetOf', 'public', 'net-ready', 'pure'),
+        ],
+      },
+      {
+        name: 'CsvExporter',
+        file: 'IO/CsvExporter.vb',
+        bucket: 'net-ready',
+        reason: 'stream writer; no control access',
+        methods: [
+          mr('ExportOrders', 'public', 'net-ready', 'writes to a Stream arg'),
+          mr('FormatRow', 'public', 'net-ready', 'string building'),
+        ],
+      },
+      {
+        name: 'ReportRenderer',
+        file: 'Reporting/ReportRenderer.vb',
+        bucket: 'windows-gated',
+        reason: 'inherits Form; BuildSummary is pure but private',
+        methods: [
+          mr(
+            'BuildSummary',
+            'private',
+            'windows-gated',
+            'pure, but class inherits Form — needs reflection',
+          ),
+          mr('AggregateRows', 'private', 'windows-gated', 'pure aggregation, UI-bound class'),
+          mr('Render', 'public', 'net-ready', 'tile-free helper'),
+        ],
+      },
+      {
+        name: 'LedgerView',
+        file: 'Forms/LedgerView.vb',
+        bucket: 'windows-gated',
+        reason: 'pure posting logic trapped in a WinForms class',
+        methods: [
+          mr('Post', 'private', 'windows-gated', 'pure double-entry, but in a Form'),
+          mr('Reconcile', 'private', 'windows-gated', 'pure, UI-bound class'),
+          mr('Total', 'public', 'net-ready', 'sum helper'),
+        ],
+      },
+      {
+        name: 'StatementForm',
+        file: 'Forms/StatementForm.vb',
+        bucket: 'windows-gated',
+        reason: 'references System.Windows.Forms; no control access in logic',
+        methods: [
+          mr('ComputeBalance', 'private', 'windows-gated', 'pure, Form-scoped'),
+          mr('PeriodFor', 'private', 'windows-gated', 'date math, UI-bound class'),
+        ],
+      },
+      {
+        name: 'CustomerEntryForm',
+        file: 'Forms/CustomerEntryForm.vb',
+        bucket: 'refactor-first',
+        reason: 'reads TextBox.Text and writes Label.Text in Button_Click',
+        methods: [
+          mr('btnSave_Click', 'private', 'refactor-first', 'reads txtName.Text; writes controls'),
+          mr('Validate', 'private', 'refactor-first', 'reads control values directly'),
+          mr('NormalisePhone', 'private', 'net-ready', 'pure string op'),
+          mr('LoadDefaults', 'private', 'windows-gated', 'pure, but Form-scoped'),
+        ],
+      },
+      {
+        name: 'PaymentDialog',
+        file: 'Forms/PaymentDialog.vb',
+        bucket: 'refactor-first',
+        reason: 'pops MessageBox; mutates controls directly',
+        methods: [
+          mr('btnPay_Click', 'private', 'refactor-first', 'MessageBox + control mutation'),
+          mr('Charge', 'private', 'refactor-first', 'reads amount off a control'),
+          mr('Format', 'private', 'windows-gated', 'pure, UI-bound class'),
+        ],
+      },
+      {
+        name: 'MainForm',
+        file: 'MainForm.vb',
+        bucket: 'refactor-first',
+        reason: 'orchestrates controls; logic inseparable from event handlers',
+        methods: [
+          mr('btnRun_Click', 'private', 'refactor-first', 'drives the whole UI'),
+          mr('RefreshGrid', 'private', 'refactor-first', 'binds DataGridView directly'),
+          mr('Recompute', 'private', 'refactor-first', 'reads grid cells'),
+        ],
+      },
+    ],
+  },
+  portfolioBlocked: {
+    sessionId: MOCK_SESSION_ID,
+    confidence: 'static',
+    totals: {
+      classes: 6,
+      methods: 28,
+      netReady: 0,
+      windowsGated: 2,
+      refactorFirst: 4,
+      methodNetReady: 0,
+      methodWindowsGated: 9,
+      methodRefactorFirst: 19,
+    },
+    classes: [
+      {
+        name: 'CalculatorForm',
+        file: 'CalculatorForm.vb',
+        bucket: 'refactor-first',
+        reason: 'all arithmetic lives in Button_Click reading TextBox.Text',
+        methods: [
+          mr(
+            'btnEquals_Click',
+            'private',
+            'refactor-first',
+            'reads display control, writes result',
+          ),
+          mr('btnDigit_Click', 'private', 'refactor-first', 'mutates the display directly'),
+          mr('Clear', 'private', 'refactor-first', 'writes control state'),
+        ],
+      },
+      {
+        name: 'MainForm',
+        file: 'MainForm.vb',
+        bucket: 'refactor-first',
+        reason: 'orchestrates controls; no headless path',
+        methods: [
+          mr('Form_Load', 'private', 'refactor-first', 'wires up controls'),
+          mr('btnGo_Click', 'private', 'refactor-first', 'reads + writes controls'),
+        ],
+      },
+      {
+        name: 'SettingsForm',
+        file: 'SettingsForm.vb',
+        bucket: 'refactor-first',
+        reason: 'binds directly to control state',
+        methods: [
+          mr('Save', 'private', 'refactor-first', 'reads checkbox/textbox state'),
+          mr('Load', 'private', 'refactor-first', 'writes control state'),
+        ],
+      },
+      {
+        name: 'AboutDialog',
+        file: 'AboutDialog.vb',
+        bucket: 'refactor-first',
+        reason: 'DialogResult-driven; no logic to net',
+        methods: [mr('btnOk_Click', 'private', 'refactor-first', 'sets DialogResult')],
+      },
+      {
+        name: 'PrintHelper',
+        file: 'PrintHelper.vb',
+        bucket: 'windows-gated',
+        reason: 'pure layout maths trapped in a Form subclass',
+        methods: [
+          mr('Paginate', 'private', 'windows-gated', 'pure, but inherits Form'),
+          mr('MeasureLine', 'private', 'windows-gated', 'pure, UI-bound class'),
+        ],
+      },
+      {
+        name: 'GridView',
+        file: 'GridView.vb',
+        bucket: 'windows-gated',
+        reason: 'pure sort/filter logic inside a WinForms class',
+        methods: [
+          mr('SortBy', 'private', 'windows-gated', 'pure comparator, Form-scoped'),
+          mr('FilterRows', 'private', 'windows-gated', 'pure predicate, UI-bound'),
+        ],
+      },
+    ],
+  },
+}
 
 const mockGreenNet = (sessionId: string, className: string, code: string): BaselineTestsResult => {
   const total = 43
@@ -1211,6 +1543,15 @@ public class OrderProcessor : IOrderProcessor
     return mockGreenNet(sessionId, className, code)
   },
 
+  async assess(filename: string, content: string): Promise<ReadinessReport> {
+    void content
+    await delay(700) // a fast static scan
+    if (filename === 'Form1.vb') return MOCK_READINESS.singleBlocked
+    if (filename === 'LegacyEstate.zip') return MOCK_READINESS.portfolioMixed
+    if (filename === 'WinFormsApp.zip') return MOCK_READINESS.portfolioBlocked
+    return MOCK_READINESS.singleReady
+  },
+
   async fetchCost(sessionId: string): Promise<CostResult> {
     void sessionId
     return { sessionId: MOCK_SESSION_ID, steps: [], totalCost: 0 }
@@ -1362,6 +1703,11 @@ const realApi = {
     return data
   },
 
+  async assess(filename: string, content: string): Promise<ReadinessReport> {
+    const { data } = await protectApi.post<ReadinessReport>('/assess', { filename, content })
+    return data
+  },
+
   async fetchCost(sessionId: string): Promise<CostResult> {
     const { data } = await api.get<CostResult>(`/cost/${sessionId}`)
     return data
@@ -1385,6 +1731,7 @@ export const uploadProject = active.uploadProject
 export const generateBaseline = active.generateBaseline
 export const runBaselineTests = active.runBaselineTests
 export const rerunBaselineTests = active.rerunBaselineTests
+export const assess = active.assess
 export const fetchCost = active.fetchCost
 
 /* Export the axios instance for when we wire to real backend */

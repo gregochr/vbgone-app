@@ -20,7 +20,7 @@ interface Props {
 }
 
 const KICKER = 'STEP 04 · BASELINE TESTS'
-const TITLE = 'Confirm the net'
+const TITLE = 'Confirm the baseline'
 
 /**
  * Protect step 4 (last). Generates an MSTest characterisation suite and runs it against
@@ -100,8 +100,8 @@ export function Step4BaselineTests({ state, update, onReady }: Props) {
             request.
           </p>
           <p>
-            {'⚡'} Here, <strong>green is the success state</strong> — it means the net faithfully
-            describes current behaviour.
+            {'⚡'} Here, <strong>green is the success state</strong> — it means the baseline
+            faithfully describes current behaviour.
           </p>
           <p>Proceed?</p>
         </ConfirmDialog>
@@ -173,14 +173,14 @@ export function Step4BaselineTests({ state, update, onReady }: Props) {
         <div className="net-banner net-green" data-testid="net-banner-green">
           <span className="net-banner-label">{'✓'} GREEN</span>
           <span className="net-banner-text">
-            {passed} / {total} passing against your original VB.NET. The net faithfully describes
-            current behaviour — any failure here means the net isn't accurate yet,{' '}
+            {passed} / {total} passing against your original VB.NET. The baseline faithfully
+            describes current behaviour — any failure here means the baseline isn't accurate yet,{' '}
             <strong>not that your code is broken</strong>.
           </span>
         </div>
       ) : (
         <div className="net-banner net-red" data-testid="net-banner-red">
-          <span className="net-banner-label">{'▲'} NET NOT FAITHFUL</span>
+          <span className="net-banner-label">{'▲'} BASELINE NOT FAITHFUL</span>
           <div className="net-banner-body">
             {compileError ? (
               <span className="net-banner-text">
@@ -192,7 +192,8 @@ export function Step4BaselineTests({ state, update, onReady }: Props) {
                 {failed} / {total} failing against your <strong>untouched</strong> original. An
                 assertion describes behaviour the code doesn't actually have — the oracle drifted
                 into aspiration. This is <strong>not a pass</strong>;{' '}
-                <strong>correct the flagged assertion(s) in the net below</strong>, then re-run.
+                <strong>correct the flagged assertion(s) in the baseline below</strong>, then
+                re-run.
               </span>
             )}
           </div>
@@ -256,7 +257,7 @@ export function Step4BaselineTests({ state, update, onReady }: Props) {
       {!faithful && (
         <div className="net-rerun-row">
           <button className="btn-plex" onClick={rerunSuite}>
-            Edit net &amp; re-run
+            Edit baseline &amp; re-run
           </button>
           <span className="net-rerun-hint">
             Runs the edited net against your original VB — no new generation.

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { WizardConfigProvider } from '../../../config/WizardConfigContext'
@@ -6,8 +6,9 @@ import { AppHeader } from '../../AppHeader'
 import { WizardShell } from '../WizardShell'
 import { Step3Baseline } from './Step3Baseline'
 import { Step4BaselineTests } from './Step4BaselineTests'
+import { StepReadiness } from './StepReadiness'
 import type { WizardState } from '../WizardShell'
-import type { BaselineResult, BaselineTestsResult } from '../../../api/migrateApi'
+import type { BaselineResult, BaselineTestsResult, ReadinessReport } from '../../../api/migrateApi'
 import { looksUiCoupled } from '../../../config/engine'
 
 const baseState: WizardState = {
@@ -30,9 +31,67 @@ const baseState: WizardState = {
   implementResult: null,
   greenBuild: null,
   prResult: null,
+  readiness: null,
   baselineResult: null,
   baselineTests: null,
   netFaithful: true,
+}
+
+const readyReport: ReadinessReport = {
+  sessionId: 'session-1',
+  confidence: 'static',
+  totals: {
+    classes: 1,
+    methods: 1,
+    netReady: 1,
+    windowsGated: 0,
+    refactorFirst: 0,
+    methodNetReady: 1,
+    methodWindowsGated: 0,
+    methodRefactorFirst: 0,
+  },
+  classes: [
+    {
+      name: 'OrderProcessor',
+      file: 'OrderProcessor.vb',
+      bucket: 'net-ready',
+      reason: 'public, no WinForms references',
+      methods: [
+        { name: 'CalculateTotal', visibility: 'public', bucket: 'net-ready', reason: 'pure' },
+      ],
+    },
+  ],
+}
+
+const blockedReport: ReadinessReport = {
+  sessionId: 'session-1',
+  confidence: 'static',
+  totals: {
+    classes: 1,
+    methods: 1,
+    netReady: 0,
+    windowsGated: 0,
+    refactorFirst: 1,
+    methodNetReady: 0,
+    methodWindowsGated: 0,
+    methodRefactorFirst: 1,
+  },
+  classes: [
+    {
+      name: 'Form1',
+      file: 'Form1.vb',
+      bucket: 'refactor-first',
+      reason: 'logic welded into Button_Click',
+      methods: [
+        {
+          name: 'btnAdd_Click',
+          visibility: 'private',
+          bucket: 'refactor-first',
+          reason: 'reads TextBox.Text',
+        },
+      ],
+    },
+  ],
 }
 
 const mockBaseline: BaselineResult = {
@@ -83,7 +142,7 @@ describe('AppHeader — MODE toggle', () => {
     renderWithConfig(<AppHeader />)
     await user.click(screen.getByText('Protect'))
 
-    expect(screen.getByText('VB.NET · behavioural net')).toBeInTheDocument()
+    expect(screen.getByText('VB.NET · behavioural baseline')).toBeInTheDocument()
     const java = screen.getByText('Java')
     expect(java).toHaveClass('locked')
     expect(java).toHaveAttribute('title', expect.stringContaining('C# only'))
@@ -157,7 +216,7 @@ describe('Step4BaselineTests', () => {
     expect(screen.getByText('You now have a behavioural baseline')).toBeInTheDocument()
   })
 
-  it('lists the drifted assertions and offers Edit net & re-run when the net is not faithful', () => {
+  it('lists the drifted assertions and offers Edit baseline & re-run when not faithful', () => {
     const drifted: BaselineTestsResult = {
       ...mockBaselineTests,
       netFaithful: false,
@@ -186,7 +245,7 @@ describe('Step4BaselineTests', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Expected: 100 but was: 90')).toBeInTheDocument()
     // The action makes the intent clear (edit, not just re-run) and the closing panel is hidden.
-    expect(screen.getByText('Edit net & re-run')).toBeInTheDocument()
+    expect(screen.getByText('Edit baseline & re-run')).toBeInTheDocument()
     expect(screen.queryByText('Re-run suite')).not.toBeInTheDocument()
     expect(screen.queryByTestId('baseline-closing')).not.toBeInTheDocument()
   })
@@ -246,6 +305,35 @@ describe('Step4BaselineTests', () => {
     const hint = screen.getByTestId('net-precondition')
     expect(hint).toHaveTextContent(/self-contained with no UI or platform dependencies/)
     expect(hint).not.toHaveTextContent(/UI-coupled/)
+  })
+})
+
+describe('StepReadiness (single-file verdict)', () => {
+  it('shows a Ready-to-protect verdict and signals ready when the class is net-ready', () => {
+    const onReady = vi.fn()
+    const state = { ...baseState, filename: 'OrderProcessor.vb', readiness: readyReport }
+    renderWithConfig(<StepReadiness state={state} update={() => {}} onReady={onReady} />)
+
+    const card = screen.getByTestId('verdict-card')
+    expect(card).toHaveClass('verdict-ready')
+    expect(card).toHaveTextContent('Ready to protect')
+    expect(card).toHaveTextContent('headless business-logic surface')
+    expect(card).toHaveTextContent('CalculateTotal')
+    // Next is gated on readiness — a net-ready class signals ready.
+    expect(onReady).toHaveBeenCalled()
+  })
+
+  it('shows a blocked verdict and does NOT signal ready when tangled in the UI', () => {
+    const onReady = vi.fn()
+    const state = { ...baseState, filename: 'Form1.vb', readiness: blockedReport }
+    renderWithConfig(<StepReadiness state={state} update={() => {}} onReady={onReady} />)
+
+    const card = screen.getByTestId('verdict-card')
+    expect(card).toHaveClass('verdict-blocked')
+    expect(card).toHaveTextContent('Tangled in the UI')
+    expect(card).toHaveTextContent("Can't protect this as-is")
+    // Blocked → Next stays disabled (onReady never fires).
+    expect(onReady).not.toHaveBeenCalled()
   })
 })
 
