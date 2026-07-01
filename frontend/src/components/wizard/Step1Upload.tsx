@@ -161,7 +161,7 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
       <h2 className="step-title">Upload legacy VB.NET</h2>
       <p className="step-subtitle">
         {protect
-          ? 'Drop a .vb file or a .zip project. VBGone reads the legacy VB.NET and builds a behavioural safety-net around it — so you can patch vulnerable dependencies without changing how it works.'
+          ? 'Drop a .vb file or a .zip project. VBGone reads the legacy VB.NET and builds a behavioural baseline around it — so you can patch vulnerable dependencies without changing how it works.'
           : mode === 'single'
             ? `Drop a .vb file or a .zip project. VBGone extracts the business logic and migrates it to tested ${lang.lang}, one class at a time.`
             : 'Upload a .zip containing your VB.NET solution. VBGone will analyse all classes, build a dependency graph, and guide you through migrating each class in the optimal order.'}

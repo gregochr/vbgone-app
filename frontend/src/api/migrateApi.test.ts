@@ -12,6 +12,7 @@ import {
   generateBaseline,
   runBaselineTests,
   rerunBaselineTests,
+  assess,
   DEMO_PROTECT_CONTENT,
   DEMO_COMPLEX_CONTENT,
 } from './migrateApi'
@@ -127,6 +128,29 @@ describe('migrateApi mock functions', () => {
     const result = await rerunBaselineTests('session-1', 'OrderProcessor', edited)
     expect(result.netFaithful).toBe(true)
     expect(result.code).toBe(edited)
+  })
+
+  it('assess returns a Ready-to-protect verdict for the clean single demo', async () => {
+    const r = await assess('OrderProcessor.vb', 'Public Class OrderProcessor')
+    expect(r.confidence).toBe('static')
+    expect(r.classes).toHaveLength(1)
+    expect(r.classes[0].bucket).toBe('net-ready')
+    expect(r.totals.netReady).toBe(1)
+  })
+
+  it('assess returns a Tangled-in-the-UI verdict for the WinForms single demo', async () => {
+    const r = await assess('Form1.vb', 'Public Class Form1')
+    expect(r.classes[0].bucket).toBe('refactor-first')
+    expect(r.totals.refactorFirst).toBe(1)
+    expect(r.classes[0].methods.every((m) => m.bucket === 'refactor-first')).toBe(true)
+  })
+
+  it('assess buckets a mixed portfolio across all three categories', async () => {
+    const r = await assess('LegacyEstate.zip', '')
+    expect(r.totals.classes).toBe(142)
+    expect(r.totals.netReady).toBeGreaterThan(0)
+    expect(r.totals.windowsGated).toBeGreaterThan(0)
+    expect(r.totals.refactorFirst).toBeGreaterThan(0)
   })
 })
 

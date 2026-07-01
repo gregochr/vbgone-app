@@ -174,11 +174,11 @@ export const STEP_ROLES: (Role | 'source' | 'github')[] = [
 
 /**
  * Protect mode's four steps map to roles for the stepper sub-line:
- * Upload (source) · Analysis (reasoning) · Baseline (mechanical) · Baseline Tests (reasoning).
+ * Upload (source) · Readiness (static, no model) · Baseline (mechanical) · Baseline Tests (reasoning).
  */
-export const PROTECT_STEP_ROLES: (Role | 'source' | 'github')[] = [
+export const PROTECT_STEP_ROLES: (Role | 'source' | 'github' | 'static')[] = [
   'source', // Upload
-  'reasoning', // Analysis (characterise)
+  'static', // Readiness (static scan, no model)
   'mechanical', // Baseline (pin surface)
   'reasoning', // Baseline Tests
 ]
@@ -186,6 +186,42 @@ export const PROTECT_STEP_ROLES: (Role | 'source' | 'github')[] = [
 /** Protect runs against the original VB.NET on the CLR — always C#/MSTest. */
 export const PROTECT_TEST_FW = 'MSTest'
 export const PROTECT_RUNTIME = 'CLR'
+
+/* ── Readiness buckets (Protect's front-gate classification) ── */
+
+/** Stable wire value from the static classifier. */
+export type Bucket = 'net-ready' | 'windows-gated' | 'refactor-first'
+
+export interface BucketMeta {
+  /** Plain-language label — a first-time user shouldn't need the "net" metaphor. */
+  label: string
+  color: string
+  /** Tag/icon background fill. */
+  fill: string
+  tip: string
+}
+
+/** Display metadata per bucket. Internal enum values stay; only labels are plain-language. */
+export const BUCKETS: Record<Bucket, BucketMeta> = {
+  'net-ready': {
+    label: 'Ready to protect',
+    color: '#34d399',
+    fill: 'rgba(52,211,153,0.14)',
+    tip: 'Public, UI-free — runs on the CLR today.',
+  },
+  'windows-gated': {
+    label: 'Needs Windows runner',
+    color: '#e3a83c',
+    fill: 'rgba(227,168,60,0.16)',
+    tip: 'Pure logic inside a WinForms class — needs a Windows runner.',
+  },
+  'refactor-first': {
+    label: 'Tangled in the UI',
+    color: '#fb6f73',
+    fill: 'rgba(251,111,115,0.16)',
+    tip: 'Touches controls or dialogs — separate the logic first.',
+  },
+}
 
 /**
  * Heuristic: does this VB.NET source depend on the WinForms UI? Protect compiles and runs
