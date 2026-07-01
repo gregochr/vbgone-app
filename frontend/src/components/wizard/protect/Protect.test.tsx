@@ -337,6 +337,118 @@ describe('StepReadiness (single-file verdict)', () => {
   })
 })
 
+const mixedPortfolio: ReadinessReport = {
+  sessionId: 'p1',
+  confidence: 'static',
+  totals: {
+    classes: 3,
+    methods: 6,
+    netReady: 1,
+    windowsGated: 1,
+    refactorFirst: 1,
+    methodNetReady: 2,
+    methodWindowsGated: 2,
+    methodRefactorFirst: 2,
+  },
+  classes: [
+    {
+      name: 'OrderService',
+      file: 'Services/OrderService.vb',
+      bucket: 'net-ready',
+      reason: 'public, no WinForms references',
+      methods: [
+        { name: 'PlaceOrder', visibility: 'public', bucket: 'net-ready', reason: 'pure' },
+        { name: 'CalcTotal', visibility: 'public', bucket: 'net-ready', reason: 'pure' },
+      ],
+    },
+    {
+      name: 'LedgerView',
+      file: 'Forms/LedgerView.vb',
+      bucket: 'windows-gated',
+      reason: 'pure posting logic in a WinForms class',
+      methods: [
+        { name: 'Post', visibility: 'private', bucket: 'windows-gated', reason: 'pure, UI-bound' },
+      ],
+    },
+    {
+      name: 'MainForm',
+      file: 'MainForm.vb',
+      bucket: 'refactor-first',
+      reason: 'orchestrates controls',
+      methods: [
+        {
+          name: 'btnRun_Click',
+          visibility: 'private',
+          bucket: 'refactor-first',
+          reason: 'drives UI',
+        },
+      ],
+    },
+  ],
+}
+
+describe('StepReadiness (portfolio report)', () => {
+  const portfolioState = { ...baseState, filename: 'LegacyEstate.zip', readiness: mixedPortfolio }
+
+  it('renders the breakdown, per-class table and per-bucket actions', () => {
+    renderWithConfig(<StepReadiness state={portfolioState} update={() => {}} onReady={() => {}} />)
+    expect(screen.getByTestId('readiness-report')).toBeInTheDocument()
+    // net-ready row is actionable; the others are disabled with the right labels.
+    expect(screen.getByText('Protect this class →')).toBeInTheDocument()
+    expect(screen.getByText('Untangle first')).toBeInTheDocument()
+    // "Needs Windows runner" appears as both a filter chip and the disabled action.
+    expect(screen.getAllByText('Needs Windows runner').length).toBeGreaterThan(1)
+    expect(screen.getByTestId('proceed-panel')).toBeInTheDocument()
+    // stacked-bar legend adds up.
+    expect(screen.getAllByText('33%').length).toBeGreaterThan(0)
+  })
+
+  it('drills into the per-class flow when Protect this class is clicked', async () => {
+    const onProtectClass = vi.fn()
+    const user = userEvent.setup()
+    renderWithConfig(
+      <StepReadiness
+        state={portfolioState}
+        update={() => {}}
+        onReady={() => {}}
+        onProtectClass={onProtectClass}
+      />,
+    )
+    await user.click(screen.getByText('Protect this class →'))
+    expect(onProtectClass).toHaveBeenCalledWith('OrderService')
+  })
+
+  it('filters the table to a single bucket', async () => {
+    const user = userEvent.setup()
+    renderWithConfig(<StepReadiness state={portfolioState} update={() => {}} onReady={() => {}} />)
+    expect(screen.getByText('MainForm')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Ready to protect/ }))
+    expect(screen.getByText('OrderService')).toBeInTheDocument()
+    expect(screen.queryByText('MainForm')).not.toBeInTheDocument()
+    expect(screen.queryByText('LedgerView')).not.toBeInTheDocument()
+  })
+
+  it('shows the blocked gate and no proceed panel when nothing is ready', () => {
+    const blocked: ReadinessReport = {
+      ...mixedPortfolio,
+      totals: { ...mixedPortfolio.totals, netReady: 0, windowsGated: 1, refactorFirst: 2 },
+      classes: mixedPortfolio.classes.map((c) =>
+        c.bucket === 'net-ready' ? { ...c, bucket: 'refactor-first' as const } : c,
+      ),
+    }
+    renderWithConfig(
+      <StepReadiness
+        state={{ ...portfolioState, readiness: blocked }}
+        update={() => {}}
+        onReady={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('portfolio-gate')).toBeInTheDocument()
+    expect(screen.getByText('Nothing to protect yet')).toBeInTheDocument()
+    expect(screen.queryByTestId('proceed-panel')).not.toBeInTheDocument()
+  })
+})
+
 describe('looksUiCoupled', () => {
   it('flags WinForms-coupled source', () => {
     expect(looksUiCoupled('Imports System.Windows.Forms')).toBe(true)

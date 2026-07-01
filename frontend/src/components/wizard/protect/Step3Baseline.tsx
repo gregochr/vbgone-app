@@ -9,6 +9,10 @@ interface Props {
   state: WizardState
   update: (partial: Partial<WizardState>) => void
   onReady: () => void
+  /** Portfolio queue drill-in — shows the readiness breadcrumb. */
+  fromQueue?: boolean
+  activeClass?: string
+  onBackToReadiness?: () => void
 }
 
 const KICKER = 'STEP 03 · BASELINE'
@@ -19,7 +23,14 @@ const TITLE = 'Pin current behaviour'
  * contract, it pins the concrete class's *actual* public surface against the real
  * assemblies — defects included — so a later dependency patch surfaces any change.
  */
-export function Step3Baseline({ state, update, onReady }: Props) {
+export function Step3Baseline({
+  state,
+  update,
+  onReady,
+  fromQueue,
+  activeClass,
+  onBackToReadiness,
+}: Props) {
   const { provider, modelOverrides, engineParams } = useWizardConfig()
   const prov = PROVIDERS[provider]
   const mechanicalModel = modelLabelFor(provider, 'mechanical', modelOverrides)
@@ -56,6 +67,15 @@ export function Step3Baseline({ state, update, onReady }: Props) {
   const header = (
     <>
       <div className="step-kicker">{KICKER}</div>
+      {fromQueue && (
+        <div className="queue-breadcrumb">
+          <button className="queue-breadcrumb-link" onClick={onBackToReadiness}>
+            ← readiness
+          </button>
+          <span className="queue-breadcrumb-sep">/</span>
+          <span className="queue-breadcrumb-active">protecting {activeClass ?? className}</span>
+        </div>
+      )}
       <h2 className="step-title">{TITLE}</h2>
     </>
   )

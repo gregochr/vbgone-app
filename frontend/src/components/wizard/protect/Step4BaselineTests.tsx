@@ -17,6 +17,13 @@ interface Props {
   state: WizardState
   update: (partial: Partial<WizardState>) => void
   onReady: () => void
+  /** Portfolio queue drill-in — swaps the closing panel for the queue done-state. */
+  fromQueue?: boolean
+  protectedCount?: number
+  readyTotal?: number
+  nextClassName?: string
+  onProtectNext?: () => void
+  onBackToReadiness?: () => void
 }
 
 const KICKER = 'STEP 04 · BASELINE TESTS'
@@ -28,7 +35,17 @@ const TITLE = 'Confirm the baseline'
  * state; a red result means the net (the oracle) isn't faithful yet — not that the code
  * is broken.
  */
-export function Step4BaselineTests({ state, update, onReady }: Props) {
+export function Step4BaselineTests({
+  state,
+  update,
+  onReady,
+  fromQueue,
+  protectedCount = 0,
+  readyTotal = 0,
+  nextClassName,
+  onProtectNext,
+  onBackToReadiness,
+}: Props) {
   const { provider, modelOverrides, engineParams } = useWizardConfig()
   const prov = PROVIDERS[provider]
   const reasoningModel = modelLabelFor(provider, 'reasoning', modelOverrides)
@@ -265,7 +282,40 @@ export function Step4BaselineTests({ state, update, onReady }: Props) {
         </div>
       )}
 
-      {faithful && (
+      {/* Portfolio queue: a done-state that advances the queue. Single-file: the closing panel. */}
+      {faithful && fromQueue && (
+        <div className="queue-done" data-testid="queue-done">
+          <div className="queue-done-head">
+            <span className="queue-done-check" aria-hidden="true">
+              {'✓'}
+            </span>
+            <div>
+              <div className="queue-done-title">{className} protected</div>
+              <div className="queue-done-count">
+                {protectedCount + 1} / {readyTotal} ready classes protected
+              </div>
+            </div>
+          </div>
+          <div className="queue-done-actions">
+            {nextClassName ? (
+              <button className="btn-plex" onClick={onProtectNext}>
+                Protect next class — {nextClassName} →
+              </button>
+            ) : (
+              <button className="btn-plex" onClick={onBackToReadiness}>
+                All ready classes protected — back to readiness
+              </button>
+            )}
+            {nextClassName && (
+              <button className="btn-ghost" onClick={onBackToReadiness}>
+                Back to readiness
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {faithful && !fromQueue && (
         <div className="baseline-closing" data-testid="baseline-closing">
           <div className="baseline-closing-head">
             <span className="baseline-closing-check" aria-hidden="true">
@@ -278,8 +328,8 @@ export function Step4BaselineTests({ state, update, onReady }: Props) {
             investigate. <strong>Green means nothing changed.</strong>
           </p>
           <div className="baseline-closing-foot">
-            net pinned · how you operate the patch-and-re-run loop — manual, CI, or a future step —
-            is yours to decide
+            baseline pinned · how you operate the patch-and-re-run loop — manual, CI, or a future
+            step — is yours to decide
           </div>
         </div>
       )}
