@@ -303,6 +303,9 @@ export interface WizardState {
   baselineResult: BaselineResult | null
   baselineTests: BaselineTestsResult | null
   netFaithful: boolean
+  /** Portfolio queue: class names protected so far, and whether we drilled in from the report. */
+  netted: string[]
+  fromQueue: boolean
 }
 
 const initialState: WizardState = {
@@ -322,6 +325,8 @@ const initialState: WizardState = {
   baselineResult: null,
   baselineTests: null,
   netFaithful: true,
+  netted: [],
+  fromQueue: false,
 }
 
 const NEXT_TITLES = [
@@ -445,9 +450,77 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   const totalClasses = state.analysis?.suggestedMigrationOrder?.length ?? 1
   // Multi-class iteration (queue + loop-back arc) is a Migrate-only flow.
   const isMultiClass = !projectMode && !protect && totalClasses > 1
-  const minStep = projectMode ? 2 : state.currentClassIndex > 0 ? 2 : 0
+  // Protect can always step back to Readiness/Upload; Migrate locks to the class loop.
+  const minStep = projectMode ? 2 : !protect && state.currentClassIndex > 0 ? 2 : 0
+
+  // ── Protect portfolio queue navigation ──
+  const protectOrder = state.analysis?.suggestedMigrationOrder ?? []
+  const activeClassName: string | undefined = protectOrder[state.currentClassIndex]
+  const isPortfolioInput = state.filename.toLowerCase().endsWith('.zip')
+  const firstUnprotected = (done: string[]) => protectOrder.find((n) => !done.includes(n))
+
+  const protectClass = (name: string) => {
+    const idx = protectOrder.indexOf(name)
+    if (idx < 0) return
+    setState((prev) => ({
+      ...prev,
+      currentClassIndex: idx,
+      fromQueue: true,
+      baselineResult: null,
+      baselineTests: null,
+      netFaithful: true,
+    }))
+    setStepReady(false)
+    setStep(2) // Baseline
+  }
+
+  const protectNext = () => {
+    const done = activeClassName ? [...state.netted, activeClassName] : state.netted
+    const next = firstUnprotected(done)
+    setState((prev) => ({
+      ...prev,
+      netted: done,
+      ...(next
+        ? {
+            currentClassIndex: protectOrder.indexOf(next),
+            baselineResult: null,
+            baselineTests: null,
+            netFaithful: true,
+          }
+        : {}),
+    }))
+    setStepReady(false)
+    setStep(next ? 2 : 1) // next class' Baseline, else back to Readiness
+  }
+
+  const backToReadiness = () => {
+    const done =
+      activeClassName && !state.netted.includes(activeClassName)
+        ? [...state.netted, activeClassName]
+        : state.netted
+    setState((prev) => ({
+      ...prev,
+      netted: done,
+      fromQueue: false,
+      baselineResult: null,
+      baselineTests: null,
+      netFaithful: true,
+    }))
+    setStepReady(false)
+    setStep(1) // Readiness
+  }
+
+  const nextClassName = firstUnprotected(
+    activeClassName ? [...state.netted, activeClassName] : state.netted,
+  )
 
   const next = () => {
+    // Protect portfolio: advancing from the Readiness report drills into the first ready class.
+    if (protect && step === 1 && isPortfolioInput) {
+      const fr = firstUnprotected(state.netted)
+      if (fr) protectClass(fr)
+      return
+    }
     // After Step 5 (index 4) in multi-class: save and advance or finish
     if (step === 4 && isMultiClass) {
       const completed: CompletedClass = {
@@ -556,9 +629,34 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   const steps = protect
     ? [
         upload,
-        <StepReadiness key="1-protect" state={state} update={update} onReady={onReady} />,
-        <Step3Baseline key="2-protect" state={state} update={update} onReady={onReady} />,
-        <Step4BaselineTests key="3-protect" state={state} update={update} onReady={onReady} />,
+        <StepReadiness
+          key="1-protect"
+          state={state}
+          update={update}
+          onReady={onReady}
+          onProtectClass={protectClass}
+        />,
+        <Step3Baseline
+          key="2-protect"
+          state={state}
+          update={update}
+          onReady={onReady}
+          fromQueue={state.fromQueue}
+          activeClass={activeClassName}
+          onBackToReadiness={backToReadiness}
+        />,
+        <Step4BaselineTests
+          key="3-protect"
+          state={state}
+          update={update}
+          onReady={onReady}
+          fromQueue={state.fromQueue}
+          protectedCount={state.netted.length}
+          readyTotal={state.readiness?.totals.netReady ?? protectOrder.length}
+          nextClassName={nextClassName}
+          onProtectNext={protectNext}
+          onBackToReadiness={backToReadiness}
+        />,
       ]
     : [
         upload,

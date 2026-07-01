@@ -106,6 +106,12 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
     onReady()
   }
 
+  // Protect portfolio demos — a .zip filename routes Readiness to the portfolio report.
+  const loadPortfolio = (filename: string, note: string) => {
+    update({ filename, content: `' ${note}` })
+    onReady()
+  }
+
   const loadDemoProject = async () => {
     setUploading(true)
     setUploadError(null)
@@ -333,6 +339,29 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
                   </p>
                 </InfoTip>
               </div>
+              {protect && (
+                <div className="demo-button-group" style={{ marginTop: 10 }}>
+                  <button
+                    className="btn-plex"
+                    onClick={() =>
+                      loadPortfolio('LegacyEstate.zip', 'LegacyEstate.zip — 142 classes')
+                    }
+                  >
+                    Load Portfolio (Mixed Estate)
+                  </button>
+                  <button
+                    className="btn-plex"
+                    onClick={() =>
+                      loadPortfolio(
+                        'WinFormsApp.zip',
+                        'WinFormsApp.zip — 6 classes, all UI-coupled',
+                      )
+                    }
+                  >
+                    Load Portfolio (Nothing Nettable)
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
