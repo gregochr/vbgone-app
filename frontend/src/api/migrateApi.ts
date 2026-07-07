@@ -2172,10 +2172,116 @@ Public Class OrderProcessor
     End Function
 End Class`
 
+// Portfolio demos — REAL multi-class VB.NET so the live /assess classifier (which parses
+// the source, not a zip) produces a genuine mixed report. Shapes are chosen to hit each
+// bucket: plain classes → net-ready; pure methods inside a Form → windows-gated; handlers /
+// control access / MsgBox → refactor-first.
+const DEMO_ESTATE_MIXED = `' LegacyEstate — a mixed VB.NET estate (business logic + WinForms)
+
+Public Class OrderService
+    Public Function PlaceOrder(customerId As Integer, total As Decimal) As Integer
+        Return customerId + CInt(total)
+    End Function
+    Public Function CalculateTotal(qty As Integer, price As Decimal) As Decimal
+        Return qty * price
+    End Function
+    Public Function ApplyDiscount(subtotal As Decimal, code As String) As Decimal
+        If code = "SAVE10" Then Return subtotal * 0.9D
+        Return subtotal
+    End Function
+End Class
+
+Public Class PricingEngine
+    Public Function Quote(basePrice As Decimal, margin As Decimal) As Decimal
+        Return basePrice * (1D + margin)
+    End Function
+    Public Function RoundToTier(amount As Decimal) As Decimal
+        Return Math.Ceiling(amount)
+    End Function
+End Class
+
+Public Class TaxCalculator
+    Public Function VatFor(net As Decimal) As Decimal
+        Return net * 0.2D
+    End Function
+    Public Function NetOf(gross As Decimal) As Decimal
+        Return gross / 1.2D
+    End Function
+End Class
+
+Public Class LedgerView
+    Inherits Form
+    Private Function Post(amount As Decimal) As Decimal
+        Return amount * -1D
+    End Function
+    Private Function Reconcile(a As Decimal, b As Decimal) As Decimal
+        Return a - b
+    End Function
+End Class
+
+Public Class ReportRenderer
+    Inherits Form
+    Private Function BuildSummary(count As Integer, total As Decimal) As String
+        Return count.ToString() & " orders"
+    End Function
+End Class
+
+Public Class CustomerEntryForm
+    Inherits Form
+    Private WithEvents btnSave As Button
+    Private txtName As TextBox
+    Private Sub btnSave_Click(sender As Object, e As EventArgs) Handles btnSave.Click
+        txtName.Text = txtName.Text.Trim()
+    End Sub
+End Class
+
+Public Class MainForm
+    Inherits Form
+    Private WithEvents btnRun As Button
+    Private Sub btnRun_Click(sender As Object, e As EventArgs) Handles btnRun.Click
+        MsgBox("Running")
+    End Sub
+End Class`
+
+const DEMO_ESTATE_BLOCKED = `' WinFormsApp — a WinForms app with no headless surface
+
+Public Class CalculatorForm
+    Inherits Form
+    Private WithEvents btnEquals As Button
+    Private txtDisplay As TextBox
+    Private Sub btnEquals_Click(sender As Object, e As EventArgs) Handles btnEquals.Click
+        txtDisplay.Text = "0"
+    End Sub
+End Class
+
+Public Class SettingsForm
+    Inherits Form
+    Private chkAuto As CheckBox
+    Private Sub Save()
+        Dim auto As Boolean = chkAuto.Checked
+    End Sub
+End Class
+
+Public Class PrintHelper
+    Inherits Form
+    Private Function Paginate(lines As Integer, perPage As Integer) As Integer
+        Return lines \\ perPage
+    End Function
+End Class
+
+Public Class GridView
+    Inherits Form
+    Private Function SortKey(a As Integer, b As Integer) As Integer
+        Return a - b
+    End Function
+End Class`
+
 export {
   DEMO_VB_CONTENT,
   DEMO_FILENAME,
   DEMO_COMPLEX_CONTENT,
   DEMO_COMPLEX_FILENAME,
   DEMO_PROTECT_CONTENT,
+  DEMO_ESTATE_MIXED,
+  DEMO_ESTATE_BLOCKED,
 }

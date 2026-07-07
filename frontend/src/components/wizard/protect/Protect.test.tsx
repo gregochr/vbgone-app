@@ -430,6 +430,34 @@ describe('StepReadiness (portfolio report)', () => {
     expect(screen.queryByText('LedgerView')).not.toBeInTheDocument()
   })
 
+  it('shows an explicit empty state (not a loop) when a scan finds no classes', () => {
+    const empty: ReadinessReport = {
+      sessionId: 'e1',
+      confidence: 'static',
+      totals: {
+        classes: 0,
+        methods: 0,
+        netReady: 0,
+        windowsGated: 0,
+        refactorFirst: 0,
+        methodNetReady: 0,
+        methodWindowsGated: 0,
+        methodRefactorFirst: 0,
+      },
+      classes: [],
+    }
+    renderWithConfig(
+      <StepReadiness
+        state={{ ...portfolioState, filename: 'Empty.zip', readiness: empty }}
+        update={() => {}}
+        onReady={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('scan-empty')).toBeInTheDocument()
+    expect(screen.getByText('No classes found')).toBeInTheDocument()
+    expect(screen.queryByTestId('readiness-report')).not.toBeInTheDocument()
+  })
+
   it('shows the blocked gate and no proceed panel when nothing is ready', () => {
     const blocked: ReadinessReport = {
       ...mixedPortfolio,

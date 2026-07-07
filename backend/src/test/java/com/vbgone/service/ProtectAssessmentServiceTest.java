@@ -160,4 +160,126 @@ class ProtectAssessmentServiceTest {
         assertThat(c.methods()).extracting(m -> m.name()).containsExactly("NetRevenue");
         assertThat(c.methods().get(0).bucket()).isEqualTo(Bucket.WINDOWS_GATED);
     }
+
+    // ── Portfolio demo blobs (must stay in sync with frontend DEMO_ESTATE_* content) ──
+
+    private static final String DEMO_MIXED = """
+            Public Class OrderService
+                Public Function PlaceOrder(customerId As Integer, total As Decimal) As Integer
+                    Return customerId + CInt(total)
+                End Function
+                Public Function CalculateTotal(qty As Integer, price As Decimal) As Decimal
+                    Return qty * price
+                End Function
+                Public Function ApplyDiscount(subtotal As Decimal, code As String) As Decimal
+                    If code = "SAVE10" Then Return subtotal * 0.9D
+                    Return subtotal
+                End Function
+            End Class
+
+            Public Class PricingEngine
+                Public Function Quote(basePrice As Decimal, margin As Decimal) As Decimal
+                    Return basePrice * (1D + margin)
+                End Function
+                Public Function RoundToTier(amount As Decimal) As Decimal
+                    Return Math.Ceiling(amount)
+                End Function
+            End Class
+
+            Public Class TaxCalculator
+                Public Function VatFor(net As Decimal) As Decimal
+                    Return net * 0.2D
+                End Function
+                Public Function NetOf(gross As Decimal) As Decimal
+                    Return gross / 1.2D
+                End Function
+            End Class
+
+            Public Class LedgerView
+                Inherits Form
+                Private Function Post(amount As Decimal) As Decimal
+                    Return amount * -1D
+                End Function
+                Private Function Reconcile(a As Decimal, b As Decimal) As Decimal
+                    Return a - b
+                End Function
+            End Class
+
+            Public Class ReportRenderer
+                Inherits Form
+                Private Function BuildSummary(count As Integer, total As Decimal) As String
+                    Return count.ToString() & " orders"
+                End Function
+            End Class
+
+            Public Class CustomerEntryForm
+                Inherits Form
+                Private WithEvents btnSave As Button
+                Private txtName As TextBox
+                Private Sub btnSave_Click(sender As Object, e As EventArgs) Handles btnSave.Click
+                    txtName.Text = txtName.Text.Trim()
+                End Sub
+            End Class
+
+            Public Class MainForm
+                Inherits Form
+                Private WithEvents btnRun As Button
+                Private Sub btnRun_Click(sender As Object, e As EventArgs) Handles btnRun.Click
+                    MsgBox("Running")
+                End Sub
+            End Class""";
+
+    private static final String DEMO_BLOCKED = """
+            Public Class CalculatorForm
+                Inherits Form
+                Private WithEvents btnEquals As Button
+                Private txtDisplay As TextBox
+                Private Sub btnEquals_Click(sender As Object, e As EventArgs) Handles btnEquals.Click
+                    txtDisplay.Text = "0"
+                End Sub
+            End Class
+
+            Public Class SettingsForm
+                Inherits Form
+                Private chkAuto As CheckBox
+                Private Sub Save()
+                    Dim auto As Boolean = chkAuto.Checked
+                End Sub
+            End Class
+
+            Public Class PrintHelper
+                Inherits Form
+                Private Function Paginate(lines As Integer, perPage As Integer) As Integer
+                    Return lines \\ perPage
+                End Function
+            End Class
+
+            Public Class GridView
+                Inherits Form
+                Private Function SortKey(a As Integer, b As Integer) As Integer
+                    Return a - b
+                End Function
+            End Class""";
+
+    @Test
+    void demoMixedEstate_producesAllThreeBuckets() {
+        ReadinessReport r = service.assess("LegacyEstate.zip", DEMO_MIXED);
+        // Plain classes → net-ready; pure methods in a Form → windows-gated; handlers/controls/MsgBox → refactor-first.
+        assertThat(r.totals().classes()).isEqualTo(7);
+        assertThat(r.totals().netReady()).isEqualTo(3);
+        assertThat(r.totals().windowsGated()).isEqualTo(2);
+        assertThat(r.totals().refactorFirst()).isEqualTo(2);
+        assertThat(classNamed(r, "OrderService").bucket()).isEqualTo(Bucket.NET_READY);
+        assertThat(classNamed(r, "LedgerView").bucket()).isEqualTo(Bucket.WINDOWS_GATED);
+        assertThat(classNamed(r, "MainForm").bucket()).isEqualTo(Bucket.REFACTOR_FIRST);
+    }
+
+    @Test
+    void demoBlockedEstate_hasNoReadyClasses() {
+        ReadinessReport r = service.assess("WinFormsApp.zip", DEMO_BLOCKED);
+        assertThat(r.totals().classes()).isEqualTo(4);
+        assertThat(r.totals().netReady()).isZero();
+        assertThat(r.totals().windowsGated()).isGreaterThan(0);
+        assertThat(r.totals().refactorFirst()).isGreaterThan(0);
+    }
 }

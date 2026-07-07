@@ -15,6 +15,8 @@ import {
   assess,
   DEMO_PROTECT_CONTENT,
   DEMO_COMPLEX_CONTENT,
+  DEMO_ESTATE_MIXED,
+  DEMO_ESTATE_BLOCKED,
 } from './migrateApi'
 
 describe('migrateApi mock functions', () => {
@@ -183,5 +185,15 @@ describe('Protect demo source', () => {
 
   it('confirms the Migrate complex demo is the WinForms variant (contrast)', () => {
     expect(DEMO_COMPLEX_CONTENT).toContain('System.Windows.Forms')
+  })
+
+  // The portfolio demos must be REAL multi-class VB — the live /assess parses the source,
+  // so a placeholder comment would classify to zero classes and the report would never load.
+  it('the portfolio demos are real multi-class VB.NET (not placeholders)', () => {
+    const classCount = (s: string) => (s.match(/\bPublic Class \w+/g) ?? []).length
+    expect(classCount(DEMO_ESTATE_MIXED)).toBeGreaterThan(3)
+    expect(DEMO_ESTATE_MIXED).toContain('Inherits Form') // has UI-coupled classes too
+    expect(classCount(DEMO_ESTATE_BLOCKED)).toBeGreaterThan(1)
+    expect(DEMO_ESTATE_BLOCKED).toContain('Handles ') // WinForms event handlers
   })
 })
