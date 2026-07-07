@@ -163,6 +163,49 @@ class ProtectServiceTest {
     }
 
     @Test
+    void runBaselineTests_reattachesTestClassAttributeStrippedByCodeFencing() {
+        // The prompt tells the model to omit `using` lines, so its output starts with the
+        // [TestClass] attribute. stripCodeFences anchors on "public class" and drops that line —
+        // leaving a suite MSTest discovers 0 tests in. The service must put the attribute back.
+        MigrationSession session = session("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse("""
+                        [TestClass]
+                        public class OrderProcessorBaseline
+                        {
+                            [TestMethod]
+                            public void SplitPerHead_ZeroHeadcount_Throws() { }
+                        }"""));
+        when(runner.run(any(), eq("OrderProcessor"), any()))
+                .thenReturn(build(BuildStatus.GREEN, 1, 1, 0));
+
+        service.runBaselineTests("s1", "OrderProcessor", null, null, null);
+
+        // The suite actually handed to the CLR runner must carry [TestClass].
+        assertThat(session.getBaselineSuite().code()).contains("[TestClass]");
+    }
+
+    @Test
+    void ensureTestClassAttribute_reattachesWhenMissing() {
+        String stripped = "public class OrderProcessorBaseline\n{\n    [TestMethod]\n    public void A() {}\n}";
+        String fixed = ProtectService.ensureTestClassAttribute(stripped);
+        assertThat(fixed).contains("[TestClass]\npublic class OrderProcessorBaseline");
+    }
+
+    @Test
+    void ensureTestClassAttribute_leavesCodeThatAlreadyHasItUntouched() {
+        String already = "[TestClass]\npublic class X\n{\n    [TestMethod]\n    public void A() {}\n}";
+        assertThat(ProtectService.ensureTestClassAttribute(already)).isEqualTo(already);
+    }
+
+    @Test
+    void ensureTestClassAttribute_ignoresCodeWithoutTestMethods() {
+        String noTests = "public class Helper\n{\n    public int A() => 1;\n}";
+        assertThat(ProtectService.ensureTestClassAttribute(noTests)).isEqualTo(noTests);
+    }
+
+    @Test
     void runBaselineTests_compileErrorIsNotFaithful() {
         MigrationSession session = session("s1");
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));

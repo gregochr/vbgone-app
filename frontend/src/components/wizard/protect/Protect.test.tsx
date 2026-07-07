@@ -266,6 +266,36 @@ describe('Step4BaselineTests', () => {
     expect(screen.queryByTestId('baseline-closing')).not.toBeInTheDocument()
   })
 
+  it('shows a distinct "0 runnable tests" state (not drift) and offers re-generation', () => {
+    // The suite compiled and ran (no errors), but MSTest discovered 0 tests — total 0/0.
+    const empty: BaselineTestsResult = {
+      ...mockBaselineTests,
+      netFaithful: false,
+      testCount: 0,
+      build: {
+        ...mockBaselineTests.build,
+        buildStatus: 'GREEN',
+        total: 0,
+        passed: 0,
+        failed: 0,
+        errors: [],
+        failedTests: [],
+      },
+      failures: [],
+    }
+    const state = { ...baseState, baselineTests: empty, netFaithful: false }
+    renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
+
+    expect(screen.getByTestId('net-banner-red')).toBeInTheDocument()
+    expect(screen.getByTestId('net-no-tests')).toBeInTheDocument()
+    expect(screen.getByText(/0 runnable tests/)).toBeInTheDocument()
+    // Re-generation, not edit-and-re-run of an empty suite; and no "drifted assertion" framing.
+    expect(screen.getByText('Re-generate suite & run')).toBeInTheDocument()
+    expect(screen.queryByText('Edit baseline & re-run')).not.toBeInTheDocument()
+    expect(screen.queryByText(/drifted into aspiration/)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('net-failures')).not.toBeInTheDocument()
+  })
+
   const erroredResult = (errors: string[]): BaselineTestsResult => ({
     ...mockBaselineTests,
     netFaithful: false,

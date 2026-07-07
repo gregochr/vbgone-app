@@ -91,6 +91,7 @@ public class ProtectService {
 
     /** Wraps the suite, runs it against the original VB on the CLR sidecar, builds the result. */
     private BaselineTestsResult executeSuite(MigrationSession session, String className, String code) {
+        code = ensureTestClassAttribute(code);
         String testClassName = className + "Baseline";
         int generatedCount = prompts.countMsTests(code);
         TestsResult suite = new TestsResult(session.getSessionId(), className, testClassName, code, generatedCount);
@@ -110,6 +111,27 @@ public class ProtectService {
         int testCount = build.total() > 0 ? build.total() : generatedCount;
         return new BaselineTestsResult(session.getSessionId(), className, testClassName, code,
                 testCount, netFaithful, build, failures);
+    }
+
+    /**
+     * The baseline prompt (correctly) instructs the model to omit {@code using} lines — the
+     * csproj supplies them as global usings — so the model's output starts with {@code [TestClass]}.
+     * {@code stripCodeFences} then anchors on {@code "public class "} and returns everything from
+     * that point, silently dropping the leading attribute. Without {@code [TestClass]}, MSTest
+     * discovers zero tests: the suite compiles and runs but the .trx reports 0/0, which the UI
+     * reads as "baseline not faithful". Re-attach the attribute if it went missing (idempotent, so
+     * it also guards the user-edited re-run path).
+     */
+    static String ensureTestClassAttribute(String code) {
+        if (code == null || code.isBlank() || code.contains("[TestClass]")) return code;
+        boolean hasTests = code.contains("[TestMethod]") || code.contains("[DataTestMethod]");
+        if (!hasTests) return code;
+        int idx = code.indexOf("public class ");
+        if (idx < 0) idx = code.indexOf("class ");
+        if (idx < 0) return code;
+        int lineStart = code.lastIndexOf('\n', idx) + 1;
+        String indent = code.substring(lineStart, idx);
+        return code.substring(0, lineStart) + indent + "[TestClass]\n" + code.substring(lineStart);
     }
 
     private List<BaselineMember> parseMembers(String json) {
