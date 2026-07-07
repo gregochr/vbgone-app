@@ -30,6 +30,13 @@ jobs:
       - name: Lint
         run: npx eslint .
 
+      # Full production build (tsc -b + vite build) — the same command the deploy
+      # image runs. vitest/eslint don't type-check test files under the build's
+      # project references, so without this a type break in a *.test.tsx slips
+      # through CI and only fails at image build time (see the v1.2.x deploys).
+      - name: Type-check & build
+        run: npm run build
+
       - name: Test with coverage
         run: npx vitest run --coverage
 

@@ -38,6 +38,12 @@ const emptyState: WizardState = {
   implementResult: null,
   greenBuild: null,
   prResult: null,
+  readiness: null,
+  baselineResult: null,
+  baselineTests: null,
+  netFaithful: true,
+  netted: [],
+  fromQueue: false,
 }
 
 describe('Step1Upload', () => {
