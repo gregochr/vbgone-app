@@ -48,7 +48,7 @@ class GitHubModelsProviderTest {
     @Test
     void generate_noToken_throwsProviderUnavailable() {
         GitHubModelsProvider p = new GitHubModelsProvider("", objectMapper);
-        assertThatThrownBy(() -> p.generate("openai/gpt-5", "sys", "user", 100))
+        assertThatThrownBy(() -> p.generate("openai/gpt-4.1", "sys", "user", 100))
                 .isInstanceOf(ProviderUnavailableException.class)
                 .hasMessageContaining("GITHUB_MODELS_TOKEN");
     }
@@ -56,7 +56,7 @@ class GitHubModelsProviderTest {
     @Test
     void generate_nullToken_throwsProviderUnavailable() {
         GitHubModelsProvider p = new GitHubModelsProvider(null, objectMapper);
-        assertThatThrownBy(() -> p.generate("openai/gpt-5", "sys", "user", 100))
+        assertThatThrownBy(() -> p.generate("openai/gpt-4.1", "sys", "user", 100))
                 .isInstanceOf(ProviderUnavailableException.class)
                 .hasMessageContaining("not configured");
     }
@@ -73,12 +73,12 @@ class GitHubModelsProviderTest {
                           "usage": { "prompt_tokens": 123, "completion_tokens": 45 }
                         }"""));
 
-        AiResponse response = provider("tok").generate("openai/o3", "system prompt", "user message", 4096);
+        AiResponse response = provider("tok").generate("openai/gpt-4.1", "system prompt", "user message", 4096);
 
         assertThat(response.text()).isEqualTo("public class Foo {}");
         assertThat(response.inputTokens()).isEqualTo(123);
         assertThat(response.outputTokens()).isEqualTo(45);
-        assertThat(response.modelId()).isEqualTo("openai/o3");
+        assertThat(response.modelId()).isEqualTo("openai/gpt-4.1");
         assertThat(response.provider()).isEqualTo("copilot");
 
         RecordedRequest recorded = server.takeRequest();
@@ -86,7 +86,7 @@ class GitHubModelsProviderTest {
         assertThat(recorded.getHeader("Authorization")).isEqualTo("Bearer tok");
 
         JsonNode body = objectMapper.readTree(recorded.getBody().readUtf8());
-        assertThat(body.get("model").asText()).isEqualTo("openai/o3");
+        assertThat(body.get("model").asText()).isEqualTo("openai/gpt-4.1");
         assertThat(body.get("max_tokens").asLong()).isEqualTo(4096);
         assertThat(body.get("messages").get(0).get("role").asText()).isEqualTo("system");
         assertThat(body.get("messages").get(0).get("content").asText()).isEqualTo("system prompt");
@@ -100,7 +100,7 @@ class GitHubModelsProviderTest {
                 .setResponseCode(401)
                 .setBody("{\"error\":\"bad credentials\"}"));
 
-        assertThatThrownBy(() -> provider("tok").generate("openai/o3", "s", "u", 100))
+        assertThatThrownBy(() -> provider("tok").generate("openai/gpt-4.1", "s", "u", 100))
                 .isInstanceOf(ProviderUnavailableException.class)
                 .hasMessageContaining("HTTP 401");
     }

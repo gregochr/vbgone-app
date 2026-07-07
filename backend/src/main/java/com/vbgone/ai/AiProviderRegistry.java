@@ -28,9 +28,11 @@ public class AiProviderRegistry {
             "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5");
 
     // GitHub Models inference catalog ids are publisher-namespaced (models.github.ai).
-    // Anthropic/Gemini are NOT exposed on this endpoint — OpenAI models only.
+    // Only the GPT-4.1/4o family is reachable by personal GitHub accounts on the
+    // free tier (verified HTTP 200). o3 / GPT-5 return 403 and cannot be unlocked
+    // (personal accounts can't enable Models paid usage), so they are excluded here.
     private static final Set<String> COPILOT_MODELS = Set.of(
-            "openai/gpt-5", "openai/o3", "openai/gpt-4.1", "openai/gpt-4o", "openai/o4-mini", "openai/gpt-5-mini");
+            "openai/gpt-4.1", "openai/gpt-4o", "openai/gpt-4.1-mini", "openai/gpt-4o-mini");
 
     // ── Provider x Role -> default model id ──
     private static final Map<String, Map<ModelRole, String>> DEFAULTS = Map.of(
@@ -40,10 +42,10 @@ public class AiProviderRegistry {
                     ModelRole.IMPLEMENTATION, "claude-sonnet-4-6",
                     ModelRole.ESCALATION, "claude-opus-4-6"),
             GitHubModelsProvider.ID, Map.of(
-                    ModelRole.REASONING, "openai/o3",
-                    ModelRole.MECHANICAL, "openai/gpt-4.1",
-                    ModelRole.IMPLEMENTATION, "openai/o3",
-                    ModelRole.ESCALATION, "openai/gpt-5"));
+                    ModelRole.REASONING, "openai/gpt-4.1",
+                    ModelRole.MECHANICAL, "openai/gpt-4o-mini",
+                    ModelRole.IMPLEMENTATION, "openai/gpt-4.1",
+                    ModelRole.ESCALATION, "openai/gpt-4o"));
 
     private final Map<String, AiProvider> providers = new HashMap<>();
 

@@ -43,10 +43,10 @@ class AiProviderRegistryTest {
 
     @Test
     void modelFor_copilotDefaults() {
-        assertThat(registry.modelFor("copilot", ModelRole.REASONING, Map.of())).isEqualTo("openai/o3");
-        assertThat(registry.modelFor("copilot", ModelRole.MECHANICAL, Map.of())).isEqualTo("openai/gpt-4.1");
-        assertThat(registry.modelFor("copilot", ModelRole.IMPLEMENTATION, Map.of())).isEqualTo("openai/o3");
-        assertThat(registry.modelFor("copilot", ModelRole.ESCALATION, Map.of())).isEqualTo("openai/gpt-5");
+        assertThat(registry.modelFor("copilot", ModelRole.REASONING, Map.of())).isEqualTo("openai/gpt-4.1");
+        assertThat(registry.modelFor("copilot", ModelRole.MECHANICAL, Map.of())).isEqualTo("openai/gpt-4o-mini");
+        assertThat(registry.modelFor("copilot", ModelRole.IMPLEMENTATION, Map.of())).isEqualTo("openai/gpt-4.1");
+        assertThat(registry.modelFor("copilot", ModelRole.ESCALATION, Map.of())).isEqualTo("openai/gpt-4o");
     }
 
     @Test
@@ -59,11 +59,11 @@ class AiProviderRegistryTest {
 
     @Test
     void modelFor_overrideWinsOverDefault() {
-        Map<String, String> overrides = Map.of("reasoning", "openai/gpt-4o", "mechanical", "openai/o4-mini");
-        assertThat(registry.modelFor("copilot", ModelRole.REASONING, overrides)).isEqualTo("openai/gpt-4o");
-        assertThat(registry.modelFor("copilot", ModelRole.MECHANICAL, overrides)).isEqualTo("openai/o4-mini");
+        Map<String, String> overrides = Map.of("reasoning", "openai/gpt-4.1-mini", "mechanical", "openai/gpt-4o");
+        assertThat(registry.modelFor("copilot", ModelRole.REASONING, overrides)).isEqualTo("openai/gpt-4.1-mini");
+        assertThat(registry.modelFor("copilot", ModelRole.MECHANICAL, overrides)).isEqualTo("openai/gpt-4o");
         // Role with no override falls back to default
-        assertThat(registry.modelFor("copilot", ModelRole.ESCALATION, overrides)).isEqualTo("openai/gpt-5");
+        assertThat(registry.modelFor("copilot", ModelRole.ESCALATION, overrides)).isEqualTo("openai/gpt-4o");
     }
 
     @Test
@@ -112,6 +112,6 @@ class AiProviderRegistryTest {
                 .containsExactlyInAnyOrder("claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5");
         assertThat(registry.validModelIds("copilot"))
                 .containsExactlyInAnyOrder(
-                        "openai/gpt-5", "openai/o3", "openai/gpt-4.1", "openai/gpt-4o", "openai/o4-mini", "openai/gpt-5-mini");
+                        "openai/gpt-4.1", "openai/gpt-4o", "openai/gpt-4.1-mini", "openai/gpt-4o-mini");
     }
 }

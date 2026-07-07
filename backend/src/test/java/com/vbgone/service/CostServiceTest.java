@@ -99,19 +99,19 @@ class CostServiceTest {
     // ── calculateCost — GitHub Models (Copilot) canonical ids ──
 
     @Test
-    void calculateCost_copilotGpt5UsesPlaceholderPricing() {
-        // PLACEHOLDER pricing: openai/gpt-5 $5 input, $15 output per million
-        double cost = CostService.calculateCost("openai/gpt-5", 1_000_000, 1_000_000);
-        assertThat(cost).isCloseTo(20.0, within(1e-9));
+    void calculateCost_copilotGpt41UsesPlaceholderPricing() {
+        // PLACEHOLDER pricing: openai/gpt-4.1 $2 input, $8 output per million
+        double cost = CostService.calculateCost("openai/gpt-4.1", 1_000_000, 1_000_000);
+        assertThat(cost).isCloseTo(10.0, within(1e-9));
     }
 
     @Test
-    void calculateCost_copilotO3UsesPlaceholderPricing() {
-        // PLACEHOLDER pricing: openai/o3 $2 input, $8 output per million
-        double cost = CostService.calculateCost("openai/o3", 1_000_000, 0);
-        assertThat(cost).isEqualTo(2.0);
-        double output = CostService.calculateCost("openai/o3", 0, 1_000_000);
-        assertThat(output).isEqualTo(8.0);
+    void calculateCost_copilotGpt4oMiniUsesPlaceholderPricing() {
+        // PLACEHOLDER pricing: openai/gpt-4o-mini $0.15 input, $0.60 output per million
+        double cost = CostService.calculateCost("openai/gpt-4o-mini", 1_000_000, 0);
+        assertThat(cost).isCloseTo(0.15, within(1e-9));
+        double output = CostService.calculateCost("openai/gpt-4o-mini", 0, 1_000_000);
+        assertThat(output).isCloseTo(0.60, within(1e-9));
     }
 
     @Test
