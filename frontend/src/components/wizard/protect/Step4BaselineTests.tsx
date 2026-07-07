@@ -180,7 +180,9 @@ export function Step4BaselineTests({
   // A compile failure (e.g. WinForms-coupled VB on the Linux sidecar) — distinct from a
   // drifted assertion. Surface the compiler output rather than the assertion framing.
   const compileError = tests.build.errors.length > 0
-  const uiCoupled = compileError && looksUiCoupled(state.content)
+  // Only frame it as "UI-coupled" for a single-file scan. In the portfolio queue the class is
+  // net-ready by construction (and content is the whole estate), so the generic hint fits.
+  const uiCoupled = compileError && !fromQueue && looksUiCoupled(state.content)
 
   return (
     <div>

@@ -13,6 +13,7 @@ import {
   runBaselineTests,
   rerunBaselineTests,
   assess,
+  assessProject,
   DEMO_PROTECT_CONTENT,
   DEMO_COMPLEX_CONTENT,
   DEMO_ESTATE_MIXED,
@@ -153,6 +154,13 @@ describe('migrateApi mock functions', () => {
     expect(r.totals.netReady).toBeGreaterThan(0)
     expect(r.totals.windowsGated).toBeGreaterThan(0)
     expect(r.totals.refactorFirst).toBeGreaterThan(0)
+  })
+
+  it('assessProject classifies an uploaded estate zip', async () => {
+    const mixed = await assessProject(new File(['x'], 'LegacyEstate.zip'))
+    expect(mixed.totals.netReady).toBeGreaterThan(0)
+    const blocked = await assessProject(new File(['x'], 'WinFormsApp.zip'))
+    expect(blocked.totals.netReady).toBe(0)
   })
 })
 

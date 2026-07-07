@@ -1552,6 +1552,13 @@ public class OrderProcessor : IOrderProcessor
     return MOCK_READINESS.singleReady
   },
 
+  async assessProject(file: File): Promise<ReadinessReport> {
+    await delay(700)
+    return file.name.toLowerCase().includes('winforms')
+      ? MOCK_READINESS.portfolioBlocked
+      : MOCK_READINESS.portfolioMixed
+  },
+
   async fetchCost(sessionId: string): Promise<CostResult> {
     void sessionId
     return { sessionId: MOCK_SESSION_ID, steps: [], totalCost: 0 }
@@ -1708,6 +1715,15 @@ const realApi = {
     return data
   },
 
+  async assessProject(file: File): Promise<ReadinessReport> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await protectApi.post<ReadinessReport>('/assess-project', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
+  },
+
   async fetchCost(sessionId: string): Promise<CostResult> {
     const { data } = await api.get<CostResult>(`/cost/${sessionId}`)
     return data
@@ -1732,6 +1748,7 @@ export const generateBaseline = active.generateBaseline
 export const runBaselineTests = active.runBaselineTests
 export const rerunBaselineTests = active.rerunBaselineTests
 export const assess = active.assess
+export const assessProject = active.assessProject
 export const fetchCost = active.fetchCost
 
 /* Export the axios instance for when we wire to real backend */

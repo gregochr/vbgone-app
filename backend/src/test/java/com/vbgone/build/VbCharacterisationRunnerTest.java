@@ -112,6 +112,28 @@ class VbCharacterisationRunnerTest {
     }
 
     @Test
+    void run_compilesTheProtectableSubsetWhenPinned() throws Exception {
+        // When a net-ready subset is pinned (portfolio estate), compile THAT — not the whole
+        // uploaded source, which may contain WinForms classes that can't build headless.
+        MigrationSession s = session("s1");
+        s.setProtectableSource("Public Class OrderProcessor\n"
+                + "  Public Function Fee(x As Decimal) As Decimal\n    Return x * 0.1D\n  End Function\n"
+                + "End Class");
+        when(processRunner.run(anyList())).thenAnswer(inv -> {
+            writeTrx("s1", GREEN_TRX);
+            return new ProcessOutput(0, "Passed!", "");
+        });
+
+        runner.run(s, "OrderProcessor", suite("s1"));
+
+        Path vb = tempDir.resolve("s1").resolve("protect")
+                .resolve("OrderProcessor.Vb").resolve("OrderProcessor.vb");
+        // The subset (not the session's raw vbContent) is what got written.
+        assertThat(Files.readString(vb)).contains("Public Function Fee(")
+                .doesNotContain("End Class\nEnd Class");
+    }
+
+    @Test
     void run_writesOriginalVbAndBaselineSuiteToWorkspace() throws Exception {
         when(processRunner.run(anyList())).thenAnswer(inv -> {
             writeTrx("s1", GREEN_TRX);

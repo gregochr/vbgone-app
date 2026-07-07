@@ -9,6 +9,12 @@ public class MigrationSession {
     private final String sessionId;
     private String filename;
     private String vbContent;
+    /**
+     * The UI-free subset of the source (concatenated net-ready classes) that can compile
+     * headless on the Linux CLR. Protect's characterisation run compiles THIS, not the whole
+     * estate — otherwise WinForms classes in the same upload break the build.
+     */
+    private String protectableSource;
     private String targetLanguage = "csharp";
     private final Map<String, String> classSources = new HashMap<>();
     private AnalysisResult analysisResult;
@@ -37,6 +43,9 @@ public class MigrationSession {
 
     public String getVbContent() { return vbContent; }
     public void setVbContent(String vbContent) { this.vbContent = vbContent; }
+
+    public String getProtectableSource() { return protectableSource; }
+    public void setProtectableSource(String protectableSource) { this.protectableSource = protectableSource; }
 
     public String getTargetLanguage() { return targetLanguage; }
     public void setTargetLanguage(String targetLanguage) { this.targetLanguage = targetLanguage; }
