@@ -79,7 +79,7 @@ export function AppHeader() {
           <span className="brand-word">vbgone</span>
         </div>
         <span className="brand-caption">
-          {protect ? 'VB.NET · behavioural baseline' : `VB.NET → ${lang.lang}`}
+          {protect ? 'VB.NET · behaviour safety net' : `VB.NET → ${lang.lang}`}
         </span>
       </div>
 

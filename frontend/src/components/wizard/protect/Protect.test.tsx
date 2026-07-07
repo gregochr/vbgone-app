@@ -158,7 +158,7 @@ describe('AppHeader — MODE toggle', () => {
     renderWithConfig(<AppHeader />)
     await user.click(screen.getByText('Protect'))
 
-    expect(screen.getByText('VB.NET · behavioural baseline')).toBeInTheDocument()
+    expect(screen.getByText('VB.NET · behaviour safety net')).toBeInTheDocument()
     const java = screen.getByText('Java')
     expect(java).toHaveClass('locked')
     expect(java).toHaveAttribute('title', expect.stringContaining('C# only'))
@@ -207,7 +207,7 @@ describe('Step3Baseline', () => {
     const state = { ...baseState, baselineResult: mockBaseline }
     renderWithConfig(<Step3Baseline state={state} update={() => {}} onReady={() => {}} />)
 
-    expect(screen.getByText('Behaviour pinned as-is')).toBeInTheDocument()
+    expect(screen.getByText('Behaviour recorded as-is')).toBeInTheDocument()
     expect(screen.getByText('Green means unchanged, not correct.')).toBeInTheDocument()
     expect(screen.getByText('OrderProcessor.dll · public surface')).toBeInTheDocument()
     expect(
@@ -223,16 +223,16 @@ describe('Step3Baseline', () => {
 })
 
 describe('Step4BaselineTests', () => {
-  it('shows the GREEN banner and closing panel when the net is faithful', () => {
+  it('shows the GREEN banner and closing panel when the run is green', () => {
     const state = { ...baseState, baselineTests: mockBaselineTests, netFaithful: true }
     renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
 
     expect(screen.getByTestId('net-banner-green')).toBeInTheDocument()
     expect(screen.getByText(/43 \/ 43 passing/)).toBeInTheDocument()
-    expect(screen.getByText('You now have a behavioural baseline')).toBeInTheDocument()
+    expect(screen.getByText('You now have a safety net of tests')).toBeInTheDocument()
   })
 
-  it('lists the drifted assertions and offers Edit baseline & re-run when not faithful', () => {
+  it('lists the failing tests and offers Edit tests & re-run when a run is red', () => {
     const drifted: BaselineTestsResult = {
       ...mockBaselineTests,
       netFaithful: false,
@@ -254,14 +254,14 @@ describe('Step4BaselineTests', () => {
     renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
 
     expect(screen.getByTestId('net-banner-red')).toBeInTheDocument()
-    // The failing assertion name + message are surfaced — not just the count.
-    expect(screen.getByTestId('net-failures')).toBeInTheDocument()
+    // The failing test name + message are surfaced — not just the count.
+    expect(screen.getByTestId('failed-tests')).toBeInTheDocument()
     expect(
       screen.getByText('ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged'),
     ).toBeInTheDocument()
     expect(screen.getByText('Expected: 100 but was: 90')).toBeInTheDocument()
     // The action makes the intent clear (edit, not just re-run) and the closing panel is hidden.
-    expect(screen.getByText('Edit baseline & re-run')).toBeInTheDocument()
+    expect(screen.getByText('Edit tests & re-run')).toBeInTheDocument()
     expect(screen.queryByText('Re-run suite')).not.toBeInTheDocument()
     expect(screen.queryByTestId('baseline-closing')).not.toBeInTheDocument()
   })
@@ -289,11 +289,10 @@ describe('Step4BaselineTests', () => {
     expect(screen.getByTestId('net-banner-red')).toBeInTheDocument()
     expect(screen.getByTestId('net-no-tests')).toBeInTheDocument()
     expect(screen.getByText(/0 runnable tests/)).toBeInTheDocument()
-    // Re-generation, not edit-and-re-run of an empty suite; and no "drifted assertion" framing.
+    // Re-generation, not edit-and-re-run of an empty suite; and no "wrong test" framing.
     expect(screen.getByText('Re-generate suite & run')).toBeInTheDocument()
-    expect(screen.queryByText('Edit baseline & re-run')).not.toBeInTheDocument()
-    expect(screen.queryByText(/drifted into aspiration/)).not.toBeInTheDocument()
-    expect(screen.queryByTestId('net-failures')).not.toBeInTheDocument()
+    expect(screen.queryByText('Edit tests & re-run')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('failed-tests')).not.toBeInTheDocument()
   })
 
   const erroredResult = (errors: string[]): BaselineTestsResult => ({
@@ -311,7 +310,7 @@ describe('Step4BaselineTests', () => {
     failures: [],
   })
 
-  it('surfaces compile errors (the WinForms/degraded path) distinctly from drifted assertions', () => {
+  it('surfaces compile errors (the WinForms/degraded path) distinctly from a failing test', () => {
     const errored = erroredResult(['OrderProcessor.vb(8): error BC30002: Type Form is not defined'])
     const state = { ...baseState, baselineTests: errored, netFaithful: false }
     renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
@@ -332,7 +331,7 @@ describe('Step4BaselineTests', () => {
 
     const hint = screen.getByTestId('net-precondition')
     expect(hint).toHaveTextContent(/UI-coupled/)
-    expect(hint).toHaveTextContent(/business-logic surface/)
+    expect(hint).toHaveTextContent(/business-logic class that runs without the screen/)
   })
 
   it('gives a generic compile hint when the source is not obviously UI-coupled', () => {
@@ -352,6 +351,55 @@ describe('Step4BaselineTests', () => {
     expect(hint).toHaveTextContent(/self-contained with no UI or platform dependencies/)
     expect(hint).not.toHaveTextContent(/UI-coupled/)
   })
+
+  // ── Auto-repair loop (client-driven demo, reveals attempts on timers) ──
+  it('enters the pre-repair state and switches demo scenarios from the green banner', async () => {
+    const user = userEvent.setup()
+    const state = { ...baseState, baselineTests: mockBaselineTests, netFaithful: true }
+    renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
+
+    await user.click(screen.getByTestId('simulate-fail'))
+    // Red drift banner + failed-tests panel + the demo switcher appear.
+    expect(screen.getByTestId('net-banner-red')).toBeInTheDocument()
+    expect(screen.getByTestId('failed-tests')).toBeInTheDocument()
+    expect(screen.getByText('PlaceOrder_TotalWithFraction_TruncatesToInt')).toBeInTheDocument()
+    expect(screen.getByText('Auto-repair · up to 3 attempts')).toBeInTheDocument()
+
+    // Switching to the "Unfixable" arc swaps the failing test on show.
+    await user.click(screen.getByText('Unfixable'))
+    expect(screen.getByText('PlaceOrder_StampsSequenceNumber')).toBeInTheDocument()
+  })
+
+  // Attempts reveal on real timers (~1.15s each + ~0.48s gap), so these poll with a
+  // generous timeout rather than fake timers (which deadlock against async userEvent here).
+  it('runs the simple-fix arc to a repaired baseline', async () => {
+    const user = userEvent.setup()
+    const state = { ...baseState, baselineTests: mockBaselineTests, netFaithful: true }
+    renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
+
+    await user.click(screen.getByTestId('simulate-fail'))
+    await user.click(screen.getByText('Auto-repair · up to 3 attempts'))
+
+    const banner = await screen.findByTestId('repair-succeeded', undefined, { timeout: 4000 })
+    expect(banner).toHaveTextContent(/BASELINE REPAIRED/)
+    expect(screen.getByTestId('baseline-closing')).toBeInTheDocument()
+  }, 8000)
+
+  it('quarantines the unfixable (different-answer-every-run) test after 3 attempts', async () => {
+    const user = userEvent.setup()
+    const state = { ...baseState, baselineTests: mockBaselineTests, netFaithful: true }
+    renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
+
+    await user.click(screen.getByTestId('simulate-fail'))
+    await user.click(screen.getByText('Unfixable'))
+    await user.click(screen.getByText('Auto-repair · up to 3 attempts'))
+
+    const card = await screen.findByTestId('repair-quarantined', undefined, { timeout: 9000 })
+    expect(card).toHaveTextContent(/set aside for review/)
+    expect(card).toHaveTextContent(/different answer every run/)
+    // A quarantine leaves the baseline red — no closing panel.
+    expect(screen.queryByTestId('baseline-closing')).not.toBeInTheDocument()
+  }, 14000)
 })
 
 describe('StepReadiness (single-file verdict)', () => {
@@ -363,7 +411,7 @@ describe('StepReadiness (single-file verdict)', () => {
     const card = screen.getByTestId('verdict-card')
     expect(card).toHaveClass('verdict-ready')
     expect(card).toHaveTextContent('Ready to protect')
-    expect(card).toHaveTextContent('headless business-logic surface')
+    expect(card).toHaveTextContent('business logic that runs on its own')
     expect(card).toHaveTextContent('CalculateTotal')
     // Next is gated on readiness — a net-ready class signals ready.
     expect(onReady).toHaveBeenCalled()

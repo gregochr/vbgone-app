@@ -218,7 +218,9 @@ export function StepReadiness({ state, update, onReady, onProtectClass }: Props)
         {header}
         <div className="busy-row">
           <span className="spinner" />
-          <span className="loading-text">Scanning {state.filename} for a headless surface…</span>
+          <span className="loading-text">
+            Scanning {state.filename} for business logic that runs on its own…
+          </span>
         </div>
       </div>
     )
@@ -232,8 +234,8 @@ export function StepReadiness({ state, update, onReady, onProtectClass }: Props)
       {header}
       <p className="step-subtitle">
         Before any AI is spent, VBGone checks whether{' '}
-        <code className="inline-mono">{cls.file}</code> exposes a headless business-logic surface —
-        one that compiles and runs on the CLR without WinForms.
+        <code className="inline-mono">{cls.file}</code> has business logic that can run on its own —
+        without needing the WinForms screen.
       </p>
       <VerdictCard cls={cls} ready={ready} />
       <div className="confidence-note">
@@ -259,7 +261,7 @@ function BucketTag({ bucket, sm }: { bucket: Bucket; sm?: boolean }) {
 function VerdictCard({ cls, ready }: { cls: ClassReadiness; ready: boolean }) {
   const meta = BUCKETS[cls.bucket]
   const headline = ready
-    ? 'Ready to protect — this class has a headless business-logic surface.'
+    ? 'Ready to protect — this class has business logic that runs on its own.'
     : `Can't protect this as-is — ${cls.reason}.`
 
   return (
@@ -511,10 +513,10 @@ function PortfolioReport({
           <div>
             <div className="portfolio-gate-title">Nothing to protect yet</div>
             <div className="portfolio-gate-body">
-              Every class here couples its logic to the WinForms UI, so there's no headless surface
-              to pin. Protect can't cover it as-is — the business logic has to be separated into
-              UI-free classes first (that's a Migrate job), or wait for the Windows runner for the
-              methods that are pure but UI-bound.
+              Every class here ties its logic to the WinForms screen, so there's nothing that can
+              run on its own to test. Protect can't cover it yet — the business logic has to be
+              pulled out into separate classes first (that's a Migrate job), or wait for the Windows
+              runner for the methods that are clean but stuck in the UI.
             </div>
           </div>
         </div>
