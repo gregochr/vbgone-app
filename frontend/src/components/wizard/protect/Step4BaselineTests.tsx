@@ -180,6 +180,10 @@ export function Step4BaselineTests({
   // A compile failure (e.g. WinForms-coupled VB on the Linux sidecar) — distinct from a
   // drifted assertion. Surface the compiler output rather than the assertion framing.
   const compileError = tests.build.errors.length > 0
+  // The suite compiled and ran but MSTest discovered 0 tests — distinct from a drifted assertion
+  // (there's nothing to "correct" in the baseline). Almost always a generation glitch; the fix is
+  // to re-generate, not to edit-and-re-run the empty suite.
+  const noTests = !faithful && !compileError && total === 0
   // Only frame it as "UI-coupled" for a single-file scan. In the portfolio queue the class is
   // net-ready by construction (and content is the whole estate), so the generic hint fits.
   const uiCoupled = compileError && !fromQueue && looksUiCoupled(state.content)
@@ -205,6 +209,13 @@ export function Step4BaselineTests({
               <span className="net-banner-text">
                 The net or the original VB didn't compile against the CLR, so the behaviour couldn't
                 be pinned. This is <strong>not a pass</strong> — fix the issue below and re-run.
+              </span>
+            ) : noTests ? (
+              <span className="net-banner-text" data-testid="net-no-tests">
+                The suite compiled and ran, but MSTest discovered <strong>0 runnable tests</strong>{' '}
+                — so there's no behaviour pinned yet. This isn't a drifted assertion and there's
+                nothing to correct in the baseline; it's an empty suite.{' '}
+                <strong>Re-generate the suite</strong> and run it again.
               </span>
             ) : (
               <span className="net-banner-text">
@@ -273,15 +284,26 @@ export function Step4BaselineTests({
       {/* Editable in the red state so the user can correct the drifted assertion(s). */}
       <CodeBlock code={tests.code} editable={!faithful} onEdit={editNet} />
 
-      {!faithful && (
+      {!faithful && noTests ? (
         <div className="net-rerun-row">
-          <button className="btn-plex" onClick={rerunSuite}>
-            Edit baseline &amp; re-run
+          <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+            Re-generate suite &amp; run
           </button>
           <span className="net-rerun-hint">
-            Runs the edited net against your original VB — no new generation.
+            Emits a fresh characterisation suite and runs it against your original VB.
           </span>
         </div>
+      ) : (
+        !faithful && (
+          <div className="net-rerun-row">
+            <button className="btn-plex" onClick={rerunSuite}>
+              Edit baseline &amp; re-run
+            </button>
+            <span className="net-rerun-hint">
+              Runs the edited net against your original VB — no new generation.
+            </span>
+          </div>
+        )
       )}
 
       {/* Portfolio queue: a done-state that advances the queue. Single-file: the closing panel. */}
