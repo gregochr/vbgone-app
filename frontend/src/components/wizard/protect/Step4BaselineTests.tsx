@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { WizardState } from '../WizardShell'
 import { runBaselineTests, rerunBaselineTests } from '../../../api/migrateApi'
 import { ConfirmDialog } from '../ConfirmDialog'
@@ -12,6 +12,16 @@ import {
   modelLabelFor,
   providerColor,
 } from '../../../config/engine'
+import {
+  REPAIR_SCENARIOS,
+  SCENARIO_ORDER,
+  REPAIR_PASS_COUNT,
+  REPAIR_TOTAL,
+  TAG_META,
+  cardBorderFor,
+  buildBaselineCode,
+} from './repairScenarios'
+import type { RepairAttempt, RepairScenarioKey } from './repairScenarios'
 
 interface Props {
   state: WizardState
@@ -29,11 +39,18 @@ interface Props {
 const KICKER = 'STEP 04 · BASELINE TESTS'
 const TITLE = 'Confirm the baseline'
 
+/** ~1.15s "running" then settle; ~0.48s gap before revealing the next attempt. */
+const ATTEMPT_RUN_MS = 1150
+const ATTEMPT_GAP_MS = 480
+
+type LoggedAttempt = RepairAttempt & { status: 'running' | 'done' }
+
 /**
- * Protect step 4 (last). Generates an MSTest characterisation suite and runs it against
- * the *original* VB.NET on the CLR. Polarity flips from Migrate: green is the success
- * state; a red result means the net (the oracle) isn't faithful yet — not that the code
- * is broken.
+ * Protect step 4 (last). Generates an MSTest suite that records how the *original*,
+ * unmodified VB.NET behaves today, then runs it against that original on the CLR. Polarity
+ * flips from Migrate: green is the goal. Because the code is untouched, a failing test can
+ * only mean the test is wrong — not the code — so a red run drives the auto-repair loop
+ * (mechanical → reasoning → escalation, up to 3 attempts, then quarantine).
  */
 export function Step4BaselineTests({
   state,
@@ -54,6 +71,16 @@ export function Step4BaselineTests({
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(!state.baselineTests)
 
+  // ── Auto-repair demo state (client-driven, exactly as the design prototype) ──
+  // Entered from the green state via "simulate a failed run"; the scenario switcher picks
+  // which of the three arcs the loop demonstrates.
+  const [simulating, setSimulating] = useState(false)
+  const [scenarioKey, setScenarioKey] = useState<RepairScenarioKey>('easy')
+  const [repairLog, setRepairLog] = useState<LoggedAttempt[]>([])
+  const [repairRunning, setRepairRunning] = useState(false)
+  const [repairOutcome, setRepairOutcome] = useState<'succeeded' | 'quarantined' | null>(null)
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+
   const className =
     state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
     state.analysis?.classes[0]?.name ??
@@ -62,6 +89,7 @@ export function Step4BaselineTests({
 
   useEffect(() => {
     if (state.baselineTests) onReady()
+    return () => timers.current.forEach(clearTimeout)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const applyResult = (result: import('../../../api/migrateApi').BaselineTestsResult) => {
@@ -81,7 +109,7 @@ export function Step4BaselineTests({
   }
 
   // Re-running the same suite against unchanged VB yields the same red — the fix is editing
-  // the assertions. The (possibly edited) net is sent to the run-only endpoint (no AI call).
+  // the tests. The (possibly edited) suite is sent to the run-only endpoint (no AI call).
   const rerunSuite = () => {
     if (!state.baselineTests) return
     setLoading(true)
@@ -90,9 +118,63 @@ export function Step4BaselineTests({
       .catch(onError)
   }
 
-  const editNet = (edited: string) => {
+  const editSuite = (edited: string) => {
     if (!state.baselineTests) return
     update({ baselineTests: { ...state.baselineTests, code: edited } })
+  }
+
+  // ── Auto-repair loop control ──
+  const resetRepair = () => {
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+    setRepairLog([])
+    setRepairRunning(false)
+    setRepairOutcome(null)
+  }
+
+  const simulateFailedRun = () => {
+    resetRepair()
+    setScenarioKey('easy')
+    setSimulating(true)
+  }
+
+  const pickScenario = (key: RepairScenarioKey) => {
+    if (repairRunning) return
+    resetRepair()
+    setScenarioKey(key)
+  }
+
+  const stopSimulating = () => {
+    resetRepair()
+    setSimulating(false)
+  }
+
+  const startRepair = () => {
+    const scenario = REPAIR_SCENARIOS[scenarioKey]
+    resetRepair()
+    setRepairRunning(true)
+    let i = 0
+    const step = () => {
+      if (i >= scenario.attempts.length) {
+        setRepairRunning(false)
+        setRepairOutcome(scenario.outcome)
+        return
+      }
+      const attempt = scenario.attempts[i]
+      setRepairLog((log) => [...log, { ...attempt, status: 'running' }])
+      timers.current.push(
+        setTimeout(() => {
+          setRepairLog((log) => {
+            const next = log.slice()
+            next[next.length - 1] = { ...attempt, status: 'done' }
+            return next
+          })
+          i++
+          timers.current.push(setTimeout(step, ATTEMPT_GAP_MS))
+        }, ATTEMPT_RUN_MS),
+      )
+    }
+    step()
   }
 
   const header = (
@@ -117,8 +199,8 @@ export function Step4BaselineTests({
             request.
           </p>
           <p>
-            {'⚡'} Here, <strong>green is the success state</strong> — it means the baseline
-            faithfully describes current behaviour.
+            {'⚡'} Here, <strong>green is the goal</strong> — it means the tests accurately describe
+            how your code behaves today.
           </p>
           <p>Proceed?</p>
         </ConfirmDialog>
@@ -156,9 +238,9 @@ export function Step4BaselineTests({
       <div>
         {header}
         <p className="step-subtitle">
-          {prov.name} emits an {PROTECT_TEST_FW} suite that asserts the <strong>real</strong>{' '}
-          behaviour — the actual exception types and coerced results — then runs it against your
-          original VB.NET. Here, <strong>green is the success state</strong>.
+          {prov.name} writes a set of {PROTECT_TEST_FW} tests that check the <strong>real</strong>{' '}
+          behaviour — the actual errors and converted values — then runs them against your original
+          VB.NET. Here, <strong>green is the goal</strong>.
         </p>
         <div className="run-card">
           <div className="run-card-model">
@@ -174,20 +256,164 @@ export function Step4BaselineTests({
     )
   }
 
-  // Read faithfulness from the actual run result, not a defaulted flag, so neither banner
-  // can flash before there's a real result.
+  // Read the real run result. A compile failure (WinForms-coupled VB on the Linux sidecar) and
+  // a "0 discovered tests" glitch are distinct from a failing test — surface them separately.
   const faithful = tests.netFaithful
   const { passed, total, failed } = tests.build
-  // A compile failure (e.g. WinForms-coupled VB on the Linux sidecar) — distinct from a
-  // drifted assertion. Surface the compiler output rather than the assertion framing.
   const compileError = tests.build.errors.length > 0
-  // The suite compiled and ran but MSTest discovered 0 tests — distinct from a drifted assertion
-  // (there's nothing to "correct" in the baseline). Almost always a generation glitch; the fix is
-  // to re-generate, not to edit-and-re-run the empty suite.
   const noTests = !faithful && !compileError && total === 0
-  // Only frame it as "UI-coupled" for a single-file scan. In the portfolio queue the class is
-  // net-ready by construction (and content is the whole estate), so the generic hint fits.
   const uiCoupled = compileError && !fromQueue && looksUiCoupled(state.content)
+
+  // ── Auto-repair demo view — entered from the green state via "simulate a failed run" ──
+  if (simulating) {
+    const scenario = REPAIR_SCENARIOS[scenarioKey]
+    const succeeded = repairOutcome === 'succeeded'
+    const quarantined = repairOutcome === 'quarantined'
+    const preRepair = !repairRunning && repairLog.length === 0 && !repairOutcome
+    const repairedCode = buildBaselineCode(className, succeeded && scenarioKey === 'easy')
+
+    return (
+      <div>
+        {header}
+        <p className="step-subtitle">
+          {prov.name} writes a set of {PROTECT_TEST_FW} tests that check the <strong>real</strong>{' '}
+          behaviour — the actual errors and converted values — then runs them against your original
+          VB.NET. Here, <strong>green is the goal</strong>.
+        </p>
+
+        {preRepair && (
+          <>
+            <div className="net-banner net-red" data-testid="net-banner-red">
+              <span className="net-banner-label">{'▲'} TESTS FAILED</span>
+              <div className="net-banner-body">
+                <span className="net-banner-text">
+                  {scenario.drift.count.split(' / ')[0]} tests failed against your{' '}
+                  <strong>untouched</strong> original. The test expects behaviour the code doesn't
+                  actually have — so <strong>the test is wrong, not your code</strong>. Fix the
+                  test, then re-run.
+                </span>
+              </div>
+            </div>
+
+            <div className="failed-tests" data-testid="failed-tests">
+              <div className="failed-tests-head">FAILED TESTS</div>
+              <div className="failed-test-name">{scenario.drift.test}</div>
+              <div className="failed-test-msg">{scenario.drift.message}</div>
+            </div>
+
+            <div className="repair-action-row">
+              <button className="btn-plex" onClick={startRepair}>
+                Auto-repair · up to 3 attempts
+              </button>
+              <button className="btn-ghost" onClick={stopSimulating}>
+                Edit manually &amp; re-run
+              </button>
+            </div>
+            <div className="repair-caption">
+              Auto-repair changes only the failing test to match what the code actually does — the{' '}
+              {REPAIR_PASS_COUNT} passing tests stay untouched. Every edit is checked (no
+              meaningless always-pass tests; same method &amp; inputs) and logged.
+            </div>
+
+            {/* Demo-only affordance — pick which arc the loop demonstrates. */}
+            <div className="demo-switcher" data-testid="demo-switcher">
+              <span className="demo-switcher-label">DEMO FAILURE</span>
+              {SCENARIO_ORDER.map((key) => (
+                <button
+                  key={key}
+                  className={`demo-switcher-btn ${scenarioKey === key ? 'active' : ''}`}
+                  onClick={() => pickScenario(key)}
+                >
+                  {REPAIR_SCENARIOS[key].label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {(repairRunning || repairLog.length > 0) && !succeeded && !quarantined && (
+          <RepairLoop
+            test={scenario.drift.test}
+            log={repairLog}
+            total={scenario.attempts.length}
+            provider={provider}
+            overrides={modelOverrides}
+          />
+        )}
+
+        {succeeded && (
+          <div className="net-banner net-green repair-outcome" data-testid="repair-succeeded">
+            <span className="net-banner-label">{'✓'} BASELINE REPAIRED</span>
+            <div className="net-banner-body">
+              <span className="net-banner-text">
+                The failing test now matches what the code actually does — {REPAIR_TOTAL} /{' '}
+                {REPAIR_TOTAL} green against your untouched VB.NET. Only that test changed; the rest
+                are untouched.
+              </span>
+              <div className="repair-audit">
+                logged · {scenario.drift.test} · before and after saved in the audit trail
+              </div>
+            </div>
+          </div>
+        )}
+
+        {quarantined && (
+          <div className="quarantine-card" data-testid="repair-quarantined">
+            <span className="quarantine-glyph" aria-hidden="true">
+              {'⚠️'}
+            </span>
+            <div className="quarantine-body">
+              <div className="quarantine-title">
+                Gave up after 3 attempts — test set aside for review
+              </div>
+              <p className="quarantine-text">
+                <code className="quarantine-test">{scenario.drift.test}</code> can't be tested
+                reliably: it gives a <strong>different answer every run</strong> (a sequence number
+                based on the current time), so no fixed test can match it. Auto-repair wouldn't fake
+                a pass. It's left out of the baseline and flagged for a person to check; the other{' '}
+                {REPAIR_PASS_COUNT} tests are fine.
+              </p>
+              <div className="quarantine-actions">
+                {fromQueue ? (
+                  <>
+                    <button className="btn-plex btn-sm" onClick={onProtectNext}>
+                      Protect with 1 quarantined ({REPAIR_PASS_COUNT}/{REPAIR_TOTAL}) →
+                    </button>
+                    <button className="btn-ghost" onClick={onBackToReadiness}>
+                      Back to readiness
+                    </button>
+                  </>
+                ) : (
+                  <span className="quarantine-note">
+                    baseline saved with {REPAIR_PASS_COUNT} / {REPAIR_TOTAL} · 1 flagged for review
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="code-header">
+          <span>{className || 'OrderService'}BaselineTests.cs</span>
+          <span className="code-header-caption">{PROTECT_TEST_FW} · vs original VB.NET</span>
+        </div>
+        <CodeBlock code={repairedCode} />
+
+        {/* When the loop makes the baseline green again, close out as the real green path does. */}
+        {succeeded && !fromQueue && <BaselineClosing />}
+        {succeeded && fromQueue && (
+          <QueueDone
+            className={className}
+            protectedCount={protectedCount}
+            readyTotal={readyTotal}
+            nextClassName={nextClassName}
+            onProtectNext={onProtectNext}
+            onBackToReadiness={onBackToReadiness}
+          />
+        )}
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -197,41 +423,47 @@ export function Step4BaselineTests({
         <div className="net-banner net-green" data-testid="net-banner-green">
           <span className="net-banner-label">{'✓'} GREEN</span>
           <span className="net-banner-text">
-            {passed} / {total} passing against your original VB.NET. The baseline faithfully
-            describes current behaviour — any failure here means the baseline isn't accurate yet,{' '}
+            {passed} / {total} passing against your original VB.NET. The tests accurately describe
+            how your code behaves today — if one fails, it means a test is wrong,{' '}
             <strong>not that your code is broken</strong>.
           </span>
+          <button
+            className="net-simulate-btn"
+            onClick={simulateFailedRun}
+            data-testid="simulate-fail"
+          >
+            simulate a failed run
+          </button>
         </div>
       ) : (
         <div className="net-banner net-red" data-testid="net-banner-red">
-          <span className="net-banner-label">{'▲'} BASELINE NOT FAITHFUL</span>
+          <span className="net-banner-label">{'▲'} TESTS FAILED</span>
           <div className="net-banner-body">
             {compileError ? (
               <span className="net-banner-text">
-                The net or the original VB didn't compile against the CLR, so the behaviour couldn't
-                be pinned. This is <strong>not a pass</strong> — fix the issue below and re-run.
+                The tests or the original VB didn't compile against the CLR, so we couldn't record
+                how it behaves. This is <strong>not a pass</strong> — fix the issue below and
+                re-run.
               </span>
             ) : noTests ? (
               <span className="net-banner-text" data-testid="net-no-tests">
                 The suite compiled and ran, but MSTest discovered <strong>0 runnable tests</strong>{' '}
-                — so there's no behaviour pinned yet. This isn't a drifted assertion and there's
-                nothing to correct in the baseline; it's an empty suite.{' '}
-                <strong>Re-generate the suite</strong> and run it again.
+                — so there's nothing recorded yet. This isn't a wrong test and there's nothing to
+                fix; it's an empty suite. <strong>Re-generate the suite</strong> and run it again.
               </span>
             ) : (
               <span className="net-banner-text">
-                {failed} / {total} failing against your <strong>untouched</strong> original. An
-                assertion describes behaviour the code doesn't actually have — the oracle drifted
-                into aspiration. This is <strong>not a pass</strong>;{' '}
-                <strong>correct the flagged assertion(s) in the baseline below</strong>, then
-                re-run.
+                {failed} / {total} failed against your <strong>untouched</strong> original. The test
+                expects behaviour the code doesn't actually have — so{' '}
+                <strong>the test is wrong, not your code</strong>. Fix the flagged test(s) below,
+                then re-run.
               </span>
             )}
           </div>
         </div>
       )}
 
-      {/* Compile failure — explain Protect's headless precondition, tailored to the cause. */}
+      {/* Compile failure — explain Protect's precondition (runs on its own), tailored to cause. */}
       {compileError && (
         <div className="net-precondition" data-testid="net-precondition">
           <span className="net-precondition-glyph" aria-hidden="true">
@@ -240,8 +472,8 @@ export function Step4BaselineTests({
           {uiCoupled ? (
             <span>
               This source looks <strong>UI-coupled</strong> (WinForms). Protect runs your original
-              VB.NET headless on the CLR, so it can only net a{' '}
-              <strong>business-logic surface</strong> with no UI dependencies — a class that doesn't
+              VB.NET on its own on the CLR, so it can only cover a{' '}
+              <strong>business-logic class that runs without the screen</strong> — one that doesn't
               import <code>System.Windows.Forms</code>, inherit <code>Form</code>, or touch
               controls. If the logic already lives in a separate class, point Protect at that file;
               if it's inside the form's event handlers, it has to be separated first (that's a
@@ -249,30 +481,30 @@ export function Step4BaselineTests({
             </span>
           ) : (
             <span>
-              Protect compiles your original VB.NET headless on the CLR. The source needs to be
-              self-contained with no UI or platform dependencies. Fix the errors above (or upload
-              just the business-logic class) and re-run.
+              Protect compiles your original VB.NET and runs it on its own on the CLR. The source
+              needs to be self-contained with no UI or platform dependencies. Fix the errors above
+              (or upload just the business-logic class) and re-run.
             </span>
           )}
         </div>
       )}
 
-      {/* Failing assertions (or compile errors) — the actionable detail behind the headline. */}
+      {/* Failing tests (or compile errors) — the actionable detail behind the headline. */}
       {!faithful && (compileError ? tests.build.errors.length > 0 : tests.failures.length > 0) && (
-        <div className="net-failures" data-testid="net-failures">
-          <div className="net-failures-head">
-            {compileError ? 'COMPILE ERRORS' : 'DRIFTED ASSERTIONS'}
+        <div className="failed-tests" data-testid="failed-tests">
+          <div className="failed-tests-head">
+            {compileError ? 'COMPILE ERRORS' : 'FAILED TESTS'}
           </div>
           {compileError
             ? tests.build.errors.map((e, i) => (
-                <div className="net-failure-row" key={i}>
-                  <code className="net-failure-msg">{e}</code>
+                <div className="failed-test-row" key={i}>
+                  <code className="failed-test-msg">{e}</code>
                 </div>
               ))
             : tests.failures.map((f) => (
-                <div className="net-failure-row" key={f.name}>
-                  <code className="net-failure-name">{f.name}</code>
-                  {f.message && <span className="net-failure-msg">{f.message}</span>}
+                <div className="failed-test-row" key={f.name}>
+                  <code className="failed-test-name">{f.name}</code>
+                  {f.message && <span className="failed-test-msg">{f.message}</span>}
                 </div>
               ))}
         </div>
@@ -282,8 +514,8 @@ export function Step4BaselineTests({
         <span>{tests.testClassName}.cs</span>
         <span className="code-header-caption">{PROTECT_TEST_FW} · vs original VB.NET</span>
       </div>
-      {/* Editable in the red state so the user can correct the drifted assertion(s). */}
-      <CodeBlock code={tests.code} editable={!faithful} onEdit={editNet} />
+      {/* Editable in the red state so the user can correct the wrong test(s) by hand. */}
+      <CodeBlock code={tests.code} editable={!faithful} onEdit={editSuite} />
 
       {!faithful && noTests ? (
         <div className="net-rerun-row">
@@ -299,10 +531,10 @@ export function Step4BaselineTests({
         !faithful && (
           <div className="net-rerun-row">
             <button className="btn-plex" onClick={rerunSuite}>
-              Edit baseline &amp; re-run
+              Edit tests &amp; re-run
             </button>
             <span className="net-rerun-hint">
-              Runs the edited net against your original VB — no new generation.
+              Runs the edited tests against your original VB — no new generation.
             </span>
           </div>
         )
@@ -310,55 +542,177 @@ export function Step4BaselineTests({
 
       {/* Portfolio queue: a done-state that advances the queue. Single-file: the closing panel. */}
       {faithful && fromQueue && (
-        <div className="queue-done" data-testid="queue-done">
-          <div className="queue-done-head">
-            <span className="queue-done-check" aria-hidden="true">
-              {'✓'}
-            </span>
-            <div>
-              <div className="queue-done-title">{className} protected</div>
-              <div className="queue-done-count">
-                {protectedCount + 1} / {readyTotal} ready classes protected
-              </div>
-            </div>
-          </div>
-          <div className="queue-done-actions">
-            {nextClassName ? (
-              <button className="btn-plex" onClick={onProtectNext}>
-                Protect next class — {nextClassName} →
-              </button>
-            ) : (
-              <button className="btn-plex" onClick={onBackToReadiness}>
-                All ready classes protected — back to readiness
-              </button>
-            )}
-            {nextClassName && (
-              <button className="btn-ghost" onClick={onBackToReadiness}>
-                Back to readiness
-              </button>
-            )}
-          </div>
-        </div>
+        <QueueDone
+          className={className}
+          protectedCount={protectedCount}
+          readyTotal={readyTotal}
+          nextClassName={nextClassName}
+          onProtectNext={onProtectNext}
+          onBackToReadiness={onBackToReadiness}
+        />
       )}
 
-      {faithful && !fromQueue && (
-        <div className="baseline-closing" data-testid="baseline-closing">
-          <div className="baseline-closing-head">
-            <span className="baseline-closing-check" aria-hidden="true">
-              {'✓'}
-            </span>
-            <span className="baseline-closing-title">You now have a behavioural baseline</span>
-          </div>
-          <p className="baseline-closing-body">
-            Upgrade a dependency, re-run this suite, and any failure is a real behavioural change to
-            investigate. <strong>Green means nothing changed.</strong>
-          </p>
-          <div className="baseline-closing-foot">
-            baseline pinned · how you operate the patch-and-re-run loop — manual, CI, or a future
-            step — is yours to decide
+      {faithful && !fromQueue && <BaselineClosing />}
+    </div>
+  )
+}
+
+/** The sequential auto-repair attempt cards (running → settled), one per escalating tier. */
+function RepairLoop({
+  test,
+  log,
+  total,
+  provider,
+  overrides,
+}: {
+  test: string
+  log: LoggedAttempt[]
+  total: number
+  provider: import('../../../config/engine').ProviderId
+  overrides: import('../../../config/engine').ModelOverrides
+}) {
+  return (
+    <div className="repair-loop" data-testid="repair-loop">
+      <div className="repair-loop-label">AUTO-REPAIR · {test}</div>
+      <div className="repair-cards">
+        {log.map((attempt, i) => {
+          const running = attempt.status === 'running'
+          const meta = TAG_META[attempt.tag]
+          const model = modelLabelFor(provider, attempt.role, overrides)
+          return (
+            <div
+              className="repair-card"
+              key={i}
+              style={{ borderColor: cardBorderFor(running ? 'running' : attempt.tag) }}
+            >
+              <div className="repair-card-head">
+                <span className="repair-attempt-badge">
+                  ATTEMPT {i + 1} / {total}
+                </span>
+                <span className="repair-tier">{attempt.tier}</span>
+                <span className="repair-model">{model}</span>
+                <span className="repair-card-spacer" />
+                {running ? (
+                  <span className="spinner" />
+                ) : (
+                  <span
+                    className="repair-result-chip"
+                    style={{ color: meta.color, borderColor: meta.color }}
+                  >
+                    {meta.label}
+                  </span>
+                )}
+              </div>
+
+              {!running && (
+                <>
+                  <div className="repair-rationale">{attempt.rationale}</div>
+                  {attempt.diff.length > 0 && (
+                    <div className="repair-diff">
+                      {attempt.diff.map((d, j) => (
+                        <div
+                          className={`diff-line diff-${d.op === '+' ? 'add' : d.op === '-' ? 'del' : 'ctx'}`}
+                          key={j}
+                        >
+                          {d.op === ' ' ? '  ' : `${d.op} `}
+                          {d.text}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="repair-check">
+                    <span
+                      className={`repair-gate-chip ${attempt.gate.ok ? 'gate-ok' : 'gate-noedit'}`}
+                    >
+                      {attempt.gate.ok ? 'CHECK OK' : 'NO EDIT'}
+                    </span>
+                    <span className="repair-check-note">{attempt.gate.note}</span>
+                  </div>
+                  {attempt.rerun && (
+                    <div className="repair-check">
+                      <span
+                        className={`repair-rerun-chip ${attempt.rerun.green ? 'rerun-ok' : 'rerun-fail'}`}
+                      >
+                        {attempt.rerun.green ? 'RE-RUN ✓' : 'RE-RUN ✕'}
+                      </span>
+                      <span className="repair-check-note">{attempt.rerun.note}</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function BaselineClosing() {
+  return (
+    <div className="baseline-closing" data-testid="baseline-closing">
+      <div className="baseline-closing-head">
+        <span className="baseline-closing-check" aria-hidden="true">
+          {'✓'}
+        </span>
+        <span className="baseline-closing-title">You now have a safety net of tests</span>
+      </div>
+      <p className="baseline-closing-body">
+        Upgrade a dependency, re-run these tests, and any failure is a real change worth
+        investigating. <strong>Green means nothing changed.</strong>
+      </p>
+      <div className="baseline-closing-foot">
+        baseline saved · how you run the patch-and-re-test loop — by hand, in CI, or a later step —
+        is up to you
+      </div>
+    </div>
+  )
+}
+
+function QueueDone({
+  className,
+  protectedCount,
+  readyTotal,
+  nextClassName,
+  onProtectNext,
+  onBackToReadiness,
+}: {
+  className: string
+  protectedCount: number
+  readyTotal: number
+  nextClassName?: string
+  onProtectNext?: () => void
+  onBackToReadiness?: () => void
+}) {
+  return (
+    <div className="queue-done" data-testid="queue-done">
+      <div className="queue-done-head">
+        <span className="queue-done-check" aria-hidden="true">
+          {'✓'}
+        </span>
+        <div>
+          <div className="queue-done-title">{className} protected</div>
+          <div className="queue-done-count">
+            {protectedCount + 1} / {readyTotal} ready classes protected
           </div>
         </div>
-      )}
+      </div>
+      <div className="queue-done-actions">
+        {nextClassName ? (
+          <button className="btn-plex" onClick={onProtectNext}>
+            Protect next class — {nextClassName} →
+          </button>
+        ) : (
+          <button className="btn-plex" onClick={onBackToReadiness}>
+            All ready classes protected — back to readiness
+          </button>
+        )}
+        {nextClassName && (
+          <button className="btn-ghost" onClick={onBackToReadiness}>
+            Back to readiness
+          </button>
+        )}
+      </div>
     </div>
   )
 }

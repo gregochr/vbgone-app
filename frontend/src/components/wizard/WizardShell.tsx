@@ -212,13 +212,13 @@ const PROTECT_STEPS: { label: string; tip: React.ReactNode }[] = [
     tip: (
       <>
         <p>
-          <strong>Protect builds a behavioural baseline around your legacy VB.NET</strong> — it
+          <strong>Protect builds a safety net of tests around your legacy VB.NET</strong> — it
           changes nothing. Upload a <strong>.vb</strong> file or a <strong>.zip</strong> to start.
         </p>
         <p>
           Reach for Protect when the job is "we have CVEs in our libraries and no test coverage to
-          patch safely" — not "we want off VB.NET". The net lets you upgrade a vulnerable dependency
-          and prove nothing else changed.
+          patch safely" — not "we want off VB.NET". The safety net lets you upgrade a vulnerable
+          dependency and prove nothing else changed.
         </p>
       </>
     ),
@@ -229,9 +229,9 @@ const PROTECT_STEPS: { label: string; tip: React.ReactNode }[] = [
       <>
         <p>
           A <strong>static, no-AI</strong> pass — nothing leaves your tenant. Before any model is
-          spent, VBGone checks whether the source exposes a{' '}
-          <strong>headless business-logic surface</strong>: a class that compiles and runs on the
-          CLR without WinForms.
+          spent, VBGone checks whether the source has{' '}
+          <strong>business logic that runs on its own</strong>: a class that compiles and runs on
+          the CLR without the WinForms screen.
         </p>
         <p>
           A portfolio is bucketed into <strong>Ready to protect</strong>,{' '}
@@ -246,9 +246,9 @@ const PROTECT_STEPS: { label: string; tip: React.ReactNode }[] = [
     tip: (
       <>
         <p>
-          Protect doesn't synthesise a clean interface — there's nothing to extract toward, because
-          we keep the original. <strong>Claude Haiku</strong> pins the concrete class's actual
-          public surface, against the real assemblies, including the behaviours flagged as defects.
+          Protect doesn't build a new, cleaner version — we keep your original as-is.{' '}
+          <strong>Claude Haiku</strong> records the concrete class's actual public surface, run
+          against your real code, including the behaviours flagged as bugs.
         </p>
         <p>
           <strong>Green means unchanged, not correct.</strong> The baseline locks in current
@@ -262,15 +262,16 @@ const PROTECT_STEPS: { label: string; tip: React.ReactNode }[] = [
     tip: (
       <>
         <p>
-          <strong>Claude Sonnet</strong> captures your app's current behaviour as an MSTest suite
-          that asserts the real behaviour — actual exception types and coerced results — then runs
-          it against your original VB.NET on the CLR.
+          <strong>Claude Sonnet</strong> writes a set of MSTest tests that check the real behaviour
+          — the actual errors and converted values — then runs them against your original VB.NET on
+          the CLR.
         </p>
         <p>
-          The polarity flips from Migrate: <strong>green is the success state</strong>. A red result
-          means an assertion drifted into aspiration — the baseline isn't faithful yet,{' '}
-          <strong>not that your code is broken</strong>. Once green, you have a behavioural
-          baseline: upgrade a dependency, re-run, and any failure is a real change to investigate.
+          The polarity flips from Migrate: <strong>green is the goal</strong>. A red result means a
+          test is wrong — it expects behaviour the code doesn't actually have,{' '}
+          <strong>not that your code is broken</strong>. Auto-repair rewrites just that test to
+          match what the code does; once green, you have a safety net: upgrade a dependency, re-run,
+          and any failure is a real change to investigate.
         </p>
       </>
     ),

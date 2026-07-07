@@ -16,12 +16,12 @@ interface Props {
 }
 
 const KICKER = 'STEP 03 · BASELINE'
-const TITLE = 'Pin current behaviour'
+const TITLE = 'Record current behaviour'
 
 /**
- * Protect step 3. Inverts Migrate's Interface step: instead of synthesising a clean
- * contract, it pins the concrete class's *actual* public surface against the real
- * assemblies — defects included — so a later dependency patch surfaces any change.
+ * Protect step 3. Inverts Migrate's Interface step: instead of building a clean
+ * contract, it records the concrete class's *actual* public surface against the real
+ * assemblies — bugs included — so a later dependency patch surfaces any change.
  */
 export function Step3Baseline({
   state,
@@ -95,7 +95,7 @@ export function Step3Baseline({
             request.
           </p>
           <p>
-            {'⚡'} Nothing is modified — VBGone pins the class exactly as it runs today, defects
+            {'⚡'} Nothing is modified — VBGone records the class exactly as it runs today, bugs
             included.
           </p>
           <p>Proceed?</p>
@@ -134,9 +134,9 @@ export function Step3Baseline({
       <div>
         {header}
         <p className="step-subtitle">
-          Protect doesn't synthesise a clean interface — there's nothing to extract toward, because
-          we keep the original. This pins the concrete class's actual public surface, against the
-          real assemblies, including the behaviours the analysis flagged as defects.
+          Protect doesn't build a new, cleaner version — we keep your original as-is. This records
+          the class's actual public surface, run against your real code, including the behaviours
+          the scan flagged as bugs.
         </p>
         <div className="run-card">
           <div className="run-card-model">
@@ -145,7 +145,7 @@ export function Step3Baseline({
             <span className="model-caption">MECHANICAL · {prov.vendor}</span>
           </div>
           <button className="btn-plex" onClick={() => setShowConfirm(true)}>
-            Pin the baseline
+            Record the baseline
           </button>
         </div>
       </div>
@@ -156,8 +156,8 @@ export function Step3Baseline({
     <div>
       {header}
       <p className="step-subtitle">
-        Pinned the actual public surface of {baseline.className} against the real assemblies — not
-        synthesised.
+        Recorded the actual public surface of {baseline.className}, run against your real code — not
+        rewritten.
       </p>
 
       {/* Inverted amber notice — the analogue of Migrate's "stripped & replaced" callout. */}
@@ -166,20 +166,20 @@ export function Step3Baseline({
           {'⚠️'}
         </span>
         <div className="pin-notice-body">
-          <div className="pin-notice-heading">Behaviour pinned as-is</div>
+          <div className="pin-notice-heading">Behaviour recorded as-is</div>
           <p>
-            VBGone is capturing this class's behaviour exactly as it runs today, including known
-            defects (e.g. unhandled divide-by-zero). This is intentional — Protect locks in current
-            behaviour so that patching a dependency surfaces any change.
+            VBGone is recording exactly how this class runs today, including known bugs (e.g. an
+            unhandled divide-by-zero). That's on purpose — Protect locks in current behaviour so
+            that if patching a dependency changes anything, you'll see it.
           </p>
           <div className="pin-subbar">Green means unchanged, not correct.</div>
         </div>
       </div>
 
-      {/* Pinned public surface — real members, with amber defect tags where flagged. */}
+      {/* Recorded public surface — real members, with amber defect tags where flagged. */}
       <div className="code-header">
         <span>{baseline.surfaceFile}</span>
-        <span className="code-header-caption">real assembly · not synthesised</span>
+        <span className="code-header-caption">your real code · not rewritten</span>
       </div>
       <div className="pinned-surface" data-testid="pinned-surface">
         {baseline.members.map((m) => (

@@ -1798,6 +1798,314 @@
   color: #c3c7cf;
 }
 
+/* ── Step 4 — auto-repair loop ── */
+
+/* Trailing demo affordance on the green banner. */
+.net-green > .net-banner-text {
+  flex: 1;
+}
+.net-simulate-btn {
+  flex: none;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 11.5px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+.net-simulate-btn:hover {
+  border-color: #3a4049;
+  color: var(--text);
+}
+
+/* Failed-tests panel (shared by the demo drift and a real failing run). */
+.failed-tests {
+  background: var(--bg-panel-2, #101215);
+  border: 1px solid var(--border-hairline);
+  border-radius: 11px;
+  padding: 15px 17px;
+  margin-bottom: 14px;
+}
+.failed-tests-head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--red);
+  margin-bottom: 10px;
+}
+.failed-test-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+}
+.failed-test-msg {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.failed-test-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-hairline);
+}
+.failed-test-row:first-of-type {
+  border-top: none;
+}
+.failed-test-row .failed-test-name {
+  color: var(--red);
+  font-size: 12.5px;
+}
+
+/* Action row + caption beneath the drift. */
+.repair-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.repair-caption {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.55;
+  margin: 9px 2px 16px;
+}
+
+/* Demo scenario switcher (demo-only). */
+.demo-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding: 11px 13px;
+  background: var(--bg-code);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+.demo-switcher-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+}
+.demo-switcher-btn {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+.demo-switcher-btn:hover {
+  border-color: #3a4049;
+}
+.demo-switcher-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-ring);
+  color: var(--accent-text);
+}
+
+/* Attempt cards. */
+.repair-loop-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.repair-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.repair-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 14px 16px;
+  transition: border-color 0.2s;
+}
+.repair-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.repair-attempt-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: #181b20;
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+  border-radius: 7px;
+}
+.repair-tier {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.repair-model {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.repair-card-spacer {
+  flex: 1;
+}
+.repair-result-chip {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  white-space: nowrap;
+}
+.repair-rationale {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 10px;
+}
+.repair-diff {
+  background: #0b0d10;
+  border: 1px solid var(--border-hairline);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 11px;
+  overflow-x: auto;
+}
+.diff-line {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+}
+.diff-line.diff-del {
+  color: #fb9295;
+  background: rgba(251, 111, 115, 0.09);
+}
+.diff-line.diff-add {
+  color: #7ee0b8;
+  background: rgba(52, 211, 153, 0.09);
+}
+.diff-line.diff-ctx {
+  color: var(--text-dim);
+}
+.repair-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 11px;
+}
+.repair-check + .repair-check {
+  margin-top: 8px;
+}
+.repair-gate-chip,
+.repair-rerun-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex: none;
+}
+.repair-gate-chip.gate-ok {
+  color: var(--green);
+  background: rgba(52, 211, 153, 0.1);
+}
+.repair-gate-chip.gate-noedit {
+  color: var(--amber);
+  background: rgba(227, 168, 60, 0.1);
+}
+.repair-rerun-chip.rerun-ok {
+  color: var(--green);
+  background: rgba(52, 211, 153, 0.1);
+}
+.repair-rerun-chip.rerun-fail {
+  color: var(--red);
+  background: rgba(251, 111, 115, 0.1);
+}
+.repair-check-note {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* Succeeded banner extras. */
+.net-banner.repair-outcome {
+  align-items: flex-start;
+}
+.repair-audit {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 9px;
+}
+
+/* Quarantine card. */
+.quarantine-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 18px 20px;
+  background: rgba(227, 168, 60, 0.08);
+  border: 1px solid rgba(227, 168, 60, 0.34);
+  border-radius: 12px;
+  margin-bottom: 18px;
+}
+.quarantine-glyph {
+  font-size: 18px;
+  line-height: 1.2;
+}
+.quarantine-body {
+  flex: 1;
+}
+.quarantine-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.quarantine-text {
+  font-size: 14px;
+  color: #cdd2d9;
+  line-height: 1.55;
+  margin: 0;
+}
+.quarantine-test {
+  font-family: var(--font-mono);
+  color: var(--amber);
+}
+.quarantine-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.quarantine-note {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* ── Protect Readiness — single-file verdict (Screen F) ── */
 .inline-mono {
   font-family: var(--font-mono);
