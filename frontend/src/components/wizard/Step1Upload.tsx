@@ -7,6 +7,8 @@ import {
   DEMO_COMPLEX_CONTENT,
   DEMO_COMPLEX_FILENAME,
   DEMO_PROTECT_CONTENT,
+  DEMO_ESTATE_MIXED,
+  DEMO_ESTATE_BLOCKED,
   DEMO_PROJECT_FILES,
   uploadProject,
 } from '../../api/migrateApi'
@@ -106,9 +108,10 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
     onReady()
   }
 
-  // Protect portfolio demos — a .zip filename routes Readiness to the portfolio report.
-  const loadPortfolio = (filename: string, note: string) => {
-    update({ filename, content: `' ${note}` })
+  // Protect portfolio demos — a .zip filename routes Readiness to the portfolio report;
+  // the content is real multi-class VB.NET so the live /assess classifier produces a report.
+  const loadPortfolio = (filename: string, content: string) => {
+    update({ filename, content })
     onReady()
   }
 
@@ -343,20 +346,13 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
                 <div className="demo-button-group" style={{ marginTop: 10 }}>
                   <button
                     className="btn-plex"
-                    onClick={() =>
-                      loadPortfolio('LegacyEstate.zip', 'LegacyEstate.zip — 142 classes')
-                    }
+                    onClick={() => loadPortfolio('LegacyEstate.zip', DEMO_ESTATE_MIXED)}
                   >
                     Load Portfolio (Mixed Estate)
                   </button>
                   <button
                     className="btn-plex"
-                    onClick={() =>
-                      loadPortfolio(
-                        'WinFormsApp.zip',
-                        'WinFormsApp.zip — 6 classes, all UI-coupled',
-                      )
-                    }
+                    onClick={() => loadPortfolio('WinFormsApp.zip', DEMO_ESTATE_BLOCKED)}
                   >
                     Load Portfolio (Nothing Nettable)
                   </button>

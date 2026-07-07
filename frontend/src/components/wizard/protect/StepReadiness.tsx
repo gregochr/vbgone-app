@@ -25,7 +25,9 @@ export function StepReadiness({ state, update, onReady, onProtectClass }: Props)
   const report = state.readiness
   // For a single .vb the report's file equals the filename; reuse only a matching report.
   const singleMatches = report?.classes[0]?.file === state.filename
-  const usable = report && (isPortfolio ? report.totals.classes > 1 : singleMatches)
+  const usable = report && (isPortfolio ? report.totals.classes >= 1 : singleMatches)
+  // A completed scan that found nothing (e.g. an empty/placeholder source).
+  const scannedEmpty = isPortfolio && report != null && report.totals.classes === 0
 
   const [loading, setLoading] = useState(!isPortfolio && !usable)
   const [scanning, setScanning] = useState(false)
@@ -131,7 +133,7 @@ export function StepReadiness({ state, update, onReady, onProtectClass }: Props)
           {...{ report: report!, filter, setFilter, expanded, setExpanded, netted, onProtectClass }}
         />
       )
-    if (scanning) {
+    if (scanning && !scannedEmpty) {
       const pct = report ? '100%' : `${Math.min(100, Math.round((scanCount / 200) * 100))}%`
       const total = report?.totals.classes ?? '…'
       return (
@@ -152,6 +154,32 @@ export function StepReadiness({ state, update, onReady, onProtectClass }: Props)
                 <div className="scan-bar-fill" style={{ width: pct }} />
               </div>
             </div>
+          </div>
+        </div>
+      )
+    }
+    if (scannedEmpty) {
+      return (
+        <div>
+          <div className="step-kicker">{KICKER}</div>
+          <h2 className="step-title">No classes found</h2>
+          <div className="portfolio-gate" data-testid="scan-empty">
+            <span className="portfolio-gate-glyph" aria-hidden="true">
+              ⚠️
+            </span>
+            <div>
+              <div className="portfolio-gate-title">Nothing to classify</div>
+              <div className="portfolio-gate-body">
+                The scan didn't find any VB.NET classes in{' '}
+                <code className="inline-mono">{state.filename}</code>. Upload a source with at least
+                one class, then re-scan.
+              </div>
+            </div>
+          </div>
+          <div className="net-rerun-row">
+            <button className="btn-plex" onClick={runScan}>
+              Re-scan
+            </button>
           </div>
         </div>
       )
