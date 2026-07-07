@@ -262,9 +262,9 @@ const PROTECT_STEPS: { label: string; tip: React.ReactNode }[] = [
     tip: (
       <>
         <p>
-          <strong>Claude Sonnet</strong> emits an MSTest characterisation suite that asserts the
-          real behaviour — actual exception types and coerced results — then runs it against your
-          original VB.NET on the CLR.
+          <strong>Claude Sonnet</strong> captures your app's current behaviour as an MSTest suite
+          that asserts the real behaviour — actual exception types and coerced results — then runs
+          it against your original VB.NET on the CLR.
         </p>
         <p>
           The polarity flips from Migrate: <strong>green is the success state</strong>. A red result

@@ -109,8 +109,8 @@ export function Step4BaselineTests({
         <ConfirmDialog onConfirm={runSuite} onCancel={() => setShowConfirm(false)}>
           <p>
             This will make an API call to {prov.name} ({reasoningModelId}) via the {prov.vendor}{' '}
-            provider to emit a {PROTECT_TEST_FW} characterisation suite, then compile and run it
-            against your original VB.NET on the CLR.
+            provider to capture your app's current behaviour as a {PROTECT_TEST_FW} test suite, then
+            compile and run it against your original VB.NET on the CLR.
           </p>
           <p>
             {'🔒'} Your code is sent securely over HTTPS and is not stored by Anthropic beyond the
@@ -133,7 +133,8 @@ export function Step4BaselineTests({
         <div className="busy-row">
           <span className="spinner" />
           <span className="loading-text">
-            Generating the characterisation suite and running it against your original VB.NET…
+            Capturing your app's current behaviour as tests and running them against your original
+            VB.NET…
           </span>
         </div>
       </div>
@@ -290,7 +291,8 @@ export function Step4BaselineTests({
             Re-generate suite &amp; run
           </button>
           <span className="net-rerun-hint">
-            Emits a fresh characterisation suite and runs it against your original VB.
+            Captures your app's current behaviour afresh as tests and runs them against your
+            original VB.
           </span>
         </div>
       ) : (
