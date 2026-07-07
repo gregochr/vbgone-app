@@ -70,16 +70,46 @@ public class ProtectAssessmentService {
 
         String file = filename != null && !filename.isBlank() ? filename : "source.vb";
         List<ClassReadiness> classes = new ArrayList<>();
+        List<String> netReadyBlocks = new ArrayList<>();
+        classifyInto(content, file, session, classes, netReadyBlocks);
+        session.setProtectableSource(String.join("\n\n", netReadyBlocks));
 
+        return new ReadinessReport(session.getSessionId(), tally(classes), "static", classes);
+    }
+
+    /**
+     * Classify an uploaded estate (a zip's worth of .vb files). The session was created by
+     * {@code ZipExtractorService.extract}. Each class's {@code file} is its relative path;
+     * per-class sources are stored for the drill-in, and the net-ready subset is pinned as the
+     * headless-compilable {@code protectableSource}.
+     */
+    public ReadinessReport assessProject(ZipManifest manifest) {
+        MigrationSession session = sessionStore.get(manifest.sessionId())
+                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + manifest.sessionId()));
+
+        List<ClassReadiness> classes = new ArrayList<>();
+        List<String> netReadyBlocks = new ArrayList<>();
+        for (VbSourceFile f : manifest.files()) {
+            classifyInto(f.content(), f.relativePath(), session, classes, netReadyBlocks);
+        }
+        session.setProtectableSource(String.join("\n\n", netReadyBlocks));
+
+        return new ReadinessReport(session.getSessionId(), tally(classes), "static", classes);
+    }
+
+    /** Parses classes out of one source string, classifies each, and collects net-ready blocks. */
+    private void classifyInto(String content, String file, MigrationSession session,
+                              List<ClassReadiness> out, List<String> netReadyBlocks) {
         Matcher cm = CLASS_BLOCK.matcher(content == null ? "" : content);
         while (cm.find()) {
             String className = cm.group(1);
-            String body = cm.group(2);
-            session.putClassSource(className, cm.group().trim());
-            classes.add(classifyClass(className, file, body));
+            String block = cm.group().trim();
+            session.putClassSource(className, block);
+            ClassReadiness cr = classifyClass(className, file, cm.group(2));
+            out.add(cr);
+            // Only net-ready (UI-free) classes go into the headless-compilable subset.
+            if (cr.bucket() == Bucket.NET_READY) netReadyBlocks.add(block);
         }
-
-        return new ReadinessReport(session.getSessionId(), tally(classes), "static", classes);
     }
 
     private ClassReadiness classifyClass(String className, String file, String body) {

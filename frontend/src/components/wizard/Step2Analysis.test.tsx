@@ -23,6 +23,7 @@ const baseState: WizardState = {
   implementResult: null,
   greenBuild: null,
   prResult: null,
+  zipFile: null,
   readiness: null,
   baselineResult: null,
   baselineTests: null,

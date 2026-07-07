@@ -299,6 +299,8 @@ export interface WizardState {
   greenBuild: BuildResult | null
   prResult: PullRequestResult | null
   // Protect-mode artifacts:
+  /** A real uploaded .zip estate (Protect portfolio scan) — sent to /assess-project. */
+  zipFile: File | null
   readiness: ReadinessReport | null
   baselineResult: BaselineResult | null
   baselineTests: BaselineTestsResult | null
@@ -321,6 +323,7 @@ const initialState: WizardState = {
   implementResult: null,
   greenBuild: null,
   prResult: null,
+  zipFile: null,
   readiness: null,
   baselineResult: null,
   baselineTests: null,

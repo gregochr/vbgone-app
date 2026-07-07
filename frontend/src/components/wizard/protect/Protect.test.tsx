@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { useState } from 'react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { WizardConfigProvider } from '../../../config/WizardConfigContext'
 import { AppHeader } from '../../AppHeader'
@@ -31,6 +32,7 @@ const baseState: WizardState = {
   implementResult: null,
   greenBuild: null,
   prResult: null,
+  zipFile: null,
   readiness: null,
   baselineResult: null,
   baselineTests: null,
@@ -130,6 +132,18 @@ const mockBaselineTests: BaselineTestsResult = {
 
 const renderWithConfig = (ui: React.ReactNode) =>
   render(<WizardConfigProvider>{ui}</WizardConfigProvider>)
+
+// Stateful harness so `update` actually merges back into state (the real WizardShell does).
+function ReadinessHarness({ initial }: { initial: WizardState }) {
+  const [s, setS] = useState(initial)
+  return (
+    <StepReadiness
+      state={s}
+      update={(p) => setS((prev) => ({ ...prev, ...p }))}
+      onReady={() => {}}
+    />
+  )
+}
 
 describe('AppHeader — MODE toggle', () => {
   it('shows the MODE control and a migrate caption by default', () => {
@@ -428,6 +442,23 @@ describe('StepReadiness (portfolio report)', () => {
     expect(screen.getByText('OrderService')).toBeInTheDocument()
     expect(screen.queryByText('MainForm')).not.toBeInTheDocument()
     expect(screen.queryByText('LedgerView')).not.toBeInTheDocument()
+  })
+
+  it('scans a real uploaded .zip via assess-project and shows the report', async () => {
+    const user = userEvent.setup()
+    // A zip File + no report yet → scan-idle; "Assess readiness" hits assessProject (mock).
+    const initial = {
+      ...baseState,
+      filename: 'LegacyEstate.zip',
+      content: '',
+      readiness: null,
+      zipFile: new File(['x'], 'LegacyEstate.zip'),
+    }
+    renderWithConfig(<ReadinessHarness initial={initial} />)
+    await user.click(screen.getByText('Assess readiness'))
+    await waitFor(() => expect(screen.getByTestId('readiness-report')).toBeInTheDocument(), {
+      timeout: 3000,
+    })
   })
 
   it('shows an explicit empty state (not a loop) when a scan finds no classes', () => {

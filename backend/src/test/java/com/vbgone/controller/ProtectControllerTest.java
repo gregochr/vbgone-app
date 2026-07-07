@@ -38,6 +38,9 @@ class ProtectControllerTest {
     @MockitoBean
     private ProtectAssessmentService assessmentService;
 
+    @MockitoBean
+    private com.vbgone.service.ZipExtractorService zipExtractorService;
+
     private static final String SESSION_ID = "s-protect";
 
     @Test

@@ -2,10 +2,15 @@ package com.vbgone.service;
 
 import com.vbgone.model.Bucket;
 import com.vbgone.model.ClassReadiness;
+import com.vbgone.model.MigrationSession;
 import com.vbgone.model.ReadinessReport;
+import com.vbgone.model.VbSourceFile;
+import com.vbgone.model.ZipManifest;
 import com.vbgone.session.SessionStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -281,5 +286,51 @@ class ProtectAssessmentServiceTest {
         assertThat(r.totals().netReady()).isZero();
         assertThat(r.totals().windowsGated()).isGreaterThan(0);
         assertThat(r.totals().refactorFirst()).isGreaterThan(0);
+    }
+
+    // ── protectable subset (the compile-scope fix) + estate scan ──
+
+    @Test
+    void assess_pinsOnlyNetReadyClassesAsTheProtectableSubset() {
+        ReadinessReport r = service.assess("LegacyEstate.zip", DEMO_MIXED);
+        MigrationSession s = sessionStore.get(r.sessionId()).orElseThrow();
+        String subset = s.getProtectableSource();
+        // The subset that the CLR run compiles must contain the clean classes...
+        assertThat(subset).contains("Public Class OrderService").contains("Public Class PricingEngine");
+        // ...and NONE of the WinForms classes that would break a headless build.
+        assertThat(subset).doesNotContain("Inherits Form").doesNotContain("MainForm");
+    }
+
+    @Test
+    void assessProject_classifiesAcrossFilesWithRelativePaths() {
+        MigrationSession session = sessionStore.create();
+        ZipManifest manifest = new ZipManifest(session.getSessionId(), List.of(
+                new VbSourceFile("Domain/OrderService.vb", "OrderService.vb", """
+                        Public Class OrderService
+                            Public Function Total(qty As Integer, price As Decimal) As Decimal
+                                Return qty * price
+                            End Function
+                        End Class"""),
+                new VbSourceFile("Forms/MainForm.vb", "MainForm.vb", """
+                        Public Class MainForm
+                            Inherits Form
+                            Private WithEvents btn As Button
+                            Private Sub btn_Click(sender As Object, e As EventArgs) Handles btn.Click
+                                btn.Text = "x"
+                            End Sub
+                        End Class""")),
+                2);
+
+        ReadinessReport r = service.assessProject(manifest);
+
+        assertThat(r.totals().classes()).isEqualTo(2);
+        assertThat(r.totals().netReady()).isEqualTo(1);
+        assertThat(r.totals().refactorFirst()).isEqualTo(1);
+        assertThat(classNamed(r, "OrderService").file()).isEqualTo("Domain/OrderService.vb");
+        assertThat(classNamed(r, "MainForm").file()).isEqualTo("Forms/MainForm.vb");
+        // The drill-in compiles only the net-ready class, from across the estate.
+        MigrationSession s = sessionStore.get(r.sessionId()).orElseThrow();
+        assertThat(s.getProtectableSource()).contains("OrderService").doesNotContain("Inherits Form");
+        assertThat(s.getVbContentForClass("OrderService")).contains("Public Class OrderService");
     }
 }

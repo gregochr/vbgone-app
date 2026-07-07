@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { WizardState } from '../WizardShell'
-import { assess } from '../../../api/migrateApi'
+import { assess, assessProject } from '../../../api/migrateApi'
 import type { ClassReadiness, ReadinessReport } from '../../../api/migrateApi'
 import { BUCKETS } from '../../../config/engine'
 import type { Bucket } from '../../../config/engine'
@@ -85,7 +85,12 @@ export function StepReadiness({ state, update, onReady, onProtectClass }: Props)
   const runScan = () => {
     setScanning(true)
     setScanCount(0)
-    assess(state.filename, state.content)
+    // A real uploaded estate goes to /assess-project (extract + classify across files);
+    // the content-based demos go to /assess.
+    const scan = state.zipFile
+      ? assessProject(state.zipFile)
+      : assess(state.filename, state.content)
+    scan
       .then((r) => {
         // Animate the scanned count up to the class total, then reveal the report.
         const total = r.totals.classes

@@ -111,7 +111,15 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
   // Protect portfolio demos — a .zip filename routes Readiness to the portfolio report;
   // the content is real multi-class VB.NET so the live /assess classifier produces a report.
   const loadPortfolio = (filename: string, content: string) => {
-    update({ filename, content })
+    update({ filename, content, zipFile: null })
+    onReady()
+  }
+
+  // Protect: capture a real uploaded .zip estate and advance to Readiness, which scans it via
+  // /assess-project (extract .vb files, classify across them). Migrate keeps its own analysis.
+  const captureEstate = () => {
+    if (!zipFile) return
+    update({ filename: zipFile.name, content: '', zipFile })
     onReady()
   }
 
@@ -175,6 +183,26 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
             ? `Drop a .vb file or a .zip project. VBGone extracts the business logic and migrates it to tested ${lang.lang}, one class at a time.`
             : 'Upload a .zip containing your VB.NET solution. VBGone will analyse all classes, build a dependency graph, and guide you through migrating each class in the optimal order.'}
       </p>
+
+      {/* Protect: a real estate zip has been captured — ready to assess at the next step. */}
+      {protect && state.zipFile && (
+        <div className="zip-summary" style={{ marginTop: 16 }}>
+          <div className="zip-header">
+            <div className="zip-icon">{'📦'}</div>
+            <div>
+              <div className="file-name">{state.filename}</div>
+              <div className="zip-meta">Estate ready — click Next to assess readiness.</div>
+            </div>
+            <button
+              className="btn-plex"
+              style={{ marginLeft: 'auto' }}
+              onClick={() => update({ filename: '', content: '', zipFile: null })}
+            >
+              Choose different file
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Mode toggle */}
       {!state.filename && !zipFile && (
@@ -461,8 +489,11 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
                 ))}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-                <button className="btn-plex" onClick={handleUploadProject}>
-                  Analyse Project
+                <button
+                  className="btn-plex"
+                  onClick={protect ? captureEstate : handleUploadProject}
+                >
+                  {protect ? 'Assess estate →' : 'Analyse Project'}
                 </button>
               </div>
             </div>

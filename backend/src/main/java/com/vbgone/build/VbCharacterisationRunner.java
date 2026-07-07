@@ -86,10 +86,15 @@ public class VbCharacterisationRunner {
      */
     public BuildResult run(MigrationSession session, String className, TestsResult suite) {
         String sessionId = session.getSessionId();
-        // Compile the FULL original source — Protect runs against the user's unmodified
-        // VB.NET, and the class under test may rely on sibling types (LineItem, Order, …)
-        // that a single-class extraction would drop.
-        String vbSource = session.getVbContent();
+        // Compile the headless-compilable subset (the net-ready classes concatenated), NOT the
+        // whole estate: an uploaded solution's WinForms classes can't compile on the Linux CLR
+        // and would poison the build even when the class under test is itself clean. The subset
+        // keeps the class under test plus its net-ready siblings (so cross-references resolve).
+        // Falls back to the full source for older/single-file sessions with no subset pinned.
+        String vbSource = session.getProtectableSource();
+        if (vbSource == null || vbSource.isBlank()) {
+            vbSource = session.getVbContent();
+        }
         Path protectDir = workspacePath.resolve(sessionId).resolve("protect");
 
         try {
