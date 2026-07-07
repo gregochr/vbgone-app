@@ -27,8 +27,10 @@ public class AiProviderRegistry {
     private static final Set<String> ANTHROPIC_MODELS = Set.of(
             "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5");
 
+    // GitHub Models inference catalog ids are publisher-namespaced (models.github.ai).
+    // Anthropic/Gemini are NOT exposed on this endpoint — OpenAI models only.
     private static final Set<String> COPILOT_MODELS = Set.of(
-            "gpt-5", "o3", "gpt-4.1", "gpt-4o", "claude-sonnet-4", "gemini-2.5-pro");
+            "openai/gpt-5", "openai/o3", "openai/gpt-4.1", "openai/gpt-4o", "openai/o4-mini", "openai/gpt-5-mini");
 
     // ── Provider x Role -> default model id ──
     private static final Map<String, Map<ModelRole, String>> DEFAULTS = Map.of(
@@ -38,10 +40,10 @@ public class AiProviderRegistry {
                     ModelRole.IMPLEMENTATION, "claude-sonnet-4-6",
                     ModelRole.ESCALATION, "claude-opus-4-6"),
             GitHubModelsProvider.ID, Map.of(
-                    ModelRole.REASONING, "o3",
-                    ModelRole.MECHANICAL, "gpt-4.1",
-                    ModelRole.IMPLEMENTATION, "o3",
-                    ModelRole.ESCALATION, "gpt-5"));
+                    ModelRole.REASONING, "openai/o3",
+                    ModelRole.MECHANICAL, "openai/gpt-4.1",
+                    ModelRole.IMPLEMENTATION, "openai/o3",
+                    ModelRole.ESCALATION, "openai/gpt-5"));
 
     private final Map<String, AiProvider> providers = new HashMap<>();
 

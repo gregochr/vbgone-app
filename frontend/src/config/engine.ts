@@ -109,13 +109,15 @@ export const MODELS: Record<ProviderId, ModelSpec[]> = {
     { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
     { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
   ],
+  // GitHub Models inference catalog ids are publisher-namespaced (models.github.ai).
+  // Anthropic/Gemini are NOT exposed on this endpoint — only OpenAI et al.
   copilot: [
-    { id: 'gpt-5', label: 'GPT-5' },
-    { id: 'o3', label: 'o3' },
-    { id: 'gpt-4.1', label: 'GPT-4.1' },
-    { id: 'gpt-4o', label: 'GPT-4o' },
-    { id: 'claude-sonnet-4', label: 'Claude Sonnet 4' },
-    { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+    { id: 'openai/gpt-5', label: 'GPT-5' },
+    { id: 'openai/o3', label: 'o3' },
+    { id: 'openai/gpt-4.1', label: 'GPT-4.1' },
+    { id: 'openai/gpt-4o', label: 'GPT-4o' },
+    { id: 'openai/o4-mini', label: 'o4-mini' },
+    { id: 'openai/gpt-5-mini', label: 'GPT-5 mini' },
   ],
 }
 
@@ -128,10 +130,10 @@ export const DEFAULTS: Record<ProviderId, Record<Role, string>> = {
     escalation: 'claude-opus-4-6',
   },
   copilot: {
-    reasoning: 'o3',
-    mechanical: 'gpt-4.1',
-    implementation: 'o3',
-    escalation: 'gpt-5',
+    reasoning: 'openai/o3',
+    mechanical: 'openai/gpt-4.1',
+    implementation: 'openai/o3',
+    escalation: 'openai/gpt-5',
   },
 }
 
