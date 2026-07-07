@@ -87,7 +87,8 @@ export function Step3Baseline({
         <ConfirmDialog onConfirm={runBaseline} onCancel={() => setShowConfirm(false)}>
           <p>
             This will make an API call to {prov.name} ({mechanicalModelId}) via the {prov.vendor}{' '}
-            provider to characterise the public surface of <strong>{className}</strong>.
+            provider to capture the current behaviour of <strong>{className}</strong>'s public
+            surface.
           </p>
           <p>
             {'🔒'} Your code is sent securely over HTTPS and is not stored by Anthropic beyond the
@@ -110,7 +111,8 @@ export function Step3Baseline({
         <div className="busy-row">
           <span className="spinner" />
           <span className="loading-text">
-            Characterising the public surface of {className} against the live assemblies…
+            Capturing the current behaviour of {className}'s public surface against the live
+            assemblies…
           </span>
         </div>
       </div>
@@ -166,8 +168,8 @@ export function Step3Baseline({
         <div className="pin-notice-body">
           <div className="pin-notice-heading">Behaviour pinned as-is</div>
           <p>
-            VBGone is characterising this class exactly as it runs today, including known defects
-            (e.g. unhandled divide-by-zero). This is intentional — Protect locks in current
+            VBGone is capturing this class's behaviour exactly as it runs today, including known
+            defects (e.g. unhandled divide-by-zero). This is intentional — Protect locks in current
             behaviour so that patching a dependency surfaces any change.
           </p>
           <div className="pin-subbar">Green means unchanged, not correct.</div>

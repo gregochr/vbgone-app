@@ -218,7 +218,7 @@ describe('Step3Baseline', () => {
 
   it('asks to confirm before pinning when no baseline yet', () => {
     renderWithConfig(<Step3Baseline state={baseState} update={() => {}} onReady={() => {}} />)
-    expect(screen.getByText(/characterise the public surface/i)).toBeInTheDocument()
+    expect(screen.getByText(/capture the current behaviour of/i)).toBeInTheDocument()
   })
 })
 
