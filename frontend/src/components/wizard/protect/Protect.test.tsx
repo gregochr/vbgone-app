@@ -35,6 +35,8 @@ const baseState: WizardState = {
   baselineResult: null,
   baselineTests: null,
   netFaithful: true,
+  netted: [],
+  fromQueue: false,
 }
 
 const readyReport: ReadinessReport = {

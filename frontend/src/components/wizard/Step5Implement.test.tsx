@@ -34,6 +34,12 @@ const baseState: WizardState = {
   implementResult: null,
   greenBuild: null,
   prResult: null,
+  readiness: null,
+  baselineResult: null,
+  baselineTests: null,
+  netFaithful: true,
+  netted: [],
+  fromQueue: false,
 }
 
 const mockImpl: api.ImplementResult = {
