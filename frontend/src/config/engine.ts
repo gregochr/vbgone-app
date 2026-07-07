@@ -101,6 +101,14 @@ export function providerColor(provider: ProviderId): string {
 export interface ModelSpec {
   id: string
   label: string
+  /**
+   * Shown in the engine panel but not selectable. Used for GitHub Models
+   * reasoning-tier models (o3, GPT-5) that the inference endpoint does not
+   * expose to personal GitHub accounts — even with paid usage enabled.
+   */
+  unavailable?: boolean
+  /** Why the model is disabled — surfaced in the engine panel. */
+  unavailableReason?: string
 }
 
 export const MODELS: Record<ProviderId, ModelSpec[]> = {
@@ -111,13 +119,27 @@ export const MODELS: Record<ProviderId, ModelSpec[]> = {
   ],
   // GitHub Models inference catalog ids are publisher-namespaced (models.github.ai).
   // Anthropic/Gemini are NOT exposed on this endpoint — only OpenAI et al.
+  // The GPT-4.1/4o family works on the free tier (verified HTTP 200). The
+  // reasoning-tier models (o3, GPT-5) return 403 / are unavailable to personal
+  // GitHub accounts, which cannot enable Models paid usage (Settings ▸ Models
+  // 404s for individuals) — so they are shown but disabled.
   copilot: [
-    { id: 'openai/gpt-5', label: 'GPT-5' },
-    { id: 'openai/o3', label: 'o3' },
     { id: 'openai/gpt-4.1', label: 'GPT-4.1' },
     { id: 'openai/gpt-4o', label: 'GPT-4o' },
-    { id: 'openai/o4-mini', label: 'o4-mini' },
-    { id: 'openai/gpt-5-mini', label: 'GPT-5 mini' },
+    { id: 'openai/gpt-4.1-mini', label: 'GPT-4.1 mini' },
+    { id: 'openai/gpt-4o-mini', label: 'GPT-4o mini' },
+    {
+      id: 'openai/o3',
+      label: 'o3',
+      unavailable: true,
+      unavailableReason: 'Not available to personal GitHub accounts (even with paid usage)',
+    },
+    {
+      id: 'openai/gpt-5',
+      label: 'GPT-5',
+      unavailable: true,
+      unavailableReason: 'Not available to personal GitHub accounts (even with paid usage)',
+    },
   ],
 }
 
@@ -129,11 +151,13 @@ export const DEFAULTS: Record<ProviderId, Record<Role, string>> = {
     implementation: 'claude-sonnet-4-6',
     escalation: 'claude-opus-4-6',
   },
+  // Personal GitHub accounts can't reach o3/GPT-5 on GitHub Models, so the
+  // Copilot roles default to the GPT-4.1/4o family, which works on the free tier.
   copilot: {
-    reasoning: 'openai/o3',
-    mechanical: 'openai/gpt-4.1',
-    implementation: 'openai/o3',
-    escalation: 'openai/gpt-5',
+    reasoning: 'openai/gpt-4.1',
+    mechanical: 'openai/gpt-4o-mini',
+    implementation: 'openai/gpt-4.1',
+    escalation: 'openai/gpt-4o',
   },
 }
 

@@ -102,8 +102,13 @@ export function EnginePanel() {
                     aria-label={`${row.label} model`}
                   >
                     {MODELS[provider].map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label}
+                      <option
+                        key={m.id}
+                        value={m.id}
+                        disabled={m.unavailable}
+                        title={m.unavailable ? m.unavailableReason : undefined}
+                      >
+                        {m.unavailable ? `${m.label} — unavailable` : m.label}
                       </option>
                     ))}
                   </select>
@@ -115,6 +120,17 @@ export function EnginePanel() {
               </div>
             )
           })}
+
+          {MODELS[provider].some((m) => m.unavailable) && (
+            <div className="engine-note" role="note">
+              {MODELS[provider]
+                .filter((m) => m.unavailable)
+                .map((m) => m.label)
+                .join(' and ')}{' '}
+              aren&rsquo;t available to personal GitHub accounts — even with paid usage. The Copilot
+              path runs on GPT-4.1 / GPT-4o.
+            </div>
+          )}
 
           <div className="engine-footer">
             <button type="button" className="engine-reset" onClick={resetOverrides}>

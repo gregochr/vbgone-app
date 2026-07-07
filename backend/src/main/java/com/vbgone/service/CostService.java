@@ -22,13 +22,12 @@ public class CostService {
             Map.entry("claude-sonnet-4-6", new double[]{3.0, 15.0}),
             Map.entry("claude-haiku-4-5", new double[]{0.80, 4.0}),
             // ── GitHub Models (Copilot) — publisher-namespaced catalog ids ──
-            // PLACEHOLDER GitHub Models pricing — verify against tenant
-            Map.entry("openai/gpt-5", new double[]{5.0, 15.0}),
-            Map.entry("openai/o3", new double[]{2.0, 8.0}),
+            // Only the models reachable by personal accounts on the free tier.
+            // PLACEHOLDER GitHub Models pricing — verify against tenant.
             Map.entry("openai/gpt-4.1", new double[]{2.0, 8.0}),
             Map.entry("openai/gpt-4o", new double[]{2.5, 10.0}),
-            Map.entry("openai/o4-mini", new double[]{1.1, 4.4}),
-            Map.entry("openai/gpt-5-mini", new double[]{0.25, 2.0})
+            Map.entry("openai/gpt-4.1-mini", new double[]{0.40, 1.60}),
+            Map.entry("openai/gpt-4o-mini", new double[]{0.15, 0.60})
     );
 
     private final SessionStore sessionStore;
