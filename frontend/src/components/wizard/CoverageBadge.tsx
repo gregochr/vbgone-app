@@ -15,8 +15,11 @@ interface CoverageBadgeProps {
 /**
  * Informational coverage badge. Renders nothing when line coverage was not collected
  * (null/undefined). Below the threshold it warns in amber but never blocks — coverage is a signal,
- * not a gate. Every figure is attributed to Coverlet, the independent .NET coverage tool that
- * produced it, so the number reads as verified rather than self-reported.
+ * not a gate.
+ *
+ * Every figure carries a prominent Coverlet attribution: the numbers are produced by Coverlet, the
+ * independent open-source .NET coverage tool that instruments the real `dotnet test` run — not
+ * self-reported by VBGone. That provenance is the point of the badge as much as the number itself.
  */
 export function CoverageBadge({
   coveragePercent,
@@ -54,15 +57,15 @@ export function CoverageBadge({
             </>
           )}
         </span>
+        {hasBranch && (
+          <span className="coverage-badge-branch">
+            <strong>{branchPercent!.toFixed(1)}%</strong> branch coverage — each decision exercised
+            both ways.
+          </span>
+        )}
         <span className="coverage-badge-source">
-          {hasBranch && (
-            <>
-              <strong>{branchPercent!.toFixed(1)}%</strong> branch coverage — each decision
-              exercised both ways.{' '}
-            </>
-          )}
-          <span className="coverage-badge-verified">Verified by Coverlet</span>, the independent
-          .NET coverage tool.
+          <span className="coverage-badge-verified">Measured by Coverlet</span> — the independent
+          open-source .NET coverage tool, run against the real <code>dotnet test</code> execution.
         </span>
       </span>
     </div>

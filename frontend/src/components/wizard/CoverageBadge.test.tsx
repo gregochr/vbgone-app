@@ -48,10 +48,14 @@ describe('CoverageBadge', () => {
     )
   })
 
-  it('attributes every figure to Coverlet', () => {
+  it('attributes every figure to Coverlet, prominently', () => {
     render(<CoverageBadge coveragePercent={91} />)
-    expect(screen.getByTestId('coverage-badge')).toHaveTextContent(
-      'Verified by Coverlet, the independent .NET coverage tool',
+    const badge = screen.getByTestId('coverage-badge')
+    expect(badge).toHaveTextContent('Measured by Coverlet')
+    expect(badge).toHaveTextContent('independent open-source .NET coverage tool')
+    // The Coverlet name is the emphasised element, not muted body text.
+    expect(badge.querySelector('.coverage-badge-verified')).toHaveTextContent(
+      'Measured by Coverlet',
     )
   })
 
