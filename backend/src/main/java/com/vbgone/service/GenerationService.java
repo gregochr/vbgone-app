@@ -255,34 +255,4 @@ public class GenerationService {
         return prompts.extractFailingTests(testCode, failingTests);
     }
 
-    // ── Back-compat delegators for unit tests that exercise the C# post-processors. ──
-
-    private final CSharpPrompts csharp = new CSharpPrompts();
-
-    int countTests(String code) {
-        return csharp.countTests(code);
-    }
-
-    String extractFailingTests(MigrationSession session, java.util.List<String> failingTests) {
-        TestsResult tests = session.getTestsResult();
-        String testCode = tests != null ? tests.code() : "";
-        return csharp.extractFailingTests(testCode, failingTests);
-    }
-
-    String fixClassDeclaration(String code, String expectedClass, String expectedInterface) {
-        return csharp.fixDeclaration(code, expectedClass,
-                new InterfaceResult("", expectedClass, expectedInterface, ""));
-    }
-
-    String repairTruncatedCSharp(String code) {
-        return csharp.repairTruncated(code);
-    }
-
-    String stripNamespaceWrapper(String code) {
-        return csharp.stripWrappers(code);
-    }
-
-    String stripCodeFences(String text) {
-        return csharp.stripCodeFences(text);
-    }
 }

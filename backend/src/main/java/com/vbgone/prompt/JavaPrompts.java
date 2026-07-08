@@ -4,8 +4,6 @@ import com.vbgone.model.InterfaceResult;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Java / JUnit 5 prompt strategy. Mirrors {@link CSharpPrompts} but targets the Java
@@ -239,37 +237,10 @@ public class JavaPrompts implements PromptLanguage {
 
     @Override
     public String stripCodeFences(String text) {
-        String trimmed = text.trim();
-        // If the response starts with a code fence, strip it
-        if (trimmed.startsWith("```")) {
-            trimmed = trimmed.replaceAll("^```\\w*\\s*", "").replaceAll("\\s*```$", "");
-            return trimmed;
-        }
-        // If the model returned natural language with an embedded java code block, extract it
-        Matcher m = Pattern.compile(
-                "```(?:java)?\\s*\\n(.*?)\\n\\s*```",
-                Pattern.DOTALL).matcher(trimmed);
-        if (m.find()) {
-            return m.group(1).trim();
-        }
-        // Otherwise anchor extraction on the first real code marker, preferring the
-        // package line so the whole compilation unit is preserved.
-        int startIdx = firstIndexOf(trimmed, "package ", "public class ", "public interface ", "class ", "interface ");
-        if (startIdx > 0) {
-            return trimmed.substring(startIdx).trim();
-        }
-        return trimmed;
-    }
-
-    private static int firstIndexOf(String text, String... markers) {
-        int best = -1;
-        for (String marker : markers) {
-            int idx = text.indexOf(marker);
-            if (idx >= 0 && (best < 0 || idx < best)) {
-                best = idx;
-            }
-        }
-        return best;
+        // Embedded Java fence token is java; when unfenced, anchor on the first real code
+        // marker, preferring the package line so the whole compilation unit is preserved.
+        return PromptPostProcessing.stripCodeFences(text, "java",
+                "package ", "public class ", "public interface ", "class ", "interface ");
     }
 
     @Override
@@ -299,44 +270,17 @@ public class JavaPrompts implements PromptLanguage {
 
     @Override
     public String extractFailingTests(String testCode, List<String> failingTestNames) {
-        if (testCode == null || testCode.isBlank() || failingTestNames.isEmpty()) return "";
-
-        String[] lines = testCode.split("\n");
-        StringBuilder sb = new StringBuilder();
-
-        for (String testName : failingTestNames) {
-            for (int i = 0; i < lines.length; i++) {
+        return PromptPostProcessing.extractFailingTests(testCode, failingTestNames,
                 // JUnit 5 test methods: `void <name>(` (possibly with modifiers in front).
-                if (lines[i].contains("void " + testName + "(")
-                        || lines[i].contains(testName + "(") && lines[i].contains("void ")) {
-                    // Walk back to include a preceding @Test (and any annotations) line.
+                (line, testName) -> line.contains("void " + testName + "(")
+                        || (line.contains(testName + "(") && line.contains("void ")),
+                // Walk back to include a preceding @Test (and any annotations) line.
+                (lines, i) -> {
                     int start = i;
                     while (start > 0 && lines[start - 1].trim().startsWith("@")) {
                         start--;
                     }
-
-                    // Walk forward to the matching closing brace.
-                    int depth = 0;
-                    int end = i;
-                    for (int j = i; j < lines.length; j++) {
-                        for (char c : lines[j].toCharArray()) {
-                            if (c == '{') depth++;
-                            else if (c == '}') depth--;
-                        }
-                        if (depth <= 0 && j > i) {
-                            end = j;
-                            break;
-                        }
-                    }
-
-                    for (int j = start; j <= end && j < lines.length; j++) {
-                        sb.append(lines[j]).append("\n");
-                    }
-                    sb.append("\n");
-                    break;
-                }
-            }
-        }
-        return sb.toString().trim();
+                    return start;
+                });
     }
 }

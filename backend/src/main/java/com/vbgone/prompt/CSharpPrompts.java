@@ -4,8 +4,6 @@ import com.vbgone.model.InterfaceResult;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * C# / NUnit prompt strategy. The system prompts, user-message construction, and
@@ -348,31 +346,9 @@ public class CSharpPrompts implements PromptLanguage {
 
     @Override
     public String stripCodeFences(String text) {
-        String trimmed = text.trim();
-        // If the response starts with a code fence, strip it
-        if (trimmed.startsWith("```")) {
-            trimmed = trimmed.replaceAll("^```\\w*\\s*", "").replaceAll("\\s*```$", "");
-            return trimmed;
-        }
-        // If Claude returned natural language with an embedded code block, extract it
-        Matcher m = Pattern.compile(
-                "```(?:csharp|cs)?\\s*\\n(.*?)\\n\\s*```",
-                Pattern.DOTALL).matcher(trimmed);
-        if (m.find()) {
-            return m.group(1).trim();
-        }
-        // If the response contains "public class" but doesn't start with it,
-        // extract from the first "public class" or "using " onwards
-        int classIdx = trimmed.indexOf("public class ");
-        int usingIdx = trimmed.indexOf("using ");
-        int startIdx = -1;
-        if (classIdx >= 0 && usingIdx >= 0) startIdx = Math.min(classIdx, usingIdx);
-        else if (classIdx >= 0) startIdx = classIdx;
-        else if (usingIdx >= 0) startIdx = usingIdx;
-        if (startIdx > 0) {
-            return trimmed.substring(startIdx).trim();
-        }
-        return trimmed;
+        // Embedded C# fence tokens are csharp|cs; when unfenced, anchor on the first
+        // "public class" or "using " line (whichever appears earlier).
+        return PromptPostProcessing.stripCodeFences(text, "csharp|cs", "public class ", "using ");
     }
 
     @Override
@@ -402,44 +378,19 @@ public class CSharpPrompts implements PromptLanguage {
 
     @Override
     public String extractFailingTests(String testCode, List<String> failingTestNames) {
-        if (testCode == null || testCode.isBlank() || failingTestNames.isEmpty()) return "";
-
-        String[] lines = testCode.split("\n");
-        StringBuilder sb = new StringBuilder();
-
-        for (String testName : failingTestNames) {
-            // Find the method — look for a line containing the test name
-            for (int i = 0; i < lines.length; i++) {
-                if (lines[i].contains(testName) && (lines[i].contains("void ") || lines[i].contains("int ") || lines[i].contains("double ") || lines[i].contains("string ") || lines[i].contains("bool "))) {
-                    // Walk back to find [Test] or [TestCase attribute
+        return PromptPostProcessing.extractFailingTests(testCode, failingTestNames,
+                // A C# test signature line mentions the test name and a return type.
+                (line, testName) -> line.contains(testName)
+                        && (line.contains("void ") || line.contains("int ") || line.contains("double ")
+                                || line.contains("string ") || line.contains("bool ")),
+                // Walk back to the [Test]/[TestCase] attribute line above the signature.
+                (lines, i) -> {
                     int start = i;
                     while (start > 0 && !lines[start - 1].trim().startsWith("[Test")) {
                         start--;
                     }
                     if (start > 0) start--; // include the attribute line
-
-                    // Walk forward to find the closing brace (matching depth)
-                    int depth = 0;
-                    int end = i;
-                    for (int j = i; j < lines.length; j++) {
-                        for (char c : lines[j].toCharArray()) {
-                            if (c == '{') depth++;
-                            else if (c == '}') depth--;
-                        }
-                        if (depth <= 0 && j > i) {
-                            end = j;
-                            break;
-                        }
-                    }
-
-                    for (int j = start; j <= end && j < lines.length; j++) {
-                        sb.append(lines[j]).append("\n");
-                    }
-                    sb.append("\n");
-                    break;
-                }
-            }
-        }
-        return sb.toString().trim();
+                    return start;
+                });
     }
 }
