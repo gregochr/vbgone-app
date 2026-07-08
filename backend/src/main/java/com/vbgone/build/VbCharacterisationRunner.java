@@ -129,6 +129,32 @@ public class VbCharacterisationRunner {
         }
     }
 
+    /**
+     * Runs {@code suite} against an EXPLICIT {@code vbSource} (not the session's) and returns the
+     * raw GREEN/RED/ERROR outcome. Used by mutation testing to run the net against each mutant.
+     * Unlike {@link #run}, it has no session side effects and collects no coverage — a mutant run
+     * only asks "did the net go red?". Reuses the same write → dotnet test → parse machinery.
+     */
+    public BuildResult runAgainstSource(String sessionId, String className, String vbSource, TestsResult suite) {
+        Path assureDir = workspacePath.resolve(sessionId).resolve("assure");
+        try {
+            writeProjectFiles(assureDir, className, vbSource, suite);
+            ProcessOutput output = executeDotnetTest(sessionId, className);
+            Path trxPath = assureDir.resolve(className + ".Baseline")
+                    .resolve("TestResults").resolve("results.trx");
+            if (output.exitCode() != 0 && !Files.exists(trxPath)) {
+                List<String> errors = parseCompilationErrors(output.stderr(), output.stdout());
+                return new BuildResult(sessionId, BuildStatus.ERROR, 0, 0, 0, errors, List.of());
+            }
+            return TrxParser.parse(sessionId, Files.readString(trxPath)).result();
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw new RuntimeException("Mutation run failed: " + e.getMessage(), e);
+        }
+    }
+
     void writeProjectFiles(Path assureDir, String className, String vbSource, TestsResult suite)
             throws IOException {
         Path vbDir = assureDir.resolve(className + ".Vb");

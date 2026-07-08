@@ -99,6 +99,33 @@ export interface InterfaceResult {
   code: string
 }
 
+export interface SurvivingMutant {
+  line: number
+  operator: string
+  before: string
+  after: string
+  description: string
+}
+
+export interface MutationResult {
+  total: number
+  killed: number
+  survived: number
+  skipped: number
+  /** killed / (killed + survived), 0–100, or null when there were no compilable mutants to judge. */
+  score: number | null
+  survivors: SurvivingMutant[]
+}
+
+export interface MutationJobStatus {
+  jobId: string
+  state: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED'
+  done: number
+  total: number
+  result: MutationResult | null
+  error: string | null
+}
+
 export interface TestsResult {
   sessionId: string
   className: string
@@ -920,6 +947,33 @@ const mockGreenNet = (sessionId: string, className: string, code: string): Basel
 // Track state across mock calls so build/PR can return consistent data
 let lastMockTestCount = 30
 const mockMigratedClasses: string[] = []
+
+// Mock mutation-testing state: a job that advances a few mutants per poll, then settles.
+const MOCK_MUTATION_TOTAL = 12
+let mockMutationDone = 0
+const MOCK_MUTATION_RESULT: MutationResult = {
+  total: 12,
+  killed: 9,
+  survived: 2,
+  skipped: 1,
+  score: 82,
+  survivors: [
+    {
+      line: 34,
+      operator: 'boundary-literal',
+      before: '1000',
+      after: '1001',
+      description: 'off-by-one: 1000 → 1001 (SILVER threshold) — no test pins subtotal = 1000',
+    },
+    {
+      line: 41,
+      operator: 'relational',
+      before: '<=',
+      after: '<',
+      description: 'boundary <= → < on the shipping cap — the boundary quantity is unasserted',
+    },
+  ],
+}
 
 const mockApi = {
   async analyse(filename: string, content: string, engine?: EngineParams): Promise<AnalysisResult> {
@@ -1835,6 +1889,51 @@ public class OrderProcessor : IOrderProcessor
     }
   },
 
+  async startMutationTest(
+    sessionId: string,
+    className: string,
+    suiteCode: string,
+  ): Promise<MutationJobStatus> {
+    void sessionId
+    void className
+    void suiteCode
+    await delay(600)
+    mockMutationDone = 0
+    return {
+      jobId: 'mock-mutation',
+      state: 'RUNNING',
+      done: 0,
+      total: MOCK_MUTATION_TOTAL,
+      result: null,
+      error: null,
+    }
+  },
+
+  async getMutationJob(jobId: string): Promise<MutationJobStatus> {
+    void jobId
+    await delay(500)
+    // Advance a few mutants per poll so the UI animates, then settle on a final score.
+    mockMutationDone = Math.min(MOCK_MUTATION_TOTAL, mockMutationDone + 4)
+    if (mockMutationDone < MOCK_MUTATION_TOTAL) {
+      return {
+        jobId,
+        state: 'RUNNING',
+        done: mockMutationDone,
+        total: MOCK_MUTATION_TOTAL,
+        result: null,
+        error: null,
+      }
+    }
+    return {
+      jobId,
+      state: 'DONE',
+      done: MOCK_MUTATION_TOTAL,
+      total: MOCK_MUTATION_TOTAL,
+      result: MOCK_MUTATION_RESULT,
+      error: null,
+    }
+  },
+
   async assess(filename: string, content: string): Promise<ReadinessReport> {
     void content
     await delay(700) // a fast static scan
@@ -2021,6 +2120,24 @@ const realApi = {
     return data
   },
 
+  async startMutationTest(
+    sessionId: string,
+    className: string,
+    suiteCode: string,
+  ): Promise<MutationJobStatus> {
+    const { data } = await assureApi.post<MutationJobStatus>('/mutation-test', {
+      sessionId,
+      className,
+      suiteCode,
+    })
+    return data
+  },
+
+  async getMutationJob(jobId: string): Promise<MutationJobStatus> {
+    const { data } = await assureApi.get<MutationJobStatus>(`/mutation-test/${jobId}`)
+    return data
+  },
+
   async assess(filename: string, content: string): Promise<ReadinessReport> {
     const { data } = await assureApi.post<ReadinessReport>('/assess', { filename, content })
     return data
@@ -2059,6 +2176,8 @@ export const generateBaseline = active.generateBaseline
 export const runBaselineTests = active.runBaselineTests
 export const rerunBaselineTests = active.rerunBaselineTests
 export const repairBaselineTest = active.repairBaselineTest
+export const startMutationTest = active.startMutationTest
+export const getMutationJob = active.getMutationJob
 export const assess = active.assess
 export const assessProject = active.assessProject
 export const fetchCost = active.fetchCost

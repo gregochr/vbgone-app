@@ -4,6 +4,7 @@ import { runBaselineTests, rerunBaselineTests, repairBaselineTest } from '../../
 import { ConfirmDialog } from '../ConfirmDialog'
 import { CodeBlock } from '../CodeBlock'
 import { CoverageBadge } from '../CoverageBadge'
+import { MutationPanel } from './MutationPanel'
 import { useWizardConfig } from '../../../config/WizardConfigContext'
 import {
   PROVIDERS,
@@ -351,6 +352,11 @@ export function Step4BaselineTests({
           branchPercent={tests.build.branchCoveragePercent}
           ofLabel="your original VB.NET"
         />
+      )}
+
+      {/* Mutation testing — prove the net actually catches regressions (only once it's green). */}
+      {faithful && (
+        <MutationPanel sessionId={sessionId} className={className} suiteCode={codePanelCode} />
       )}
 
       {/* Compile failure — explain Assure's precondition (runs on its own), tailored to cause. */}
