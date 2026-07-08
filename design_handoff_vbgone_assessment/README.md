@@ -95,10 +95,12 @@ Once a class is assured, its generated baseline test suite is downloadable — i
 or as a bundle. Three touchpoints, all on the readiness report (the hub the queue returns to after
 each class is assured):
 
-1. **Per-class** — a row whose baseline has gone **green** shows the **✓ Assured** chip plus a
-   secondary **↓ tests** button that downloads that one class's `{Class}Tests.cs`. Only classes with
-   a recorded (green) suite get the button; a class left early or quarantined still shows **✓ Assured**
-   but no download, and gated/tangled classes have no suite at all.
+1. **Per-class** — a row whose baseline is **green** shows the **✓ Assured** chip plus a secondary
+   **↓ tests** button that downloads that one class's `{Class}Tests.cs`. Only classes with a
+   recorded (green) suite get the button. Accepting a quarantined test counts: the unrepairable
+   test is marked `[Ignore]` and the rest re-run green, so the class becomes downloadable with the
+   passing tests (the flagged test stays in the file for review). A class *left early* (before its
+   baseline ran) shows **✓ Assured** but no download; gated/tangled classes have no suite at all.
 2. **Mid-flow bulk** — the *Assurance progress* card gains a **↓ Download all tests (N)** button as
    soon as ≥1 class's baseline is green (`N` = number of downloadable suites, not the queue length).
 3. **Completion** — when every ready class has been through the queue, the proceed panel flips from

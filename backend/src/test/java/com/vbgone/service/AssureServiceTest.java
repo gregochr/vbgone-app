@@ -179,6 +179,52 @@ class AssureServiceTest {
     }
 
     @Test
+    void quarantineBaseline_ignoresFailingTestRerunsGreenAndRecordsDownloadableSuite() {
+        MigrationSession session = session("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        // With the failing test set aside, the remaining tests pass → green.
+        when(runner.run(any(), eq("OrderProcessor"), any()))
+                .thenReturn(build(BuildStatus.GREEN, 42, 42, 0));
+        String suite = """
+                [TestClass]
+                public class OrderProcessorBaselineTests
+                {
+                    [TestMethod]
+                    public void Bad() { Assert.AreEqual(1, 2); }
+                    [TestMethod]
+                    public void Good() { Assert.AreEqual(1, 1); }
+                }
+                """;
+
+        BaselineTestsResult result = service.quarantineBaseline(
+                "s1", "OrderProcessor", suite, List.of("Bad"));
+
+        assertThat(result.netFaithful()).isTrue();
+        assertThat(result.code()).contains("[Ignore("); // the failing test was set aside, not removed
+        assertThat(result.code()).contains("public void Bad()").contains("public void Good()");
+        // A class with a quarantined test is still downloadable (with the passing tests).
+        assertThat(session.getBaselineSuites()).containsKey("OrderProcessor");
+        assertThat(session.getBaselineSuites().get("OrderProcessor").code()).contains("[Ignore(");
+    }
+
+    @Test
+    void quarantineBaseline_stillRedWhenOtherTestsFailIsNotRecorded() {
+        MigrationSession session = session("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        // Setting one test aside isn't enough — another still fails, so the suite stays red.
+        when(runner.run(any(), eq("OrderProcessor"), any()))
+                .thenReturn(build(BuildStatus.RED, 42, 41, 1, List.of("Other")));
+
+        BaselineTestsResult result = service.quarantineBaseline(
+                "s1", "OrderProcessor",
+                "[TestClass]\npublic class X {\n    [TestMethod]\n    public void Bad() {}\n}",
+                List.of("Bad"));
+
+        assertThat(result.netFaithful()).isFalse();
+        assertThat(session.getBaselineSuites()).doesNotContainKey("OrderProcessor");
+    }
+
+    @Test
     void rerunBaselineTests_runsEditedNetWithNoAiCall() {
         MigrationSession session = session("s1");
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));

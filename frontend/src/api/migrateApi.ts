@@ -1800,6 +1800,18 @@ public class OrderProcessor : IOrderProcessor
     return mockGreenNet(sessionId, className, code)
   },
 
+  async quarantineBaseline(
+    sessionId: string,
+    className: string,
+    code: string,
+    tests: string[],
+  ): Promise<BaselineTestsResult> {
+    void tests
+    // Demo: setting the unrepairable test(s) aside leaves a green baseline of the rest.
+    await delay(900)
+    return mockGreenNet(sessionId, className, code)
+  },
+
   async repairBaselineTest(
     sessionId: string,
     className: string,
@@ -2002,6 +2014,21 @@ const realApi = {
     return data
   },
 
+  async quarantineBaseline(
+    sessionId: string,
+    className: string,
+    code: string,
+    tests: string[],
+  ): Promise<BaselineTestsResult> {
+    const { data } = await assureApi.post<BaselineTestsResult>('/quarantine-baseline', {
+      sessionId,
+      className,
+      code,
+      tests,
+    })
+    return data
+  },
+
   async repairBaselineTest(
     sessionId: string,
     className: string,
@@ -2058,6 +2085,7 @@ export const uploadProject = active.uploadProject
 export const generateBaseline = active.generateBaseline
 export const runBaselineTests = active.runBaselineTests
 export const rerunBaselineTests = active.rerunBaselineTests
+export const quarantineBaseline = active.quarantineBaseline
 export const repairBaselineTest = active.repairBaselineTest
 export const assess = active.assess
 export const assessProject = active.assessProject

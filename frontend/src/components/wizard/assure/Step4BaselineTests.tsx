@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { WizardState } from '../WizardShell'
-import { runBaselineTests, rerunBaselineTests, repairBaselineTest } from '../../../api/migrateApi'
+import {
+  runBaselineTests,
+  rerunBaselineTests,
+  quarantineBaseline,
+  repairBaselineTest,
+} from '../../../api/migrateApi'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { CodeBlock } from '../CodeBlock'
 import { CoverageBadge } from '../CoverageBadge'
@@ -199,6 +204,25 @@ export function Step4BaselineTests({
       // A repaired-green class is now downloadable (its suite is recorded server-side).
       update({ assuredGreen: withClass(state.assuredGreen ?? [], className) })
       onReady()
+      return
+    }
+    // Quarantine: set the unrepairable test(s) aside ([Ignore]) and re-run the rest. When the
+    // remainder is green the backend records a downloadable suite, so the class is still assured
+    // with the passing tests. Keep netFaithful false so the quarantine card stays on screen
+    // (flipping it would swap in the plain all-green view).
+    const failing = state.baselineTests?.failures.map((f) => f.name) ?? [failingTest]
+    try {
+      const result = await quarantineBaseline(sessionId, className, code, failing)
+      setRealRepairCode(result.code) // show the [Ignore]-annotated suite in the code panel
+      update({
+        baselineTests: state.baselineTests ? { ...state.baselineTests, code: result.code } : result,
+        ...(result.netFaithful
+          ? { assuredGreen: withClass(state.assuredGreen ?? [], className) }
+          : {}),
+      })
+    } catch {
+      // Setting the test aside failed — keep the last attempt's code; the class isn't downloadable.
+      if (state.baselineTests) update({ baselineTests: { ...state.baselineTests, code } })
     }
   }
 
