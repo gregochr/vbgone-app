@@ -3,9 +3,9 @@ import type { Bucket, EngineParams } from '../config/engine'
 
 const api = axios.create({ baseURL: '/api/migrate' })
 
-// Protect-mode endpoints live under a sibling base path (hybrid API: analyse is
+// Assure-mode endpoints live under a sibling base path (hybrid API: analyse is
 // shared via /api/migrate with a `mode` param; baseline + baseline-tests are dedicated).
-const protectApi = axios.create({ baseURL: '/api/protect' })
+const assureApi = axios.create({ baseURL: '/api/assure' })
 
 // Surface the backend's graceful error body ({ "error": "..." }, HTTP 422 — e.g. an
 // unconfigured Copilot credential or a preview Java target) as the thrown Error message,
@@ -18,11 +18,11 @@ const surfaceErrorBody = (error: { response?: { data?: unknown } }): Promise<nev
   return Promise.reject(error)
 }
 api.interceptors.response.use((response) => response, surfaceErrorBody)
-protectApi.interceptors.response.use((response) => response, surfaceErrorBody)
+assureApi.interceptors.response.use((response) => response, surfaceErrorBody)
 
 /* ── Types ── */
 
-/** One edge-case row in Protect's Observed Behaviour block. */
+/** One edge-case row in Assure's Observed Behaviour block. */
 export interface ObservedRow {
   cond: string
   outcome: string
@@ -30,7 +30,7 @@ export interface ObservedRow {
   kind: 'throws' | 'fault' | 'returns'
 }
 
-/** Per-method observed behaviour — populated only in Protect-mode analysis. */
+/** Per-method observed behaviour — populated only in Assure-mode analysis. */
 export interface ObservedBehaviour {
   method: string
   cls: string
@@ -46,7 +46,7 @@ export interface ClassInfo {
   codeSmells?: string[]
   refactoringSuggestions?: string[]
   vbAntiPatterns?: string[]
-  /** Protect mode only — what each method does today, faults included. */
+  /** Assure mode only — what each method does today, faults included. */
   observedBehaviour?: ObservedBehaviour[]
 }
 
@@ -95,7 +95,7 @@ export interface ImplementResult {
   mode: 'STUB' | 'CLAUDE'
 }
 
-/* ── Readiness assessment (Protect's front gate) ── */
+/* ── Readiness assessment (Assure's front gate) ── */
 
 export interface MethodReadiness {
   name: string
@@ -136,7 +136,7 @@ export interface RestApiParam {
 
 /**
  * A web API endpoint the scan spotted in the source (an ASP.NET Web API action or an
- * ASMX web method). Protect can't wrap these yet — they're shown as a separate list, not
+ * ASMX web method). Assure can't wrap these yet — they're shown as a separate list, not
  * counted in the readiness buckets.
  */
 export interface RestApiEndpoint {
@@ -175,7 +175,7 @@ export interface ReadinessReport {
   restApis?: RestApiEndpoint[]
 }
 
-/** A single public member of the pinned baseline surface (Protect step 3). */
+/** A single public member of the pinned baseline surface (Assure step 3). */
 export interface BaselineMember {
   signature: string
   /** Amber defect tag shown when the analysis flagged this member. */
@@ -196,7 +196,7 @@ export interface TestFailure {
   message: string
 }
 
-/** Result of generating the MSTest characterisation suite and running it (Protect step 4). */
+/** Result of generating the MSTest characterisation suite and running it (Assure step 4). */
 export interface BaselineTestsResult {
   sessionId: string
   className: string
@@ -297,7 +297,7 @@ const DEMO_FILENAME = 'Form1.vb'
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-/* Protect-mode mock data — mirrors the design prototype's OrderProcessor demo. */
+/* Assure-mode mock data — mirrors the design prototype's OrderProcessor demo. */
 
 const MOCK_BASELINE_MEMBERS: BaselineMember[] = [
   { signature: 'decimal CalculateTotal(IReadOnlyList<LineItem> items)' },
@@ -918,7 +918,7 @@ const mockApi = {
               'SQL injection via string concatenation',
               'MsgBox for user feedback in business logic',
             ],
-            // Protect mode renders this; Migrate ignores it.
+            // Assure mode renders this; Migrate ignores it.
             observedBehaviour: MOCK_OBSERVED_BEHAVIOUR,
           },
         ],
@@ -1853,7 +1853,7 @@ const realApi = {
     className: string,
     engine?: EngineParams,
   ): Promise<BaselineResult> {
-    const { data } = await protectApi.post<BaselineResult>('/baseline', {
+    const { data } = await assureApi.post<BaselineResult>('/baseline', {
       sessionId,
       className,
       ...engine,
@@ -1866,7 +1866,7 @@ const realApi = {
     className: string,
     engine?: EngineParams,
   ): Promise<BaselineTestsResult> {
-    const { data } = await protectApi.post<BaselineTestsResult>('/baseline-tests', {
+    const { data } = await assureApi.post<BaselineTestsResult>('/baseline-tests', {
       sessionId,
       className,
       ...engine,
@@ -1879,7 +1879,7 @@ const realApi = {
     className: string,
     code: string,
   ): Promise<BaselineTestsResult> {
-    const { data } = await protectApi.post<BaselineTestsResult>('/rerun-baseline-tests', {
+    const { data } = await assureApi.post<BaselineTestsResult>('/rerun-baseline-tests', {
       sessionId,
       className,
       code,
@@ -1888,14 +1888,14 @@ const realApi = {
   },
 
   async assess(filename: string, content: string): Promise<ReadinessReport> {
-    const { data } = await protectApi.post<ReadinessReport>('/assess', { filename, content })
+    const { data } = await assureApi.post<ReadinessReport>('/assess', { filename, content })
     return data
   },
 
   async assessProject(file: File): Promise<ReadinessReport> {
     const formData = new FormData()
     formData.append('file', file)
-    const { data } = await protectApi.post<ReadinessReport>('/assess-project', formData, {
+    const { data } = await assureApi.post<ReadinessReport>('/assess-project', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     return data
@@ -2305,13 +2305,13 @@ End Class`
 
 const DEMO_COMPLEX_FILENAME = 'OrderProcessor.vb'
 
-// Protect demo. Unlike the Migrate complex demo (a WinForms God class that inherits Form
+// Assure demo. Unlike the Migrate complex demo (a WinForms God class that inherits Form
 // and can't run headless), this is the SAME OrderProcessor business logic with the UI
 // severed — pure, self-contained, and compilable standalone on the Linux CLR sidecar, so
 // the real characterisation run reaches GREEN instead of the WinForms ERROR path. It keeps
 // the supporting types (LineItem, Order) the suite needs, and preserves the observed faults
 // (silent unknown-code discount, divide-by-zero, non-numeric cast).
-const DEMO_PROTECT_CONTENT = `' OrderProcessor.vb — order-processing business logic (no UI; runs headless on the CLR)
+const DEMO_ASSURE_CONTENT = `' OrderProcessor.vb — order-processing business logic (no UI; runs headless on the CLR)
 Imports System
 Imports System.Collections.Generic
 
@@ -2475,7 +2475,7 @@ export {
   DEMO_FILENAME,
   DEMO_COMPLEX_CONTENT,
   DEMO_COMPLEX_FILENAME,
-  DEMO_PROTECT_CONTENT,
+  DEMO_ASSURE_CONTENT,
   DEMO_ESTATE_MIXED,
   DEMO_ESTATE_BLOCKED,
 }

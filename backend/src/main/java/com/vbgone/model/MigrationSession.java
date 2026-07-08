@@ -11,10 +11,10 @@ public class MigrationSession {
     private String vbContent;
     /**
      * The UI-free subset of the source (concatenated net-ready classes) that can compile
-     * headless on the Linux CLR. Protect's characterisation run compiles THIS, not the whole
+     * headless on the Linux CLR. Assure's characterisation run compiles THIS, not the whole
      * estate — otherwise WinForms classes in the same upload break the build.
      */
-    private String protectableSource;
+    private String assurableSource;
     private String targetLanguage = "csharp";
     private final Map<String, String> classSources = new HashMap<>();
     private AnalysisResult analysisResult;
@@ -25,7 +25,7 @@ public class MigrationSession {
     private BuildResult redBuild;
     private BuildResult greenBuild;
     private PullRequestResult prResult;
-    // Protect-mode artifacts:
+    // Assure-mode artifacts:
     private BaselineResult baselineResult;
     private TestsResult baselineSuite;
     private BuildResult netBuild;
@@ -44,8 +44,8 @@ public class MigrationSession {
     public String getVbContent() { return vbContent; }
     public void setVbContent(String vbContent) { this.vbContent = vbContent; }
 
-    public String getProtectableSource() { return protectableSource; }
-    public void setProtectableSource(String protectableSource) { this.protectableSource = protectableSource; }
+    public String getAssurableSource() { return assurableSource; }
+    public void setAssurableSource(String assurableSource) { this.assurableSource = assurableSource; }
 
     public String getTargetLanguage() { return targetLanguage; }
     public void setTargetLanguage(String targetLanguage) { this.targetLanguage = targetLanguage; }

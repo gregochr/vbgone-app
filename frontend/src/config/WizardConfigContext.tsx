@@ -12,13 +12,13 @@ export interface WizardConfig {
 
   /**
    * Current wizard step (0-indexed), reported by WizardShell. Drives the
-   * Protect engine lock: the provider is only changeable on step 1 (Upload),
+   * Assure engine lock: the provider is only changeable on step 1 (Upload),
    * so the header disables the engine button once the run is under way.
    */
   currentStep: number
   setCurrentStep: (step: number) => void
 
-  /** Switching mode forces C# in Protect; WizardShell resets its step state. */
+  /** Switching mode forces C# in Assure; WizardShell resets its step state. */
   setMode: (mode: Mode) => void
   setTargetLanguage: (lang: TargetLanguage) => void
   /** Switching provider resets all per-step overrides to that provider's defaults. */
@@ -84,8 +84,8 @@ export function WizardConfigProvider({ children }: { children: ReactNode }) {
 
   const setMode = useCallback((next: Mode) => {
     setModeState(next)
-    // Protect runs against the original VB.NET on the CLR — C# only.
-    if (next === 'protect') setTargetLanguageState('csharp')
+    // Assure runs against the original VB.NET on the CLR — C# only.
+    if (next === 'assure') setTargetLanguageState('csharp')
     // A fresh mode is a fresh run — drop the accumulated session cost and
     // snap the step back to 0 synchronously so the header's engine lock
     // doesn't flash (WizardShell also resets its own step to 0).

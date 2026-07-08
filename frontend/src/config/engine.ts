@@ -13,10 +13,10 @@ export type ModelOverrides = Partial<Record<Role, string>>
 
 /**
  * Wizard mode. `migrate` (default) replaces VB.NET with fresh tested code;
- * `protect` leaves the original VB.NET running and pins its behaviour with a
- * characterisation net. Protect is C#-only — see AppHeader's TARGET lock.
+ * `assure` leaves the original VB.NET running and pins its behaviour with a
+ * characterisation net. Assure is C#-only — see AppHeader's TARGET lock.
  */
-export type Mode = 'migrate' | 'protect'
+export type Mode = 'migrate' | 'assure'
 
 /* ── Target language map ── */
 
@@ -199,21 +199,21 @@ export const STEP_ROLES: (Role | 'source' | 'github')[] = [
 ]
 
 /**
- * Protect mode's four steps map to roles for the stepper sub-line:
+ * Assure mode's four steps map to roles for the stepper sub-line:
  * Upload (source) · Readiness (static, no model) · Baseline (mechanical) · Baseline Tests (reasoning).
  */
-export const PROTECT_STEP_ROLES: (Role | 'source' | 'github' | 'static')[] = [
+export const ASSURE_STEP_ROLES: (Role | 'source' | 'github' | 'static')[] = [
   'source', // Upload
   'static', // Readiness (static scan, no model)
   'mechanical', // Baseline (pin surface)
   'reasoning', // Baseline Tests
 ]
 
-/** Protect runs against the original VB.NET on the CLR — always C#/MSTest. */
-export const PROTECT_TEST_FW = 'MSTest'
-export const PROTECT_RUNTIME = 'CLR'
+/** Assure runs against the original VB.NET on the CLR — always C#/MSTest. */
+export const ASSURE_TEST_FW = 'MSTest'
+export const ASSURE_RUNTIME = 'CLR'
 
-/* ── Readiness buckets (Protect's front-gate classification) ── */
+/* ── Readiness buckets (Assure's front-gate classification) ── */
 
 /** Stable wire value from the static classifier. */
 export type Bucket = 'net-ready' | 'windows-gated' | 'refactor-first'
@@ -230,7 +230,7 @@ export interface BucketMeta {
 /** Display metadata per bucket. Internal enum values stay; only labels are plain-language. */
 export const BUCKETS: Record<Bucket, BucketMeta> = {
   'net-ready': {
-    label: 'Ready to protect',
+    label: 'Ready to assure',
     color: '#34d399',
     fill: 'rgba(52,211,153,0.14)',
     tip: 'Public, UI-free — runs on the CLR today.',
@@ -250,7 +250,7 @@ export const BUCKETS: Record<Bucket, BucketMeta> = {
 }
 
 /**
- * Heuristic: does this VB.NET source depend on the WinForms UI? Protect compiles and runs
+ * Heuristic: does this VB.NET source depend on the WinForms UI? Assure compiles and runs
  * the original headless on the Linux CLR sidecar, which can't host WinForms — so UI-coupled
  * source can't be netted. Used to explain the compile-failure (ERROR) state.
  */

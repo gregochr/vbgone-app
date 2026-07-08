@@ -3,8 +3,8 @@ package com.vbgone.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vbgone.config.RateLimitFilter;
 import com.vbgone.model.*;
-import com.vbgone.service.ProtectAssessmentService;
-import com.vbgone.service.ProtectService;
+import com.vbgone.service.AssureAssessmentService;
+import com.vbgone.service.AssureService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -22,9 +22,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(value = ProtectController.class,
+@WebMvcTest(value = AssureController.class,
         excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RateLimitFilter.class))
-class ProtectControllerTest {
+class AssureControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -33,15 +33,15 @@ class ProtectControllerTest {
     private ObjectMapper objectMapper;
 
     @MockitoBean
-    private ProtectService protectService;
+    private AssureService assureService;
 
     @MockitoBean
-    private ProtectAssessmentService assessmentService;
+    private AssureAssessmentService assessmentService;
 
     @MockitoBean
     private com.vbgone.service.ZipExtractorService zipExtractorService;
 
-    private static final String SESSION_ID = "s-protect";
+    private static final String SESSION_ID = "s-assure";
 
     @Test
     void assess_returns200WithReadinessReport() throws Exception {
@@ -56,7 +56,7 @@ class ProtectControllerTest {
                 List.of());
         when(assessmentService.assess(eq("OrderProcessor.vb"), anyString())).thenReturn(report);
 
-        mockMvc.perform(post("/api/protect/assess")
+        mockMvc.perform(post("/api/assure/assess")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new AssessRequest("OrderProcessor.vb", "Public Class OrderProcessor..."))))
@@ -69,7 +69,7 @@ class ProtectControllerTest {
 
     @Test
     void baseline_returns200WithPinnedSurface() throws Exception {
-        when(protectService.generateBaseline(eq(SESSION_ID), eq("OrderProcessor"), any(), any(), any()))
+        when(assureService.generateBaseline(eq(SESSION_ID), eq("OrderProcessor"), any(), any(), any()))
                 .thenReturn(new BaselineResult(SESSION_ID, "OrderProcessor",
                         "OrderProcessor.dll · public surface",
                         List.of(
@@ -77,7 +77,7 @@ class ProtectControllerTest {
                                 new BaselineMember("decimal SplitPerHead(decimal total, int headcount)",
                                         "throws DivideByZeroException when headcount = 0"))));
 
-        mockMvc.perform(post("/api/protect/baseline")
+        mockMvc.perform(post("/api/assure/baseline")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new ClassRequest(SESSION_ID, "OrderProcessor"))))
@@ -89,11 +89,11 @@ class ProtectControllerTest {
     @Test
     void baselineTests_returns200WithNetResult() throws Exception {
         BuildResult build = new BuildResult(SESSION_ID, BuildStatus.GREEN, 43, 43, 0, List.of(), List.of());
-        when(protectService.runBaselineTests(eq(SESSION_ID), eq("OrderProcessor"), any(), any(), any()))
+        when(assureService.runBaselineTests(eq(SESSION_ID), eq("OrderProcessor"), any(), any(), any()))
                 .thenReturn(new BaselineTestsResult(SESSION_ID, "OrderProcessor", "OrderProcessorBaseline",
                         "[TestClass] public class OrderProcessorBaseline {}", 43, true, build, List.of()));
 
-        mockMvc.perform(post("/api/protect/baseline-tests")
+        mockMvc.perform(post("/api/assure/baseline-tests")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new ClassRequest(SESSION_ID, "OrderProcessor"))))
@@ -107,13 +107,13 @@ class ProtectControllerTest {
     void rerunBaselineTests_returns200WithFailingAssertions() throws Exception {
         BuildResult build = new BuildResult(SESSION_ID, BuildStatus.RED, 43, 41, 2, List.of(),
                 List.of("ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged"));
-        when(protectService.rerunBaselineTests(eq(SESSION_ID), eq("OrderProcessor"), anyString()))
+        when(assureService.rerunBaselineTests(eq(SESSION_ID), eq("OrderProcessor"), anyString()))
                 .thenReturn(new BaselineTestsResult(SESSION_ID, "OrderProcessor", "OrderProcessorBaseline",
                         "[TestClass] public class OrderProcessorBaseline {}", 43, false, build,
                         List.of(new TestFailure("ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged",
                                 "Expected: 100 but was: 90"))));
 
-        mockMvc.perform(post("/api/protect/rerun-baseline-tests")
+        mockMvc.perform(post("/api/assure/rerun-baseline-tests")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new BaselineRerunRequest(SESSION_ID, "OrderProcessor", "edited code"))))

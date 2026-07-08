@@ -83,10 +83,10 @@ class AnalysisServiceTest {
     }
 
     @Test
-    void analyse_protectMode_usesForensicPromptAndParsesObservedBehaviour() {
-        MigrationSession session = new MigrationSession("s-protect");
+    void analyse_assureMode_usesForensicPromptAndParsesObservedBehaviour() {
+        MigrationSession session = new MigrationSession("s-assure");
         when(sessionStore.create()).thenReturn(session);
-        String protectJson = """
+        String assureJson = """
                 {
                   "classes": [{
                     "name": "OrderProcessor",
@@ -107,14 +107,14 @@ class AnalysisServiceTest {
                   "summary": "Characterised against the live assemblies."
                 }""";
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
-                .thenReturn(claudeResponse(protectJson));
+                .thenReturn(claudeResponse(assureJson));
 
         AnalysisResult result = analysisService.analyse(
-                "OrderProcessor.vb", "Public Class OrderProcessor...", null, null, null, "protect");
+                "OrderProcessor.vb", "Public Class OrderProcessor...", null, null, null, "assure");
 
         // The forensic persona is used, not the migrate one.
         verify(claudeClient).sendWithCachedSystemPrompt(
-                eq(AnalysisService.PROTECT_SYSTEM_PROMPT), anyString(), any(), anyLong());
+                eq(AnalysisService.ASSURE_SYSTEM_PROMPT), anyString(), any(), anyLong());
 
         var observed = result.classes().get(0).observedBehaviour();
         assertThat(observed).hasSize(1);

@@ -65,7 +65,7 @@ class VbCharacterisationRunnerTest {
     }
 
     private void writeTrx(String sessionId, String trx) throws IOException {
-        Path dir = tempDir.resolve(sessionId).resolve("protect")
+        Path dir = tempDir.resolve(sessionId).resolve("assure")
                 .resolve("OrderProcessor.Baseline").resolve("TestResults");
         Files.createDirectories(dir);
         Files.writeString(dir.resolve("results.trx"), trx);
@@ -112,11 +112,11 @@ class VbCharacterisationRunnerTest {
     }
 
     @Test
-    void run_compilesTheProtectableSubsetWhenPinned() throws Exception {
+    void run_compilesTheAssurableSubsetWhenPinned() throws Exception {
         // When a net-ready subset is pinned (portfolio estate), compile THAT — not the whole
         // uploaded source, which may contain WinForms classes that can't build headless.
         MigrationSession s = session("s1");
-        s.setProtectableSource("Public Class OrderProcessor\n"
+        s.setAssurableSource("Public Class OrderProcessor\n"
                 + "  Public Function Fee(x As Decimal) As Decimal\n    Return x * 0.1D\n  End Function\n"
                 + "End Class");
         when(processRunner.run(anyList())).thenAnswer(inv -> {
@@ -126,7 +126,7 @@ class VbCharacterisationRunnerTest {
 
         runner.run(s, "OrderProcessor", suite("s1"));
 
-        Path vb = tempDir.resolve("s1").resolve("protect")
+        Path vb = tempDir.resolve("s1").resolve("assure")
                 .resolve("OrderProcessor.Vb").resolve("OrderProcessor.vb");
         // The subset (not the session's raw vbContent) is what got written.
         assertThat(Files.readString(vb)).contains("Public Function Fee(")
@@ -142,13 +142,13 @@ class VbCharacterisationRunnerTest {
 
         runner.run(session("s1"), "OrderProcessor", suite("s1"));
 
-        Path protect = tempDir.resolve("s1").resolve("protect");
-        assertThat(Files.readString(protect.resolve("OrderProcessor.Vb").resolve("OrderProcessor.vb")))
+        Path assure = tempDir.resolve("s1").resolve("assure");
+        assertThat(Files.readString(assure.resolve("OrderProcessor.Vb").resolve("OrderProcessor.vb")))
                 .contains("Public Class OrderProcessor");
-        assertThat(protect.resolve("OrderProcessor.Vb").resolve("OrderProcessor.vbproj")).exists();
-        assertThat(Files.readString(protect.resolve("OrderProcessor.Baseline")
+        assertThat(assure.resolve("OrderProcessor.Vb").resolve("OrderProcessor.vbproj")).exists();
+        assertThat(Files.readString(assure.resolve("OrderProcessor.Baseline")
                 .resolve("OrderProcessor.Baseline.csproj")))
                 .contains("../OrderProcessor.Vb/OrderProcessor.vbproj");
-        assertThat(protect.resolve("OrderProcessor.Baseline").resolve("OrderProcessorBaseline.cs")).exists();
+        assertThat(assure.resolve("OrderProcessor.Baseline").resolve("OrderProcessorBaseline.cs")).exists();
     }
 }

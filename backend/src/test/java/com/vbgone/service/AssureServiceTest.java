@@ -25,7 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class ProtectServiceTest {
+class AssureServiceTest {
 
     @Mock
     private ClaudeClient claudeClient;
@@ -36,14 +36,14 @@ class ProtectServiceTest {
     @Mock
     private VbCharacterisationRunner runner;
 
-    private ProtectService service;
+    private AssureService service;
 
     @BeforeEach
     void setUp() {
         AnthropicProvider anthropicProvider = new AnthropicProvider(claudeClient);
         GitHubModelsProvider copilotProvider = new GitHubModelsProvider("", new ObjectMapper());
         AiProviderRegistry registry = new AiProviderRegistry(List.of(anthropicProvider, copilotProvider));
-        service = new ProtectService(registry, sessionStore, new ObjectMapper(), runner);
+        service = new AssureService(registry, sessionStore, new ObjectMapper(), runner);
     }
 
     private ClaudeClient.ClaudeResponse claudeResponse(String text) {
@@ -189,20 +189,20 @@ class ProtectServiceTest {
     @Test
     void ensureTestClassAttribute_reattachesWhenMissing() {
         String stripped = "public class OrderProcessorBaseline\n{\n    [TestMethod]\n    public void A() {}\n}";
-        String fixed = ProtectService.ensureTestClassAttribute(stripped);
+        String fixed = AssureService.ensureTestClassAttribute(stripped);
         assertThat(fixed).contains("[TestClass]\npublic class OrderProcessorBaseline");
     }
 
     @Test
     void ensureTestClassAttribute_leavesCodeThatAlreadyHasItUntouched() {
         String already = "[TestClass]\npublic class X\n{\n    [TestMethod]\n    public void A() {}\n}";
-        assertThat(ProtectService.ensureTestClassAttribute(already)).isEqualTo(already);
+        assertThat(AssureService.ensureTestClassAttribute(already)).isEqualTo(already);
     }
 
     @Test
     void ensureTestClassAttribute_ignoresCodeWithoutTestMethods() {
         String noTests = "public class Helper\n{\n    public int A() => 1;\n}";
-        assertThat(ProtectService.ensureTestClassAttribute(noTests)).isEqualTo(noTests);
+        assertThat(AssureService.ensureTestClassAttribute(noTests)).isEqualTo(noTests);
     }
 
     @Test

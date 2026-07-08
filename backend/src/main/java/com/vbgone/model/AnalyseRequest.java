@@ -8,7 +8,7 @@ public record AnalyseRequest(
         String provider,
         String targetLanguage,
         Map<String, String> modelOverrides,
-        /** "migrate" (default) or "protect". Selects the analysis persona. */
+        /** "migrate" (default) or "assure". Selects the analysis persona. */
         String mode
 ) {
     /** Backwards-compatible constructor without AI-provider fields. */

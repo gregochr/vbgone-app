@@ -6,7 +6,7 @@ import { AppHeader } from './AppHeader'
 // available to the (hoisted) vi.mock factory without a TDZ error.
 const mocks = vi.hoisted(() => ({
   config: {
-    mode: 'protect',
+    mode: 'assure',
     targetLanguage: 'csharp',
     provider: 'copilot',
     modelOverrides: {} as Record<string, string>,
@@ -24,7 +24,7 @@ vi.mock('../config/WizardConfigContext', () => ({
 
 beforeEach(() => {
   Object.assign(mocks.config, {
-    mode: 'protect',
+    mode: 'assure',
     provider: 'copilot',
     modelOverrides: {},
     currentStep: 0,
@@ -35,9 +35,9 @@ beforeEach(() => {
 
 const engineButton = () => screen.getByText('Copilot').closest('button') as HTMLButtonElement
 
-describe('AppHeader — Protect engine lock', () => {
-  it('lets you change the engine on Protect step 1 (Upload)', () => {
-    mocks.config.mode = 'protect'
+describe('AppHeader — Assure engine lock', () => {
+  it('lets you change the engine on Assure step 1 (Upload)', () => {
+    mocks.config.mode = 'assure'
     mocks.config.currentStep = 0
     render(<AppHeader />)
     const btn = engineButton()
@@ -51,7 +51,7 @@ describe('AppHeader — Protect engine lock', () => {
   // the very next step — Readiness, index 1 — must already be locked. This case
   // guards against an off-by-one (currentStep > 1) that would leave it open.
   it('locks the engine on the step immediately after Upload (Readiness, index 1)', () => {
-    mocks.config.mode = 'protect'
+    mocks.config.mode = 'assure'
     mocks.config.currentStep = 1
     render(<AppHeader />)
     const btn = engineButton()
@@ -61,8 +61,8 @@ describe('AppHeader — Protect engine lock', () => {
     expect(mocks.config.openEngine).not.toHaveBeenCalled()
   })
 
-  it('keeps the engine locked deeper into the Protect run (Baseline, index 2)', () => {
-    mocks.config.mode = 'protect'
+  it('keeps the engine locked deeper into the Assure run (Baseline, index 2)', () => {
+    mocks.config.mode = 'assure'
     mocks.config.currentStep = 2
     render(<AppHeader />)
     const btn = engineButton()

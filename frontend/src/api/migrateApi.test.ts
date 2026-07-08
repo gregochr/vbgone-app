@@ -14,7 +14,7 @@ import {
   rerunBaselineTests,
   assess,
   assessProject,
-  DEMO_PROTECT_CONTENT,
+  DEMO_ASSURE_CONTENT,
   DEMO_COMPLEX_CONTENT,
   DEMO_ESTATE_MIXED,
   DEMO_ESTATE_BLOCKED,
@@ -133,7 +133,7 @@ describe('migrateApi mock functions', () => {
     expect(result.code).toBe(edited)
   })
 
-  it('assess returns a Ready-to-protect verdict for the clean single demo', async () => {
+  it('assess returns a Ready-to-assure verdict for the clean single demo', async () => {
     const r = await assess('OrderProcessor.vb', 'Public Class OrderProcessor')
     expect(r.confidence).toBe('static')
     expect(r.classes).toHaveLength(1)
@@ -164,9 +164,9 @@ describe('migrateApi mock functions', () => {
   })
 })
 
-describe('Protect demo source', () => {
+describe('Assure demo source', () => {
   // The real characterisation run compiles the original VB headless on the Linux CLR sidecar,
-  // which can't host WinForms. The Protect demo must therefore be UI-free or it lands in the
+  // which can't host WinForms. The Assure demo must therefore be UI-free or it lands in the
   // degraded ERROR path instead of green. (The Migrate complex demo, by contrast, IS WinForms.)
   const WINFORMS_MARKERS = [
     'System.Windows.Forms',
@@ -179,16 +179,16 @@ describe('Protect demo source', () => {
     '.Click',
   ]
 
-  it('the Protect demo has no WinForms references (compiles standalone)', () => {
+  it('the Assure demo has no WinForms references (compiles standalone)', () => {
     for (const marker of WINFORMS_MARKERS) {
-      expect(DEMO_PROTECT_CONTENT).not.toContain(marker)
+      expect(DEMO_ASSURE_CONTENT).not.toContain(marker)
     }
   })
 
   it('keeps the supporting types the characterisation suite instantiates', () => {
-    expect(DEMO_PROTECT_CONTENT).toContain('Public Class OrderProcessor')
-    expect(DEMO_PROTECT_CONTENT).toContain('Public Class LineItem')
-    expect(DEMO_PROTECT_CONTENT).toContain('Public Class Order')
+    expect(DEMO_ASSURE_CONTENT).toContain('Public Class OrderProcessor')
+    expect(DEMO_ASSURE_CONTENT).toContain('Public Class LineItem')
+    expect(DEMO_ASSURE_CONTENT).toContain('Public Class Order')
   })
 
   it('confirms the Migrate complex demo is the WinForms variant (contrast)', () => {

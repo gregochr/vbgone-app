@@ -7,8 +7,8 @@ import com.vbgone.model.BaselineTestsResult;
 import com.vbgone.model.ClassRequest;
 import com.vbgone.model.ReadinessReport;
 import com.vbgone.model.ZipManifest;
-import com.vbgone.service.ProtectAssessmentService;
-import com.vbgone.service.ProtectService;
+import com.vbgone.service.AssureAssessmentService;
+import com.vbgone.service.AssureService;
 import com.vbgone.service.ZipExtractorService;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,23 +19,23 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Protect-mode endpoints (hybrid API). Analysis is shared with Migrate via
+ * Assure-mode endpoints (hybrid API). Analysis is shared with Migrate via
  * {@code /api/migrate/analyse} + a {@code mode} param; the genuinely-different steps —
  * the readiness assessment, pinning the baseline surface, and running the characterisation
  * suite against the original VB.NET — live here.
  */
 @RestController
-@RequestMapping("/api/protect")
-public class ProtectController {
+@RequestMapping("/api/assure")
+public class AssureController {
 
-    private final ProtectService protectService;
-    private final ProtectAssessmentService assessmentService;
+    private final AssureService assureService;
+    private final AssureAssessmentService assessmentService;
     private final ZipExtractorService zipExtractorService;
 
-    public ProtectController(ProtectService protectService,
-                             ProtectAssessmentService assessmentService,
+    public AssureController(AssureService assureService,
+                             AssureAssessmentService assessmentService,
                              ZipExtractorService zipExtractorService) {
-        this.protectService = protectService;
+        this.assureService = assureService;
         this.assessmentService = assessmentService;
         this.zipExtractorService = zipExtractorService;
     }
@@ -55,20 +55,20 @@ public class ProtectController {
 
     @PostMapping("/baseline")
     public BaselineResult baseline(@RequestBody ClassRequest request) {
-        return protectService.generateBaseline(request.sessionId(), request.className(),
+        return assureService.generateBaseline(request.sessionId(), request.className(),
                 request.provider(), request.targetLanguage(), request.modelOverrides());
     }
 
     @PostMapping("/baseline-tests")
     public BaselineTestsResult baselineTests(@RequestBody ClassRequest request) {
-        return protectService.runBaselineTests(request.sessionId(), request.className(),
+        return assureService.runBaselineTests(request.sessionId(), request.className(),
                 request.provider(), request.targetLanguage(), request.modelOverrides());
     }
 
     /** Re-run a corrected net (edited assertions) against the original VB — no AI call. */
     @PostMapping("/rerun-baseline-tests")
     public BaselineTestsResult rerunBaselineTests(@RequestBody BaselineRerunRequest request) {
-        return protectService.rerunBaselineTests(
+        return assureService.rerunBaselineTests(
                 request.sessionId(), request.className(), request.code());
     }
 }

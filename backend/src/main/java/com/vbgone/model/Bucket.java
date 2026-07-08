@@ -3,10 +3,10 @@ package com.vbgone.model;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
- * Protect readiness bucket for a method (or a class, rolled up worst-case).
+ * Assure readiness bucket for a method (or a class, rolled up worst-case).
  *
  * <p>The JSON/wire values are the stable identifiers ({@code net-ready} etc.); the
- * user-facing labels ("Ready to protect", "Needs Windows runner", "Tangled in the UI")
+ * user-facing labels ("Ready to assure", "Needs Windows runner", "Tangled in the UI")
  * live in the frontend display layer only.
  */
 public enum Bucket {

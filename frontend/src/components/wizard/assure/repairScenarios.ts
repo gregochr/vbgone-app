@@ -1,7 +1,7 @@
 /**
- * Auto-repair demo scenarios for Protect Step 4 ("Confirm the baseline").
+ * Auto-repair demo scenarios for Assure Step 4 ("Confirm the baseline").
  *
- * Protect generates an MSTest suite that records how the *original, unmodified* VB.NET
+ * Assure generates an MSTest suite that records how the *original, unmodified* VB.NET
  * behaves today, then runs it against that original. Because the code is untouched, a
  * failing test can only mean the test is wrong — not the code. The auto-repair loop
  * rewrites the failing test to match observed behaviour, with up to 3 escalating attempts
@@ -11,7 +11,7 @@
  * scenario is whatever the real failure is; here they let the live demo exercise every
  * outcome via the "simulate a failed run" affordance.
  *
- * NB: this is Protect-specific. In Migrate mode a red test is ambiguous (could be a bad
+ * NB: this is Assure-specific. In Migrate mode a red test is ambiguous (could be a bad
  * port), so this loop must not be reused there as-is.
  */
 

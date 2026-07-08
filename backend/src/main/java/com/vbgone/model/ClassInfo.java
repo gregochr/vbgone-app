@@ -13,7 +13,7 @@ public record ClassInfo(
         List<String> codeSmells,
         List<String> refactoringSuggestions,
         List<String> vbAntiPatterns,
-        /** Protect mode only — what each method does today, faults included. Null in Migrate. */
+        /** Assure mode only — what each method does today, faults included. Null in Migrate. */
         List<ObservedBehaviour> observedBehaviour
 ) {
     /** Back-compat constructor for Migrate-mode analysis (no observed behaviour). */

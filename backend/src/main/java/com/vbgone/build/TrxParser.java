@@ -13,7 +13,7 @@ import java.util.Map;
 
 /**
  * Parses a VSTest {@code .trx} result file into a {@link BuildResult}. Shared by the C#
- * migrate build ({@link DotNetRuntime}) and the Protect characterisation run
+ * migrate build ({@link DotNetRuntime}) and the Assure characterisation run
  * ({@code VbCharacterisationRunner}) so the two stay byte-identical.
  */
 public final class TrxParser {

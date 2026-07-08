@@ -114,17 +114,17 @@ Session state lives entirely in memory — a `ConcurrentHashMap<String, Migratio
 - **Auth ownership.** Moving from Cloudflare Access to GitHub OAuth lets each user raise PRs against their own repo instead of the fixed `vbgone-output`.
 - **Observability.** For anything beyond internal use, add structured logging and metrics around Claude latency/cost and the dotnet-test loop.
 
-## 9. Protect mode — components and the cross-language runner
+## 9. Assure mode — components and the cross-language runner
 
-Alongside Migrate (rewrite VB.NET into fresh C#), VBGone has a second workflow, **Protect**. Its goal is the opposite: don't rewrite anything. Instead, wrap the *original* VB.NET in a characterisation-test safety net so a vulnerable dependency can be patched with confidence that behaviour hasn't changed. The guiding principle is "green means unchanged, not correct" — the tests deliberately capture today's behaviour, bugs included.
+Alongside Migrate (rewrite VB.NET into fresh C#), VBGone has a second workflow, **Assure**. Its goal is the opposite: don't rewrite anything. Instead, wrap the *original* VB.NET in a characterisation-test safety net so a vulnerable dependency can be patched with confidence that behaviour hasn't changed. The guiding principle is "green means unchanged, not correct" — the tests deliberately capture today's behaviour, bugs included.
 
 ### Components
 
-Protect adds its own controller and services on the existing backend, and reuses the shared workspace volume and the .NET SDK sidecar:
+Assure adds its own controller and services on the existing backend, and reuses the shared workspace volume and the .NET SDK sidecar:
 
-- `ProtectController` (`/api/protect/*`) — the Protect endpoints: `assess` / `assess-project` (readiness), `baseline`, `baseline-tests`, and `rerun-baseline-tests`.
-- `ProtectAssessmentService` — the **front gate**. A purely static pass (no AI, nothing leaves the tenant) that classifies every business-logic method into three readiness buckets: **net-ready** (self-contained, UI-free — protectable today), **windows-gated** (pure logic trapped in a WinForms-referencing class), and **refactor-first** (logic genuinely entangled with the UI).
-- `ProtectService` — orchestrates the two AI steps: pinning the class's real public surface (mechanical model) and generating the MSTest characterisation suite (reasoning model), with the same token/cost accounting as Migrate.
+- `AssureController` (`/api/assure/*`) — the Assure endpoints: `assess` / `assess-project` (readiness), `baseline`, `baseline-tests`, and `rerun-baseline-tests`.
+- `AssureAssessmentService` — the **front gate**. A purely static pass (no AI, nothing leaves the tenant) that classifies every business-logic method into three readiness buckets: **net-ready** (self-contained, UI-free — assurable today), **windows-gated** (pure logic trapped in a WinForms-referencing class), and **refactor-first** (logic genuinely entangled with the UI).
+- `AssureService` — orchestrates the two AI steps: pinning the class's real public surface (mechanical model) and generating the MSTest characterisation suite (reasoning model), with the same token/cost accounting as Migrate.
 - `VbCharacterisationRunner` — the crux. Writes two .NET projects to the shared volume and runs the suite against the untouched original on the sidecar.
 
 ### The cross-language test runner
@@ -153,8 +153,8 @@ Because a failing test can only mean the *test* is wrong (the code was never tou
 
 ## 10. The Windows-runner unblock
 
-The one real constraint today is environmental, not fundamental. The sidecar runs on **Linux**, whose .NET runtime can compile VB and run MSTest but cannot load **WinForms** (`System.Windows.Forms` is Windows-only). That is the sole reason a class can be gated: a WinForms-referencing assembly won't load headless on Linux, so it surfaces as a compile ERROR rather than a pass. This is a side effect of the current Linux operational environment — not a limitation of Protect itself.
+The one real constraint today is environmental, not fundamental. The sidecar runs on **Linux**, whose .NET runtime can compile VB and run MSTest but cannot load **WinForms** (`System.Windows.Forms` is Windows-only). That is the sole reason a class can be gated: a WinForms-referencing assembly won't load headless on Linux, so it surfaces as a compile ERROR rather than a pass. This is a side effect of the current Linux operational environment — not a limitation of Assure itself.
 
-Running the **same** sidecar on a Windows host — a Windows Docker container, a Windows CI runner, or a Windows box — with the Windows Desktop .NET runtime removes that barrier: WinForms-referencing assemblies compile and execute unchanged. Concretely, this promotes the entire **windows-gated** bucket (pure logic that merely lives in a WinForms-bound class) to protectable with **zero code changes** — it is purely an environment swap. The **refactor-first** bucket (logic that actively reads and writes live controls) is a genuine code-structure issue and would still benefit from separating the logic out for reliable, deterministic tests, even on Windows.
+Running the **same** sidecar on a Windows host — a Windows Docker container, a Windows CI runner, or a Windows box — with the Windows Desktop .NET runtime removes that barrier: WinForms-referencing assemblies compile and execute unchanged. Concretely, this promotes the entire **windows-gated** bucket (pure logic that merely lives in a WinForms-bound class) to assurable with **zero code changes** — it is purely an environment swap. The **refactor-first** bucket (logic that actively reads and writes live controls) is a genuine code-structure issue and would still benefit from separating the logic out for reliable, deterministic tests, even on Windows.
 
 In short: swap the runner's OS to Windows and the gating largely disappears; the readiness buckets exist to be honest about what today's Linux environment can cover, not to describe a permanent boundary.

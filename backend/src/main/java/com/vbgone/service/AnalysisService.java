@@ -44,12 +44,12 @@ public class AnalysisService {
             no reasons, no dashes. Example: ["Calculator", "Form1"], NOT ["Calculator — simple class"].""";
 
     /**
-     * Protect mode's analysis persona: forensic, not prescriptive. It records what each
+     * Assure mode's analysis persona: forensic, not prescriptive. It records what each
      * path does today — return values and the exact exceptions thrown on edge inputs —
      * and explicitly does NOT suggest fixes. The extra observedBehaviour array drives the
      * UI's dominant "Observed Behaviour" block.
      */
-    static final String PROTECT_SYSTEM_PROMPT = """
+    static final String ASSURE_SYSTEM_PROMPT = """
             You are a VB.NET behaviour archaeologist. Analyse VB.NET source code and record \
             EXACTLY what it does today — defects included. Business logic may be embedded in \
             Windows Forms event handlers — characterise the pure logic and ignore UI wiring. \
@@ -142,7 +142,7 @@ public class AnalysisService {
                                   String provider, String targetLanguage,
                                   Map<String, String> modelOverrides, String mode) {
         AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
-        boolean protect = "protect".equalsIgnoreCase(mode);
+        boolean assure = "assure".equalsIgnoreCase(mode);
 
         MigrationSession session = sessionStore.create();
         session.setFilename(filename);
@@ -151,9 +151,9 @@ public class AnalysisService {
 
         String modelId = registry.modelFor(options.provider(), ModelRole.REASONING, options.modelOverrides());
         AiProvider aiProvider = registry.provider(options.provider());
-        // Protect uses a forensic persona and emits the richer observedBehaviour array.
-        String systemPrompt = protect ? PROTECT_SYSTEM_PROMPT : SYSTEM_PROMPT;
-        long maxTokens = protect ? 8192L : 4096L;
+        // Assure uses a forensic persona and emits the richer observedBehaviour array.
+        String systemPrompt = assure ? ASSURE_SYSTEM_PROMPT : SYSTEM_PROMPT;
+        long maxTokens = assure ? 8192L : 4096L;
         AiResponse response = aiProvider.generate(modelId, systemPrompt, content, maxTokens);
         String json = stripMarkdownFences(response.text());
 

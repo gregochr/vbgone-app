@@ -3,7 +3,7 @@ package com.vbgone.model;
 import java.util.List;
 
 /**
- * Per-method observed behaviour, captured by Protect-mode analysis. Describes what a
+ * Per-method observed behaviour, captured by Assure-mode analysis. Describes what a
  * method does today — faults included — without prescribing any fix.
  *
  * @param method the method name

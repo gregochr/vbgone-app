@@ -3,7 +3,7 @@ package com.vbgone.model;
 import java.util.List;
 
 /**
- * The Portfolio Readiness Assessment result — Protect's front-gate verdict. A static
+ * The Portfolio Readiness Assessment result — Assure's front-gate verdict. A static
  * (no-AI) classification of an uploaded VB.NET source into the three readiness buckets,
  * at class and method granularity.
  *
@@ -11,7 +11,7 @@ import java.util.List;
  * @param totals      class- and method-level counts per bucket
  * @param confidence  "static" (heuristic) or "llm-refined" (future)
  * @param classes     per-class breakdown
- * @param restApis    web API endpoints found alongside the classes (a separate, future Protect
+ * @param restApis    web API endpoints found alongside the classes (a separate, future Assure
  *                    target); empty when none were detected, which hides the frontend panel
  */
 public record ReadinessReport(

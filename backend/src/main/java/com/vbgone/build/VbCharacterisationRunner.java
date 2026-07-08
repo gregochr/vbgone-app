@@ -17,7 +17,7 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Protect's characterisation runner. Compiles the user's ORIGINAL VB.NET into an assembly
+ * Assure's characterisation runner. Compiles the user's ORIGINAL VB.NET into an assembly
  * and runs a C# MSTest suite against it on the .NET SDK sidecar — the same {@code docker exec
  * dotnet test} + {@code .trx} machinery as {@link DotNetRuntime}, but the system-under-test is
  * the untouched original, not generated code.
@@ -91,18 +91,18 @@ public class VbCharacterisationRunner {
         // and would poison the build even when the class under test is itself clean. The subset
         // keeps the class under test plus its net-ready siblings (so cross-references resolve).
         // Falls back to the full source for older/single-file sessions with no subset pinned.
-        String vbSource = session.getProtectableSource();
+        String vbSource = session.getAssurableSource();
         if (vbSource == null || vbSource.isBlank()) {
             vbSource = session.getVbContent();
         }
-        Path protectDir = workspacePath.resolve(sessionId).resolve("protect");
+        Path assureDir = workspacePath.resolve(sessionId).resolve("assure");
 
         try {
-            writeProjectFiles(protectDir, className, vbSource, suite);
+            writeProjectFiles(assureDir, className, vbSource, suite);
 
             ProcessOutput output = executeDotnetTest(sessionId, className);
 
-            Path trxPath = protectDir.resolve(className + ".Baseline")
+            Path trxPath = assureDir.resolve(className + ".Baseline")
                     .resolve("TestResults").resolve("results.trx");
 
             if (output.exitCode() != 0 && !Files.exists(trxPath)) {
@@ -124,10 +124,10 @@ public class VbCharacterisationRunner {
         }
     }
 
-    void writeProjectFiles(Path protectDir, String className, String vbSource, TestsResult suite)
+    void writeProjectFiles(Path assureDir, String className, String vbSource, TestsResult suite)
             throws IOException {
-        Path vbDir = protectDir.resolve(className + ".Vb");
-        Path baselineDir = protectDir.resolve(className + ".Baseline");
+        Path vbDir = assureDir.resolve(className + ".Vb");
+        Path baselineDir = assureDir.resolve(className + ".Baseline");
 
         deleteRecursively(vbDir);
         deleteRecursively(baselineDir);
@@ -153,7 +153,7 @@ public class VbCharacterisationRunner {
 
     private ProcessOutput executeDotnetTest(String sessionId, String className)
             throws IOException, InterruptedException {
-        String baselinePath = "/workspace/" + sessionId + "/protect/" + className + ".Baseline";
+        String baselinePath = "/workspace/" + sessionId + "/assure/" + className + ".Baseline";
         return processRunner.run(List.of(
                 "docker", "exec", containerName,
                 "dotnet", "test", baselinePath,
