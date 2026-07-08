@@ -52,7 +52,8 @@ class ProtectControllerTest {
                 List.of(new ClassReadiness("OrderProcessor", "OrderProcessor.vb", Bucket.NET_READY,
                         "public, no WinForms references",
                         List.of(new MethodReadiness("CalculateTotal", "public", Bucket.NET_READY,
-                                "params in, value out")))));
+                                "params in, value out")))),
+                List.of());
         when(assessmentService.assess(eq("OrderProcessor.vb"), anyString())).thenReturn(report);
 
         mockMvc.perform(post("/api/protect/assess")

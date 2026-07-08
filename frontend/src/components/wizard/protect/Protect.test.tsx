@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { useState } from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { WizardConfigProvider } from '../../../config/WizardConfigContext'
 import { AppHeader } from '../../AppHeader'
@@ -9,7 +9,12 @@ import { Step3Baseline } from './Step3Baseline'
 import { Step4BaselineTests } from './Step4BaselineTests'
 import { StepReadiness } from './StepReadiness'
 import type { WizardState } from '../WizardShell'
-import type { BaselineResult, BaselineTestsResult, ReadinessReport } from '../../../api/migrateApi'
+import type {
+  BaselineResult,
+  BaselineTestsResult,
+  ReadinessReport,
+  RestApiEndpoint,
+} from '../../../api/migrateApi'
 import { looksUiCoupled } from '../../../config/engine'
 
 const baseState: WizardState = {
@@ -585,6 +590,85 @@ describe('StepReadiness (portfolio report)', () => {
     expect(screen.getByTestId('portfolio-gate')).toBeInTheDocument()
     expect(screen.getByText('Nothing to protect yet')).toBeInTheDocument()
     expect(screen.queryByTestId('proceed-panel')).not.toBeInTheDocument()
+  })
+})
+
+const restApis: RestApiEndpoint[] = [
+  {
+    verb: 'GET',
+    route: '/api/orders',
+    handler: 'OrderApiController.Get',
+    source: 'Api/OrderApiController.vb',
+    kind: 'Web API',
+    params: [{ name: 'status', in: 'query', type: 'string', note: 'optional — open or closed' }],
+    reqType: '—',
+    req: null,
+    resType: 'OrderDto',
+    resStatus: '200 OK',
+    res: '[]',
+  },
+  {
+    verb: 'POST',
+    route: '/api/orders',
+    handler: 'OrderApiController.Create',
+    source: 'Api/OrderApiController.vb',
+    kind: 'Web API',
+    params: [],
+    reqType: 'CreateOrderRequest',
+    req: '{ "customerId": 187 }',
+    resType: 'OrderDto',
+    resStatus: '201 Created',
+    res: '{ "id": 4822 }',
+  },
+]
+
+describe('StepReadiness — REST API endpoints panel', () => {
+  const withApis: ReadinessReport = { ...mixedPortfolio, restApis }
+  const apiState = { ...baseState, filename: 'LegacyEstate.zip', readiness: withApis }
+
+  it('renders the panel with plain-English copy (and none of the design jargon)', () => {
+    renderWithConfig(<StepReadiness state={apiState} update={() => {}} onReady={() => {}} />)
+    const panel = screen.getByTestId('rest-panel')
+
+    expect(panel).toHaveTextContent('REST API ENDPOINTS FOUND')
+    expect(panel).toHaveTextContent('SUPPORT COMING LATER')
+    // 2 endpoints, both from the same file → "1 file" (singular).
+    expect(panel).toHaveTextContent('2 web API endpoints')
+    expect(panel).toHaveTextContent('across 1 file')
+    expect(panel).toHaveTextContent('nothing was called and no request was sent')
+    // The dumbed-down copy must not reproduce the design's jargon.
+    expect(panel).not.toHaveTextContent(/surface the surface/i)
+    expect(panel).not.toHaveTextContent(/ApiController inheritance detected statically/i)
+    // Count readout.
+    expect(within(panel).getByText('endpoints')).toBeInTheDocument()
+  })
+
+  it('expands an endpoint to reveal its request/response payloads', async () => {
+    const user = userEvent.setup()
+    renderWithConfig(<StepReadiness state={apiState} update={() => {}} onReady={() => {}} />)
+    const panel = screen.getByTestId('rest-panel')
+
+    // Collapsed: payload labels are not shown yet.
+    expect(within(panel).queryByText('REQUEST BODY')).not.toBeInTheDocument()
+
+    // Clicking the POST row (via its handler) expands it.
+    await user.click(within(panel).getByText('OrderApiController.Create'))
+
+    expect(within(panel).getByText('REQUEST BODY')).toBeInTheDocument()
+    expect(within(panel).getByText('CreateOrderRequest')).toBeInTheDocument()
+    expect(within(panel).getByText('RESPONSE')).toBeInTheDocument()
+    expect(within(panel).getByText('201 Created')).toBeInTheDocument()
+  })
+
+  it('hides the panel when the scan found no endpoints', () => {
+    renderWithConfig(
+      <StepReadiness
+        state={{ ...baseState, filename: 'LegacyEstate.zip', readiness: mixedPortfolio }}
+        update={() => {}}
+        onReady={() => {}}
+      />,
+    )
+    expect(screen.queryByTestId('rest-panel')).not.toBeInTheDocument()
   })
 })
 

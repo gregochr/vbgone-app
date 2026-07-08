@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { WizardState } from '../WizardShell'
 import { assess, assessProject } from '../../../api/migrateApi'
-import type { ClassReadiness, ReadinessReport } from '../../../api/migrateApi'
+import type { ClassReadiness, ReadinessReport, RestApiEndpoint } from '../../../api/migrateApi'
 import { BUCKETS } from '../../../config/engine'
 import type { Bucket } from '../../../config/engine'
 
@@ -423,6 +423,10 @@ function PortfolioReport({
         to see the call.
       </div>
 
+      {report.restApis && report.restApis.length > 0 && (
+        <RestApiPanel endpoints={report.restApis} />
+      )}
+
       {queueActive && (
         <div className="protect-progress-card" data-testid="queue-progress">
           <div className="protect-progress-head">
@@ -541,6 +545,120 @@ function PortfolioReport({
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Verb → chip colour. Hex (not CSS vars) so the border can carry an alpha suffix. */
+const VERB_COLOR: Record<RestApiEndpoint['verb'], string> = {
+  GET: '#34d399',
+  POST: '#6d6af2',
+  PUT: '#e3a83c',
+  PATCH: '#e3a83c',
+  DELETE: '#fb6f73',
+}
+
+/**
+ * The web API endpoints the scan found. Protect can't wrap these yet, so this is a read-only,
+ * expandable list shown next to (not inside) the readiness buckets. Rows expand to show their
+ * inputs and sample request/response bodies.
+ */
+function RestApiPanel({ endpoints }: { endpoints: RestApiEndpoint[] }) {
+  const [open, setOpen] = useState<Record<string, boolean>>({})
+  const fileCount = new Set(endpoints.map((e) => e.source)).size
+  const toggle = (key: string) => setOpen((o) => ({ ...o, [key]: !o[key] }))
+
+  return (
+    <div className="rest-panel" data-testid="rest-panel">
+      <div className="rest-panel-head">
+        <div className="rest-panel-head-main">
+          <div className="rest-panel-labels">
+            <span className="rest-panel-kicker">REST API ENDPOINTS FOUND</span>
+            <span className="rest-panel-badge">SUPPORT COMING LATER</span>
+          </div>
+          <div className="rest-panel-desc">
+            The scan also found{' '}
+            <strong>
+              {endpoints.length} web API endpoint{endpoints.length === 1 ? '' : 's'}
+            </strong>{' '}
+            across{' '}
+            <strong>
+              {fileCount} file{fileCount === 1 ? '' : 's'}
+            </strong>
+            . Protect can't put a safety net around these yet — support is planned, so we're listing
+            them here for now.
+          </div>
+        </div>
+        <div className="rest-panel-count">
+          <div className="rest-panel-count-n">{endpoints.length}</div>
+          <div className="rest-panel-count-label">endpoints</div>
+        </div>
+      </div>
+
+      <div className="rest-list">
+        {endpoints.map((e) => {
+          const key = `${e.verb} ${e.route}`
+          const isOpen = !!open[key]
+          const color = VERB_COLOR[e.verb]
+          const twoCol = e.req != null
+          return (
+            <div className="rest-row-wrap" key={key}>
+              <div className="rest-row" onClick={() => toggle(key)}>
+                <span className={`rest-chevron ${isOpen ? 'open' : ''}`} aria-hidden="true">
+                  ▸
+                </span>
+                <span className="rest-verb" style={{ color, borderColor: `${color}55` }}>
+                  {e.verb}
+                </span>
+                <span className="rest-route">{e.route}</span>
+                <span className="rest-handler">{e.handler}</span>
+                <span className="rest-kind">{e.kind}</span>
+              </div>
+              {isOpen && (
+                <div className="rest-detail">
+                  {e.params.length > 0 && (
+                    <div className="rest-params">
+                      <div className="rest-detail-label">INPUTS</div>
+                      {e.params.map((p) => (
+                        <div className="rest-param-row" key={p.name}>
+                          <span className="rest-param-in">{p.in}</span>
+                          <span className="rest-param-name">{p.name}</span>
+                          <span className="rest-param-type">{p.type}</span>
+                          <span className="rest-param-note">{p.note}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className={`rest-payloads ${twoCol ? 'two-col' : ''}`}>
+                    {twoCol && (
+                      <div className="rest-payload">
+                        <div className="rest-payload-head">
+                          <span className="rest-detail-label">REQUEST BODY</span>
+                          <span className="rest-payload-type req">{e.reqType}</span>
+                        </div>
+                        <pre className="rest-code">{e.req}</pre>
+                      </div>
+                    )}
+                    <div className="rest-payload">
+                      <div className="rest-payload-head">
+                        <span className="rest-detail-label">RESPONSE</span>
+                        <span className="rest-payload-status">{e.resStatus}</span>
+                        <span className="rest-payload-type res">{e.resType}</span>
+                      </div>
+                      {e.res && <pre className="rest-code">{e.res}</pre>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="rest-footnote">
+        Found by reading route settings and controller types in your code · not included in the
+        class counts above · nothing was called and no request was sent.
+      </div>
     </div>
   )
 }

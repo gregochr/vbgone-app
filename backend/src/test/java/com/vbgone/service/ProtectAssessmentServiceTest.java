@@ -4,6 +4,7 @@ import com.vbgone.model.Bucket;
 import com.vbgone.model.ClassReadiness;
 import com.vbgone.model.MigrationSession;
 import com.vbgone.model.ReadinessReport;
+import com.vbgone.model.RestApiEndpoint;
 import com.vbgone.model.VbSourceFile;
 import com.vbgone.model.ZipManifest;
 import com.vbgone.session.SessionStore;
@@ -332,5 +333,114 @@ class ProtectAssessmentServiceTest {
         MigrationSession s = sessionStore.get(r.sessionId()).orElseThrow();
         assertThat(s.getProtectableSource()).contains("OrderService").doesNotContain("Inherits Form");
         assertThat(s.getVbContentForClass("OrderService")).contains("Public Class OrderService");
+    }
+
+    // ── REST API surface extraction ──
+
+    private RestApiEndpoint endpoint(ReadinessReport r, String verb, String route) {
+        return r.restApis().stream()
+                .filter(e -> e.verb().equals(verb) && e.route().equals(route))
+                .findFirst().orElseThrow(() -> new AssertionError("no " + verb + " " + route));
+    }
+
+    @Test
+    void webApiController_extractsEndpointsAndIsNotAReadinessClass() {
+        String vb = """
+                Public Class OrderService
+                    Public Function PlaceOrder(id As Integer) As Integer
+                        Return id
+                    End Function
+                End Class
+
+                <RoutePrefix("api/orders")>
+                Public Class OrderApiController
+                    Inherits ApiController
+
+                    <HttpGet>
+                    Public Function Get() As IEnumerable(Of OrderDto)
+                        Return Nothing
+                    End Function
+
+                    <HttpGet>
+                    <Route("{id}")>
+                    Public Function GetById(id As Integer) As OrderDto
+                        Return Nothing
+                    End Function
+
+                    <HttpPost>
+                    Public Function Create(<FromBody> request As CreateOrderRequest) As OrderDto
+                        Return Nothing
+                    End Function
+
+                    <HttpDelete>
+                    <Route("{id}")>
+                    Public Function Delete(id As Integer) As Boolean
+                        Return True
+                    End Function
+                End Class
+                """;
+
+        ReadinessReport r = service.assess("Api.vb", vb);
+
+        // The controller is reported as endpoints only — it isn't in the readiness class buckets.
+        assertThat(r.classes()).extracting(ClassReadiness::name).containsExactly("OrderService");
+        assertThat(r.restApis()).hasSize(4);
+
+        RestApiEndpoint list = endpoint(r, "GET", "/api/orders");
+        assertThat(list.handler()).isEqualTo("OrderApiController.Get");
+        assertThat(list.kind()).isEqualTo("Web API");
+        assertThat(list.resType()).isEqualTo("OrderDto"); // unwrapped from IEnumerable(Of OrderDto)
+        assertThat(list.resStatus()).isEqualTo("200 OK");
+        assertThat(list.req()).isNull();
+
+        RestApiEndpoint byId = endpoint(r, "GET", "/api/orders/{id}");
+        assertThat(byId.params()).singleElement()
+                .satisfies(p -> {
+                    assertThat(p.name()).isEqualTo("id");
+                    assertThat(p.in()).isEqualTo("path");
+                    assertThat(p.type()).isEqualTo("Integer");
+                });
+
+        RestApiEndpoint create = endpoint(r, "POST", "/api/orders");
+        assertThat(create.reqType()).isEqualTo("CreateOrderRequest");
+        assertThat(create.resStatus()).isEqualTo("201 Created");
+        assertThat(create.params()).isEmpty(); // the body param is not listed as a path/query input
+
+        assertThat(endpoint(r, "DELETE", "/api/orders/{id}").resStatus()).isEqualTo("204 No Content");
+    }
+
+    @Test
+    void asmxService_extractsWebMethodAsAsmxEndpoint() {
+        String vb = """
+                <WebService(Namespace:="http://vbgone/tax")>
+                Public Class TaxService
+                    Inherits System.Web.Services.WebService
+
+                    <WebMethod>
+                    Public Function GetVatRate(countryCode As String) As Decimal
+                        Return 0.2D
+                    End Function
+                End Class
+                """;
+
+        ReadinessReport r = service.assess("Services/TaxService.asmx.vb", vb);
+
+        assertThat(r.classes()).isEmpty();
+        assertThat(r.restApis()).singleElement().satisfies(e -> {
+            assertThat(e.verb()).isEqualTo("GET");
+            assertThat(e.kind()).isEqualTo("ASMX");
+            assertThat(e.route()).isEqualTo("/TaxService.asmx/GetVatRate");
+            assertThat(e.handler()).isEqualTo("TaxService.GetVatRate");
+            assertThat(e.resType()).isEqualTo("Decimal");
+            assertThat(e.params()).singleElement().satisfies(p -> {
+                assertThat(p.name()).isEqualTo("countryCode");
+                assertThat(p.in()).isEqualTo("query");
+            });
+        });
+    }
+
+    @Test
+    void ordinaryEstate_hasNoRestApis() {
+        assertThat(service.assess("LegacyEstate.zip", DEMO_MIXED).restApis()).isEmpty();
     }
 }
