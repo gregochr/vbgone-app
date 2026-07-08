@@ -101,12 +101,28 @@ public class AssureService {
         String ignored = code;
         if (tests != null) {
             for (String test : tests) {
-                ignored = markTestIgnored(ignored, test,
-                        "quarantined: could not be repaired to match the original behaviour");
+                ignored = markTestIgnored(ignored, test, QUARANTINE_REASON);
             }
         }
-        return executeSuite(session, className, ignored);
+        BaselineTestsResult result = executeSuite(session, className, ignored);
+
+        // The supplied names may not match what actually failed (e.g. a repair tier renamed the
+        // test, or there were other failures). If the remainder is still red, set aside whatever
+        // the run reported as failing and try once more, so the passing tests can still be pinned.
+        if (!result.netFaithful() && session.getNetBuild() != null) {
+            String retry = ignored;
+            for (String failed : session.getNetBuild().failedTests()) {
+                retry = markTestIgnored(retry, failed, QUARANTINE_REASON);
+            }
+            if (!retry.equals(ignored)) {
+                result = executeSuite(session, className, retry);
+            }
+        }
+        return result;
     }
+
+    private static final String QUARANTINE_REASON =
+            "quarantined: could not be repaired to match the original behaviour";
 
     /**
      * Step 4 auto-repair — one escalating attempt. Because the suite runs against the untouched

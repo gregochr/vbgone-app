@@ -208,12 +208,40 @@ class AssureServiceTest {
     }
 
     @Test
-    void quarantineBaseline_stillRedWhenOtherTestsFailIsNotRecorded() {
+    void quarantineBaseline_setsAsideTheActuallyFailingTestWhenNamesDoNotMatch() {
         MigrationSession session = session("s1");
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));
-        // Setting one test aside isn't enough — another still fails, so the suite stays red.
+        // First run (the supplied name doesn't match, so nothing is ignored) → red on the real
+        // failing test; second run (after setting THAT aside) → green.
         when(runner.run(any(), eq("OrderProcessor"), any()))
-                .thenReturn(build(BuildStatus.RED, 42, 41, 1, List.of("Other")));
+                .thenReturn(build(BuildStatus.RED, 5, 4, 1, List.of("ActuallyFailing")))
+                .thenReturn(build(BuildStatus.GREEN, 5, 5, 0));
+        String suite = """
+                [TestClass]
+                public class OrderProcessorBaselineTests
+                {
+                    [TestMethod]
+                    public void ActuallyFailing() { Assert.AreEqual(1, 2); }
+                    [TestMethod]
+                    public void Good() { Assert.AreEqual(1, 1); }
+                }
+                """;
+
+        BaselineTestsResult result = service.quarantineBaseline(
+                "s1", "OrderProcessor", suite, List.of("WrongName"));
+
+        assertThat(result.netFaithful()).isTrue();
+        assertThat(result.code()).contains("[Ignore("); // the actually-failing test was set aside
+        assertThat(session.getBaselineSuites()).containsKey("OrderProcessor");
+    }
+
+    @Test
+    void quarantineBaseline_thatCannotBeMadeGreenIsNotRecorded() {
+        MigrationSession session = session("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        // A compile-style failure with no runnable failing tests to set aside → can't converge.
+        when(runner.run(any(), eq("OrderProcessor"), any()))
+                .thenReturn(build(BuildStatus.RED, 0, 0, 0));
 
         BaselineTestsResult result = service.quarantineBaseline(
                 "s1", "OrderProcessor",
