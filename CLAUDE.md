@@ -12,6 +12,25 @@ VBGone is a Spring Boot + React application that automates the scaffolding of VB
 
 **vbgone-output** — the generated C# code lives here, with its own .NET quality pipeline (Roslynator, Coverlet, Stryker, CodeQL). VBGone raises PRs against this repo programmatically via the GitHub API.
 
+## Branching & Workflow — IMPORTANT
+
+**Never commit directly to `main`.** Every change — feature, fix, or chore — happens on its own branch and lands via a PR.
+
+- **Branch before you touch anything.** Create the branch first: `git switch -c <type>/<slug>`, where `<type>` is `feat` | `fix` | `chore` | `docs` | `refactor` (e.g. `feat/protect-rest-api-panel`).
+- **One task = one branch = one PR.** Don't bundle unrelated changes into a single branch. If you notice pre-existing uncommitted work in the tree that isn't yours, leave it alone and stage only your own files.
+- **If you find yourself on `main` with changes, stop and branch** (`git switch -c <type>/<slug>`), then commit there.
+- **Open the PR against `main`**, merge via GitHub, then delete the branch.
+
+**Running multiple agents at once?** A shared working tree is what causes tangled, half-committed state. Give each concurrent agent its **own git worktree** (a separate working directory on its own branch), not just its own branch:
+
+```bash
+git worktree add ../vbgone-<slug> -b <type>/<slug>   # isolated dir + branch
+# ...work, commit, push, open PR from ../vbgone-<slug> ...
+git worktree remove ../vbgone-<slug>                 # when merged
+```
+
+A `pre-commit` hook in `.githooks/` blocks commits to `main`/`master` as a backstop. New clones/worktrees activate it once with `git config core.hooksPath .githooks` (see `.githooks/README.md`).
+
 ## Architecture
 
 ```

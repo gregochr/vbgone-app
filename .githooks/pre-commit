@@ -1,0 +1,20 @@
+#!/bin/sh
+# Blocks commits made directly on the default branch. Work happens on
+# feature/fix/chore branches — see "Branching & Workflow" in CLAUDE.md.
+#
+# Activate once per clone/worktree:  git config core.hooksPath .githooks
+# Emergency bypass (avoid):          git commit --no-verify
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+case "$branch" in
+  main|master)
+    echo "✋ Refusing to commit directly to '$branch'."
+    echo "   Start a branch first, then commit there:"
+    echo "     git switch -c feat/your-change"
+    echo "   (running several agents? give each its own worktree — see CLAUDE.md)"
+    exit 1
+    ;;
+esac
+
+exit 0
