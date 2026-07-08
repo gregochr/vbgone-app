@@ -47,4 +47,23 @@ describe('CoverageBadge', () => {
       '91.0% line coverage of your original VB.NET',
     )
   })
+
+  it('attributes every figure to Coverlet', () => {
+    render(<CoverageBadge coveragePercent={91} />)
+    expect(screen.getByTestId('coverage-badge')).toHaveTextContent(
+      'Verified by Coverlet, the independent .NET coverage tool',
+    )
+  })
+
+  it('shows branch coverage as the confidence signal when provided', () => {
+    render(<CoverageBadge coveragePercent={85} branchPercent={72} />)
+    const badge = screen.getByTestId('coverage-badge')
+    expect(badge).toHaveTextContent('85.0% line coverage')
+    expect(badge).toHaveTextContent('72.0% branch coverage — each decision exercised both ways')
+  })
+
+  it('omits branch coverage when not provided', () => {
+    render(<CoverageBadge coveragePercent={85} />)
+    expect(screen.getByTestId('coverage-badge')).not.toHaveTextContent('branch coverage')
+  })
 })

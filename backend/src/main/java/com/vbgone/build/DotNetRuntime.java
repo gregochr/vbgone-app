@@ -94,10 +94,10 @@ public class DotNetRuntime implements BuildRuntime {
             } else {
                 String trxContent = Files.readString(trxPath);
                 BuildResult result = parseTrx(sessionId, trxContent);
-                // Line coverage of the implementation assembly (named after the class).
+                // Coverage of the implementation assembly (named after the class).
                 Path testResults = sessionDir.resolve(className + ".Tests").resolve("TestResults");
-                return result.withCoverage(
-                        CoverageParser.parseLineCoveragePercent(testResults, className));
+                CoverageParser.Coverage cov = CoverageParser.parse(testResults, className);
+                return result.withCoverage(cov.linePercent(), cov.branchPercent());
             }
 
         } catch (IOException | InterruptedException e) {

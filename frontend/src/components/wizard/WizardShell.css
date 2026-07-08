@@ -328,6 +328,22 @@
   line-height: 1.45;
 }
 
+.coverage-badge-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.coverage-badge-source {
+  font-size: 11.5px;
+  color: #9aa1ab;
+}
+
+.coverage-badge-verified {
+  color: #cdd2d9;
+  font-weight: 600;
+}
+
 .coverage-ok {
   background: rgba(52, 211, 153, 0.06);
   border: 1px solid rgba(52, 211, 153, 0.25);

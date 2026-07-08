@@ -332,6 +332,7 @@ export function Step4BaselineTests({
       {!compileError && !noTests && (
         <CoverageBadge
           coveragePercent={tests.build.coveragePercent}
+          branchPercent={tests.build.branchCoveragePercent}
           ofLabel="your original VB.NET"
         />
       )}
