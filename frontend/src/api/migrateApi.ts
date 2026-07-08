@@ -121,6 +121,17 @@ export interface BuildResult {
   failed: number
   errors: string[]
   failedTests: string[]
+  /**
+   * Line-coverage percentage (0–100) of the code under test, or null/undefined when not
+   * collected (e.g. an ERROR build). Informational only — never gates the RED/GREEN outcome.
+   */
+  coveragePercent?: number | null
+  /**
+   * Branch-coverage percentage (0–100) of the code under test — the stronger confidence signal
+   * ("each decision exercised both ways"). Null/undefined when not collected. Both are measured
+   * by Coverlet.
+   */
+  branchCoveragePercent?: number | null
 }
 
 export interface ImplementResult {
@@ -897,6 +908,8 @@ const mockGreenNet = (sessionId: string, className: string, code: string): Basel
       failed: 0,
       errors: [],
       failedTests: [],
+      coveragePercent: 87.5,
+      branchCoveragePercent: 79.0,
     },
     failures: [],
   }
@@ -1527,6 +1540,9 @@ public class OrderProcessor : IOrderProcessor
       failed: total,
       errors: [],
       failedTests: Array.from({ length: total }, (_, i) => `Test_${i + 1}`),
+      // RED stub build: nothing is implemented yet, so coverage isn't meaningful/surfaced.
+      coveragePercent: null,
+      branchCoveragePercent: null,
     }
   },
 
@@ -1659,6 +1675,8 @@ public class OrderProcessor : IOrderProcessor
       errors: [],
       failedTests:
         mode === 'CLAUDE' ? [] : Array.from({ length: total }, (_, i) => `Test_${i + 1}`),
+      coveragePercent: mode === 'CLAUDE' ? 88.2 : null,
+      branchCoveragePercent: mode === 'CLAUDE' ? 81.5 : null,
     }
   },
 

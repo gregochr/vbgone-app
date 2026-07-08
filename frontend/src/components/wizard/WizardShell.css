@@ -309,6 +309,87 @@
   color: #cdd2d9;
 }
 
+/* ── Coverage badge (informational; warns below target, never blocks) ── */
+.coverage-badge {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 15px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #cdd2d9;
+  margin: -6px 0 18px;
+}
+
+.coverage-badge-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.coverage-badge-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.coverage-badge-branch {
+  font-size: 13px;
+  color: #cdd2d9;
+}
+
+.coverage-badge-source {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 5px;
+  margin-top: 3px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12.5px;
+  color: #b6bcc5;
+}
+
+.coverage-badge-source code {
+  font-size: 11.5px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.coverage-badge-verified {
+  color: #eaf5ee;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.coverage-ok .coverage-badge-verified {
+  color: var(--green);
+}
+
+.coverage-warn .coverage-badge-verified {
+  color: var(--amber);
+}
+
+.coverage-ok {
+  background: rgba(52, 211, 153, 0.06);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+.coverage-ok .coverage-badge-icon {
+  color: var(--green);
+}
+
+.coverage-warn {
+  background: rgba(227, 168, 60, 0.08);
+  border: 1px solid rgba(227, 168, 60, 0.32);
+}
+
+.coverage-warn .coverage-badge-icon {
+  color: var(--amber);
+}
+
 .spinner {
   display: inline-block;
   width: 17px;

@@ -45,6 +45,7 @@ public class DotNetRuntime implements BuildRuntime {
                 <PackageReference Include="NUnit" Version="4.1.0" />
                 <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
                 <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+                <PackageReference Include="coverlet.collector" Version="6.0.2" />
               </ItemGroup>
               <ItemGroup>
                 <ProjectReference Include="../%s/%s.csproj" />
@@ -92,7 +93,11 @@ public class DotNetRuntime implements BuildRuntime {
                 return new BuildResult(sessionId, BuildStatus.ERROR, 0, 0, 0, errors, List.of());
             } else {
                 String trxContent = Files.readString(trxPath);
-                return parseTrx(sessionId, trxContent);
+                BuildResult result = parseTrx(sessionId, trxContent);
+                // Coverage of the implementation assembly (named after the class).
+                Path testResults = sessionDir.resolve(className + ".Tests").resolve("TestResults");
+                CoverageParser.Coverage cov = CoverageParser.parse(testResults, className);
+                return result.withCoverage(cov.linePercent(), cov.branchPercent());
             }
 
         } catch (IOException | InterruptedException e) {
@@ -179,7 +184,8 @@ public class DotNetRuntime implements BuildRuntime {
         return processRunner.run(List.of(
                 "docker", "exec", containerName,
                 "dotnet", "test", containerTestPath,
-                "--logger", "trx;LogFileName=results.trx"
+                "--logger", "trx;LogFileName=results.trx",
+                "--collect", "XPlat Code Coverage"
         ));
     }
 
