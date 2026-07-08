@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -20,6 +21,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -114,6 +116,24 @@ class DotNetRuntimeTest {
         assertThat(result.passed()).isEqualTo(5);
         assertThat(result.failed()).isEqualTo(0);
         assertThat(result.errors()).isEmpty();
+    }
+
+    @Test
+    void build_requestsCoverageCollection() throws Exception {
+        // Guard the coverage flag: without "--collect XPlat Code Coverage" Coverlet emits no
+        // report, so the Step 5 coverage badge silently vanishes. (Mirrors the Assure runner.)
+        MigrationSession session = sessionWithImplementation("s1");
+        when(processRunner.run(anyList())).thenAnswer(inv -> {
+            writeTrxFile("s1", "Form1", GREEN_TRX);
+            return new ProcessOutput(0, "Passed!", "");
+        });
+
+        build(session, List.of());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<String>> cmd = ArgumentCaptor.forClass(List.class);
+        verify(processRunner).run(cmd.capture());
+        assertThat(cmd.getValue()).containsSequence("--collect", "XPlat Code Coverage");
     }
 
     // ── RED scenario ──

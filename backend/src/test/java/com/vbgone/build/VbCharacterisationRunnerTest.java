@@ -10,15 +10,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -83,6 +86,24 @@ class VbCharacterisationRunnerTest {
         assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
         assertThat(result.total()).isEqualTo(3);
         assertThat(result.passed()).isEqualTo(3);
+    }
+
+    @Test
+    void run_requestsCoverageCollection() throws Exception {
+        // Guard against silently dropping the coverage flag (as a merge once did): without
+        // "--collect XPlat Code Coverage", Coverlet writes no report, CoverageParser returns
+        // null, and the Assure coverage badge disappears with no error.
+        when(processRunner.run(anyList())).thenAnswer(inv -> {
+            writeTrx("s1", GREEN_TRX);
+            return new ProcessOutput(0, "Passed!", "");
+        });
+
+        runner.run(session("s1"), "OrderProcessor", suite("s1"));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<String>> cmd = ArgumentCaptor.forClass(List.class);
+        verify(processRunner).run(cmd.capture());
+        assertThat(cmd.getValue()).containsSequence("--collect", "XPlat Code Coverage");
     }
 
     @Test
