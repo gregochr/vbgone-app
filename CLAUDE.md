@@ -290,3 +290,4 @@ docker compose up --build
 - [ ] Stryker results display — mutation score in UI
 - [ ] Migration report — PDF summary
 - [ ] Cost report — total tokens and cost across migration
+- [ ] **Assure** — REST/ASMX behaviour safety net (characterise the detected endpoints) — **blocked: needs a Windows runner.** Legacy ASP.NET Web API (`System.Web.Http`) and ASMX are .NET Framework, which only hosts on Windows, so the endpoints can't be exercised on a Mac-only setup. Unblock via a GitHub Actions `windows-latest` runner, or defer until they're migrated to ASP.NET Core (cross-platform).
