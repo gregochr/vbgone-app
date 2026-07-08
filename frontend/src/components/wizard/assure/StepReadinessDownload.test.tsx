@@ -81,14 +81,17 @@ const baseState: WizardState = {
   baselineTests: null,
   netFaithful: true,
   netted: [],
+  assuredGreen: [],
   fromQueue: false,
 }
 
-const renderReport = (netted: string[]) =>
+// `netted` = classes the queue navigated past; `assuredGreen` = those whose baseline actually went
+// green (the ones with a downloadable suite). Defaults to green === netted for the happy path.
+const renderReport = (netted: string[], assuredGreen: string[] = netted) =>
   render(
     <WizardConfigProvider>
       <StepReadiness
-        state={{ ...baseState, readiness: rep, netted }}
+        state={{ ...baseState, readiness: rep, netted, assuredGreen }}
         update={() => {}}
         onReady={() => {}}
         onAssureClass={() => {}}
@@ -125,6 +128,35 @@ describe('StepReadiness — test-suite download touchpoints', () => {
     expect(
       within(invoiceRow).getByRole('button', { name: /Assure this class/ }),
     ).toBeInTheDocument()
+  })
+
+  it('gating: a netted-but-not-green (quarantined/left) class shows ✓ Assured but no download', () => {
+    // OrderService is in the queue (netted) but its baseline never went green — no suite exists.
+    renderReport(['OrderService'], [])
+
+    const orderRow = rowFor('OrderService')
+    expect(within(orderRow).getByText('✓ Assured')).toBeInTheDocument()
+    expect(within(orderRow).queryByRole('button', { name: /↓ tests/ })).toBeNull()
+    // ...and it does not offer a bulk download either (nothing is downloadable yet).
+    expect(screen.queryByRole('button', { name: /Download all tests/ })).toBeNull()
+  })
+
+  it('mixed: the bulk count reflects only green suites, not the whole queue', async () => {
+    const user = userEvent.setup()
+    // Both processed, but only OrderService went green.
+    renderReport(['OrderService', 'InvoiceService'], ['OrderService'])
+
+    // InvoiceService: assured chip, no per-row download.
+    const invoiceRow = rowFor('InvoiceService')
+    expect(within(invoiceRow).getByText('✓ Assured')).toBeInTheDocument()
+    expect(within(invoiceRow).queryByRole('button', { name: /↓ tests/ })).toBeNull()
+
+    // The completion panel counts 1 (green) suite, not 2 (netted).
+    const panel = screen.getByTestId('proceed-panel')
+    const zip = within(panel).getByRole('button', { name: /Download all tests \(\.zip\)/ })
+    expect(within(panel).getByText(/1 baseline test suite recorded/)).toBeInTheDocument()
+    await user.click(zip)
+    expect(api.downloadTestsBundle).toHaveBeenCalledWith('sess-9')
   })
 
   it('mid-flow bulk: the progress card downloads all assured suites as a zip', async () => {

@@ -43,6 +43,7 @@ const baseState: WizardState = {
   baselineTests: null,
   netFaithful: true,
   netted: [],
+  assuredGreen: [],
   fromQueue: false,
 }
 

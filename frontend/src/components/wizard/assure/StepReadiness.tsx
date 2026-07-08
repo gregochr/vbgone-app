@@ -42,6 +42,7 @@ export function StepReadiness({ state, update, onReady, onAssureClass }: Props) 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   const netted = state.netted ?? []
+  const assuredGreen = state.assuredGreen ?? []
 
   const subtitleFor = (r: ReadinessReport) => {
     const t = r.totals
@@ -140,7 +141,16 @@ export function StepReadiness({ state, update, onReady, onAssureClass }: Props) 
     if (usable)
       return (
         <PortfolioReport
-          {...{ report: report!, filter, setFilter, expanded, setExpanded, netted, onAssureClass }}
+          {...{
+            report: report!,
+            filter,
+            setFilter,
+            expanded,
+            setExpanded,
+            netted,
+            assuredGreen,
+            onAssureClass,
+          }}
         />
       )
     if (scanning && !scannedEmpty) {
@@ -310,6 +320,8 @@ interface ReportProps {
   expanded: Record<string, boolean>
   setExpanded: (e: Record<string, boolean>) => void
   netted: string[]
+  /** Subset of netted whose baseline went green — the classes with a downloadable suite. */
+  assuredGreen: string[]
   onAssureClass?: (name: string) => void
 }
 
@@ -320,6 +332,7 @@ function PortfolioReport({
   expanded,
   setExpanded,
   netted,
+  assuredGreen,
   onAssureClass,
 }: ReportProps) {
   const t = report.totals
@@ -361,6 +374,11 @@ function PortfolioReport({
   const blocked = t.netReady === 0
   // Every ready class is assured: the panel flips from a "keep going" CTA to a download-the-suite one.
   const allAssured = remaining === 0 && nettedReady > 0
+  // Downloadable = net-ready classes whose baseline actually went green (a suite exists server-side).
+  // This is a subset of the netted queue, which also holds classes left early or quarantined.
+  const downloadableCount = report.classes.filter(
+    (c) => c.bucket === 'net-ready' && assuredGreen.includes(c.name),
+  ).length
 
   const toggle = (name: string) => setExpanded({ ...expanded, [name]: !expanded[name] })
 
@@ -443,14 +461,16 @@ function PortfolioReport({
               <span className="assure-progress-count">
                 {nettedReady} / {t.netReady} assured
               </span>
-              <button
-                type="button"
-                className="btn-download"
-                title="Download every assured class's test suite as a zip"
-                onClick={() => downloadTestsBundle(sessionId)}
-              >
-                ↓ Download all tests ({nettedReady})
-              </button>
+              {downloadableCount > 0 && (
+                <button
+                  type="button"
+                  className="btn-download"
+                  title="Download every assured class's test suite as a zip"
+                  onClick={() => downloadTestsBundle(sessionId)}
+                >
+                  ↓ Download all tests ({downloadableCount})
+                </button>
+              )}
             </div>
           </div>
           <div className="assure-progress-track">
@@ -497,14 +517,16 @@ function PortfolioReport({
                   {isNetted ? (
                     <div className="class-action-netted">
                       <span className="assured-chip">✓ Assured</span>
-                      <button
-                        type="button"
-                        className="btn-download"
-                        title={`Download ${c.name}Tests.cs`}
-                        onClick={() => downloadClassTests(sessionId, c.name)}
-                      >
-                        ↓ tests
-                      </button>
+                      {assuredGreen.includes(c.name) && (
+                        <button
+                          type="button"
+                          className="btn-download"
+                          title={`Download ${c.name}Tests.cs`}
+                          onClick={() => downloadClassTests(sessionId, c.name)}
+                        >
+                          ↓ tests
+                        </button>
+                      )}
                     </div>
                   ) : isReady ? (
                     <button className="btn-plex btn-sm" onClick={() => onAssureClass?.(c.name)}>
@@ -557,14 +579,20 @@ function PortfolioReport({
           <div>
             <div className="proceed-title">All ready classes assured</div>
             <div className="proceed-desc">
-              {nettedReady} baseline test {nettedReady === 1 ? 'suite' : 'suites'} recorded against
-              your untouched VB.NET. Download them as a runnable MSTest project to drop into your
-              own CI — or grab any single class from its row above.
+              {downloadableCount > 0
+                ? `${downloadableCount} baseline test ${downloadableCount === 1 ? 'suite' : 'suites'} recorded against your untouched VB.NET. Download them as a runnable MSTest project to drop into your own CI — or grab any single class from its row above.`
+                : 'Every ready class has been through the baseline flow, but none produced a faithful suite to download yet — revisit any class to re-run its baseline.'}
             </div>
           </div>
-          <button type="button" className="btn-plex" onClick={() => downloadTestsBundle(sessionId)}>
-            ↓ Download all tests (.zip)
-          </button>
+          {downloadableCount > 0 && (
+            <button
+              type="button"
+              className="btn-plex"
+              onClick={() => downloadTestsBundle(sessionId)}
+            >
+              ↓ Download all tests (.zip)
+            </button>
+          )}
         </div>
       ) : (
         <div className="proceed-panel" data-testid="proceed-panel">

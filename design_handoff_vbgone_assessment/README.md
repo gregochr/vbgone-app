@@ -95,13 +95,15 @@ Once a class is assured, its generated baseline test suite is downloadable — i
 or as a bundle. Three touchpoints, all on the readiness report (the hub the queue returns to after
 each class is assured):
 
-1. **Per-class** — every assured row shows the green **✓ Assured** chip plus a secondary **↓ tests**
-   button that downloads that one class's `{Class}Tests.cs`. Only assured (net-ready, baseline-green)
-   classes get it — gated/tangled classes have no suite yet.
+1. **Per-class** — a row whose baseline has gone **green** shows the **✓ Assured** chip plus a
+   secondary **↓ tests** button that downloads that one class's `{Class}Tests.cs`. Only classes with
+   a recorded (green) suite get the button; a class left early or quarantined still shows **✓ Assured**
+   but no download, and gated/tangled classes have no suite at all.
 2. **Mid-flow bulk** — the *Assurance progress* card gains a **↓ Download all tests (N)** button as
-   soon as ≥1 class is assured (`N` = assured count).
-3. **Completion** — when every ready class is assured, the proceed panel flips from the "keep going"
-   CTA to **All ready classes assured** with a primary **↓ Download all tests (.zip)** CTA.
+   soon as ≥1 class's baseline is green (`N` = number of downloadable suites, not the queue length).
+3. **Completion** — when every ready class has been through the queue, the proceed panel flips from
+   the "keep going" CTA to **All ready classes assured** with a primary **↓ Download all tests (.zip)**
+   CTA (shown only when at least one suite is downloadable).
 
 **Bundle contents** (the zip, assembled server-side):
 - `tests/{Class}Tests.cs` — one MSTest file per assured class: the real suite that ran green against
@@ -116,8 +118,9 @@ The buttons hit:
 - Per class → `GET /api/assure/{sessionId}/tests/{className}` → the `.cs` file (attachment).
 - Bundle → `GET /api/assure/{sessionId}/tests.zip` → the assembled MSTest project, streamed.
 
-Both bulk buttons are hidden until ≥1 class is assured; a row's **↓ tests** appears only once that
-class's baseline is green.
+The bulk buttons are hidden until ≥1 class's baseline is green, and a row's **↓ tests** appears only
+once that class's baseline is green — the frontend gates on the set of green-assured classes (a subset
+of the queue), so it never offers a download the backend has no artifact for.
 
 > **Design-vs-repo note:** the design bundle names these endpoints under `/api/protect` and the
 > artifacts `VBGone.Protect.Tests.*`; this repo uses its established `/api/assure` base path and

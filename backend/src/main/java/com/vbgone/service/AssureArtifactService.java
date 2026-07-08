@@ -13,6 +13,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -61,7 +62,9 @@ public class AssureArtifactService {
      */
     public byte[] bundleZip(String sessionId) {
         MigrationSession session = session(sessionId);
-        Map<String, TestsResult> suites = session.getBaselineSuites();
+        // Snapshot the session's suite map so a concurrent baseline-tests run on the same session
+        // can't mutate it mid-assembly.
+        Map<String, TestsResult> suites = new LinkedHashMap<>(session.getBaselineSuites());
         if (suites.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "No assured baseline suites to download for session " + sessionId);
