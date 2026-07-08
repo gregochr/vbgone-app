@@ -164,6 +164,21 @@ class MigrationControllerTest {
     }
 
     @Test
+    void build_returns409WithErrorBodyWhenPreconditionNotMet() throws Exception {
+        // A wrong-order step throws IllegalStateException; it must map to 409 with an
+        // { "error": ... } body (via ApiExceptionHandler), not an opaque 500, so the
+        // frontend can render "generate the interface first" inline.
+        when(buildService.build(SESSION_ID))
+                .thenThrow(new IllegalStateException("Interface must be generated before building"));
+
+        mockMvc.perform(post("/api/migrate/build")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new BuildRequest(SESSION_ID))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Interface must be generated before building"));
+    }
+
+    @Test
     void implement_returns200WithImplementResult() throws Exception {
         when(generationService.implement(eq(SESSION_ID), eq("Form1"), eq(ImplementMode.CLAUDE), any(), any(), any()))
                 .thenReturn(new ImplementResult(SESSION_ID, "Form1", "public class Form1 { ... }", ImplementMode.CLAUDE));

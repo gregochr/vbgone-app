@@ -9,9 +9,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.Map;
 
 /**
- * Maps AI-provider failures to a clear, non-fatal JSON error the frontend can
- * surface. A misconfigured or unavailable provider must never crash the app —
- * it returns HTTP 422 with {@code { "error": "<message>" }}.
+ * Maps expected service-layer failures to a clear, non-fatal JSON error the frontend can
+ * surface as {@code { "error": "<message>" }}, so none of them crash the app as an opaque 500:
+ * <ul>
+ *   <li>a misconfigured/unavailable AI provider → 422 Unprocessable Entity;</li>
+ *   <li>an invalid argument (bad input) → 400 Bad Request;</li>
+ *   <li>a wrong-order wizard step, e.g. "Interface must be generated before building"
+ *       ({@link IllegalStateException}) → 409 Conflict.</li>
+ * </ul>
  */
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -24,5 +29,10 @@ public class ApiExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", ex.getMessage()));
     }
 }

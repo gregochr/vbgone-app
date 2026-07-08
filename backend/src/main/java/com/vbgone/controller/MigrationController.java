@@ -126,10 +126,4 @@ public class MigrationController {
                 session.getGreenBuild(),
                 session.getTokenUsages());
     }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public java.util.Map<String, String> handleIllegalArgument(IllegalArgumentException ex) {
-        return java.util.Map.of("error", ex.getMessage());
-    }
 }
