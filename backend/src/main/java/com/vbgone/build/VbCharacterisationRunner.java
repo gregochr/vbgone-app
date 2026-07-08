@@ -162,7 +162,10 @@ public class VbCharacterisationRunner {
         return processRunner.run(List.of(
                 "docker", "exec", containerName,
                 "dotnet", "test", baselinePath,
-                "--logger", "trx;LogFileName=results.trx"
+                "--logger", "trx;LogFileName=results.trx",
+                // Collect coverage of the legacy VB assembly — without this flag Coverlet never
+                // writes a report, so CoverageParser finds nothing and the badge silently hides.
+                "--collect", "XPlat Code Coverage"
         ));
     }
 
