@@ -136,6 +136,24 @@ class AssureControllerTest {
     }
 
     @Test
+    void quarantineBaseline_returns200WithGreenSuite() throws Exception {
+        BuildResult build = new BuildResult(SESSION_ID, BuildStatus.GREEN, 42, 42, 0, List.of(), List.of());
+        when(assureService.quarantineBaseline(eq(SESSION_ID), eq("OrderProcessor"), anyString(),
+                eq(List.of("Bad"))))
+                .thenReturn(new BaselineTestsResult(SESSION_ID, "OrderProcessor", "OrderProcessorBaselineTests",
+                        "[TestClass] public class OrderProcessorBaselineTests { [Ignore(\"quarantined\")] }",
+                        42, true, build, List.of()));
+
+        mockMvc.perform(post("/api/assure/quarantine-baseline")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new QuarantineRequest(
+                                SESSION_ID, "OrderProcessor", "code", List.of("Bad")))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.netFaithful").value(true))
+                .andExpect(jsonPath("$.code").value(org.hamcrest.Matchers.containsString("[Ignore(")));
+    }
+
+    @Test
     void repair_returns200WithAnAttemptCard() throws Exception {
         RepairAttempt attempt = new RepairAttempt("Mechanical", "mechanical", "claude-haiku-4-5",
                 "CInt banker-rounds 9.9 to 10, so the truncates premise was wrong.",

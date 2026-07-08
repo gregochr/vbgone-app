@@ -90,6 +90,41 @@ public class AssureService {
     }
 
     /**
+     * Accept a red baseline by quarantining the unrepairable test(s): mark each {@code [Ignore(...)]}
+     * (kept in the suite and flagged for a human, but skipped by MSTest) and re-run the rest against
+     * the original VB. When the remainder is green this records a downloadable per-class suite, so a
+     * class with a set-aside test is still "assured" with the passing tests. No AI call.
+     */
+    public BaselineTestsResult quarantineBaseline(String sessionId, String className,
+                                                  String code, List<String> tests) {
+        MigrationSession session = getSession(sessionId);
+        String ignored = code;
+        if (tests != null) {
+            for (String test : tests) {
+                ignored = markTestIgnored(ignored, test, QUARANTINE_REASON);
+            }
+        }
+        BaselineTestsResult result = executeSuite(session, className, ignored);
+
+        // The supplied names may not match what actually failed (e.g. a repair tier renamed the
+        // test, or there were other failures). If the remainder is still red, set aside whatever
+        // the run reported as failing and try once more, so the passing tests can still be pinned.
+        if (!result.netFaithful() && session.getNetBuild() != null) {
+            String retry = ignored;
+            for (String failed : session.getNetBuild().failedTests()) {
+                retry = markTestIgnored(retry, failed, QUARANTINE_REASON);
+            }
+            if (!retry.equals(ignored)) {
+                result = executeSuite(session, className, retry);
+            }
+        }
+        return result;
+    }
+
+    private static final String QUARANTINE_REASON =
+            "quarantined: could not be repaired to match the original behaviour";
+
+    /**
      * Step 4 auto-repair — one escalating attempt. Because the suite runs against the untouched
      * original, a red test can only mean the test is wrong: this asks the tier's model to rewrite
      * just the failing test to match the real observed output, gates the rewrite (same method, real
@@ -241,6 +276,37 @@ public class AssureService {
             if (j < end) sb.append("\n");
         }
         return sb.toString();
+    }
+
+    /**
+     * Insert {@code [Ignore("<reason>")]} above a test method's attribute block so it is retained in
+     * the suite (visible for review) but skipped by MSTest — keeping the run green. Idempotent, and
+     * a no-op if the named test isn't found. {@code Ignore} lives in the same namespace as
+     * {@code TestMethod}, so no extra {@code using} is needed.
+     */
+    static String markTestIgnored(String code, String testName, String reason) {
+        if (code == null || testName == null || testName.isBlank()) return code;
+        String[] lines = code.split("\n", -1);
+        int sig = -1;
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].contains(" " + testName + "(") || lines[i].contains(" " + testName + " (")) {
+                sig = i;
+                break;
+            }
+        }
+        if (sig < 0) return code;
+        // Walk up over the method's contiguous attribute lines ([TestMethod], [DataRow], ...).
+        int attr = sig;
+        while (attr > 0 && lines[attr - 1].trim().startsWith("[")) attr--;
+        for (int i = attr; i <= sig; i++) {
+            if (lines[i].contains("[Ignore(")) return code; // already quarantined
+        }
+        String line = lines[attr];
+        String indent = line.substring(0, line.length() - line.stripLeading().length());
+        String ignore = indent + "[Ignore(\"" + reason.replace("\"", "'") + "\")]";
+        java.util.List<String> out = new java.util.ArrayList<>(java.util.Arrays.asList(lines));
+        out.add(attr, ignore);
+        return String.join("\n", out);
     }
 
     static String spliceMethod(String code, String oldBlock, String newBlock) {

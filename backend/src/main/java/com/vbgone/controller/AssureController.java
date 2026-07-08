@@ -5,6 +5,7 @@ import com.vbgone.model.BaselineRerunRequest;
 import com.vbgone.model.BaselineResult;
 import com.vbgone.model.BaselineTestsResult;
 import com.vbgone.model.ClassRequest;
+import com.vbgone.model.QuarantineRequest;
 import com.vbgone.model.ReadinessReport;
 import com.vbgone.model.RepairAttempt;
 import com.vbgone.model.RepairRequest;
@@ -83,6 +84,17 @@ public class AssureController {
     public BaselineTestsResult rerunBaselineTests(@RequestBody BaselineRerunRequest request) {
         return assureService.rerunBaselineTests(
                 request.sessionId(), request.className(), request.code());
+    }
+
+    /**
+     * Accept a red baseline by setting the unrepairable test(s) aside: mark them {@code [Ignore]}
+     * (kept but skipped) and re-run the rest against the original VB. A green remainder is recorded
+     * as the class's downloadable baseline suite. No AI call.
+     */
+    @PostMapping("/quarantine-baseline")
+    public BaselineTestsResult quarantineBaseline(@RequestBody QuarantineRequest request) {
+        return assureService.quarantineBaseline(
+                request.sessionId(), request.className(), request.code(), request.tests());
     }
 
     /**

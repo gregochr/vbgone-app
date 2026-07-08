@@ -88,6 +88,21 @@ class AssureRepairTest {
     }
 
     @Test
+    void markTestIgnored_insertsIgnoreAboveTheAttributeBlock() {
+        String out = AssureService.markTestIgnored(
+                SUITE, "PlaceOrder_TotalWithFraction_TruncatesToInt", "quarantined: flaky");
+
+        assertThat(out).contains("[Ignore(\"quarantined: flaky\")]");
+        // The [Ignore] sits above the [TestMethod] for that test (kept, not removed).
+        assertThat(out.indexOf("[Ignore(")).isLessThan(out.indexOf("[TestMethod]"));
+        assertThat(out).contains("public void PlaceOrder_TotalWithFraction_TruncatesToInt()");
+        // Idempotent, and a no-op for an unknown test.
+        assertThat(AssureService.markTestIgnored(out, "PlaceOrder_TotalWithFraction_TruncatesToInt", "x"))
+                .isEqualTo(out);
+        assertThat(AssureService.markTestIgnored(SUITE, "NoSuchTest", "x")).isEqualTo(SUITE);
+    }
+
+    @Test
     void validityGate_rejectsAnAlwaysPassRewrite() {
         String old = "int result = sut.PlaceOrder(3, 9.9m);\nAssert.AreEqual(12, result);";
         assertThat(AssureService.validityGate(old, "Assert.IsTrue(true);").ok()).isFalse();
