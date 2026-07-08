@@ -146,6 +146,39 @@ class AssureServiceTest {
     }
 
     @Test
+    void runBaselineTests_greenRunRecordsSuitePerClassForDownload() {
+        MigrationSession session = session("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse(
+                        "[TestClass] public class OrderProcessorBaseline { [TestMethod] public void A() {} }"));
+        when(runner.run(any(), eq("OrderProcessor"), any()))
+                .thenReturn(build(BuildStatus.GREEN, 43, 43, 0));
+
+        BaselineTestsResult result = service.runBaselineTests("s1", "OrderProcessor", null, null, null);
+
+        // A faithful run retains the suite keyed by class so it can be downloaded later.
+        assertThat(session.getBaselineSuites()).containsKey("OrderProcessor");
+        assertThat(session.getBaselineSuites().get("OrderProcessor").code()).isEqualTo(result.code());
+    }
+
+    @Test
+    void runBaselineTests_redRunDoesNotRecordSuiteForDownload() {
+        MigrationSession session = session("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse(
+                        "[TestClass] public class OrderProcessorBaseline { [TestMethod] public void A() {} }"));
+        when(runner.run(any(), eq("OrderProcessor"), any()))
+                .thenReturn(build(BuildStatus.RED, 43, 42, 1, List.of("A")));
+
+        service.runBaselineTests("s1", "OrderProcessor", null, null, null);
+
+        // An unfaithful (red) suite is never offered for download.
+        assertThat(session.getBaselineSuites()).doesNotContainKey("OrderProcessor");
+    }
+
+    @Test
     void rerunBaselineTests_runsEditedNetWithNoAiCall() {
         MigrationSession session = session("s1");
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));

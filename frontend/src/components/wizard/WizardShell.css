@@ -2370,6 +2370,11 @@
   font-size: 12px;
   color: var(--green);
 }
+.assure-progress-head-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .assure-progress-track {
   height: 7px;
   background: #1c1f25;
@@ -2744,6 +2749,32 @@
   padding: 7px 13px;
   border-radius: 8px;
   font-family: var(--font-mono);
+}
+/* keeps the ✓ Assured chip and its ↓ tests download button on one line */
+.class-action-netted {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* secondary mono-ghost download button: per-row "↓ tests" + the bulk "↓ Download all tests" */
+.btn-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-download:hover {
+  border-color: #3a4049;
+  color: var(--text);
 }
 .disabled-chip {
   display: inline-flex;

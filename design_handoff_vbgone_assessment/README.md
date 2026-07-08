@@ -5,6 +5,13 @@
 > screens below. This document is the spec; it covers only the **new** Assessment surface.
 > Reuse the existing shell, tokens, and components as-is.
 
+> **Implementation status (this repo, 2026-07):** built and shipped as **Assure** (the mode was
+> renamed Protect → Assure; the internal `bucket` enum values `net-ready` / `windows-gated` /
+> `refactor-first` are unchanged). The readiness report, single-file verdict, and per-class
+> Baseline → Baseline Tests flow are live. The **Test-suite download** (see the section below) is
+> implemented against real backend artifact endpoints under `/api/assure` — the prototype's
+> in-browser zip trick was intentionally **not** ported.
+
 ## Overview
 
 VBGone has two modes (see `design_handoff_vbgone_protect/README.md`):
@@ -79,6 +86,42 @@ Picking "Net this class" drills into the **existing Protect netting flow** for t
 
 ### F. Single-file inline verdict (Step 2, non-portfolio)
 For a single `.vb`, Step 2 shows a compact **verdict card** instead of the full report: the bucket tag + reason. Net-ready → green card, Next enabled. Windows-gated / Refactor-first → amber/red card explaining why, **Next disabled**. (This is the front-loaded version of the compile-failure hint that exists today.)
+
+---
+
+## Test-suite download
+
+Once a class is assured, its generated baseline test suite is downloadable — individually per class
+or as a bundle. Three touchpoints, all on the readiness report (the hub the queue returns to after
+each class is assured):
+
+1. **Per-class** — every assured row shows the green **✓ Assured** chip plus a secondary **↓ tests**
+   button that downloads that one class's `{Class}Tests.cs`. Only assured (net-ready, baseline-green)
+   classes get it — gated/tangled classes have no suite yet.
+2. **Mid-flow bulk** — the *Assurance progress* card gains a **↓ Download all tests (N)** button as
+   soon as ≥1 class is assured (`N` = assured count).
+3. **Completion** — when every ready class is assured, the proceed panel flips from the "keep going"
+   CTA to **All ready classes assured** with a primary **↓ Download all tests (.zip)** CTA.
+
+**Bundle contents** (the zip, assembled server-side):
+- `tests/{Class}Tests.cs` — one MSTest file per assured class: the real suite that ran green against
+  the untouched VB.NET, served **as-is** (not regenerated from mock data).
+- `VBGone.Assure.Tests.csproj` — a `net8.0` MSTest project (Microsoft.NET.Test.Sdk + MSTest
+  TestAdapter/Framework) with a placeholder comment to reference the user's original VB.NET project.
+- `README.md` — generated: class list, per-file test counts, and `dotnet test` run instructions.
+
+**Wired to real backend artifacts — not an in-browser zip.** The suites already exist server-side as
+artifacts of the Baseline-Tests step (retained per class on the session the moment they go green).
+The buttons hit:
+- Per class → `GET /api/assure/{sessionId}/tests/{className}` → the `.cs` file (attachment).
+- Bundle → `GET /api/assure/{sessionId}/tests.zip` → the assembled MSTest project, streamed.
+
+Both bulk buttons are hidden until ≥1 class is assured; a row's **↓ tests** appears only once that
+class's baseline is green.
+
+> **Design-vs-repo note:** the design bundle names these endpoints under `/api/protect` and the
+> artifacts `VBGone.Protect.Tests.*`; this repo uses its established `/api/assure` base path and
+> `VBGone.Assure.Tests.*` names to stay consistent with the Protect → Assure rebrand.
 
 ---
 

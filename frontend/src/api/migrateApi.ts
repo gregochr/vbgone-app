@@ -20,6 +20,41 @@ const surfaceErrorBody = (error: { response?: { data?: unknown } }): Promise<nev
 api.interceptors.response.use((response) => response, surfaceErrorBody)
 assureApi.interceptors.response.use((response) => response, surfaceErrorBody)
 
+/* ── Assure test-suite artifact downloads ──
+ * The baseline suites are real server-side artifacts of the baseline-tests step (they ran green
+ * against the untouched VB.NET), so the download buttons stream them straight from the backend
+ * rather than re-zipping generated text in the browser. These are pure URL builders + a same-origin
+ * anchor trigger — identical in mock and real modes (there is no client-side generation to mock).
+ */
+const ASSURE_BASE = assureApi.defaults.baseURL ?? '/api/assure'
+
+/** URL of one assured class's MSTest `.cs` file. */
+export const assureClassTestsUrl = (sessionId: string, className: string): string =>
+  `${ASSURE_BASE}/${encodeURIComponent(sessionId)}/tests/${encodeURIComponent(className)}`
+
+/** URL of the assembled MSTest project (`.csproj` + README + every `.cs`) as a zip. */
+export const assureTestsBundleUrl = (sessionId: string): string =>
+  `${ASSURE_BASE}/${encodeURIComponent(sessionId)}/tests.zip`
+
+/** Stream a same-origin file download via a temporary anchor (no in-browser zip assembly). */
+function triggerDownload(url: string, filename: string): void {
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+}
+
+/** Download one assured class's baseline test file (`{Class}Tests.cs`). */
+export const downloadClassTests = (sessionId: string, className: string): void =>
+  triggerDownload(assureClassTestsUrl(sessionId, className), `${className}Tests.cs`)
+
+/** Download every assured class's tests as a runnable MSTest project zip. */
+export const downloadTestsBundle = (sessionId: string): void =>
+  triggerDownload(assureTestsBundleUrl(sessionId), 'VBGone-Assure-Tests.zip')
+
 /* ── Types ── */
 
 /** One edge-case row in Assure's Observed Behaviour block. */

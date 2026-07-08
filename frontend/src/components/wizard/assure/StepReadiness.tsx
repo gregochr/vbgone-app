@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { WizardState } from '../WizardShell'
-import { assess, assessProject } from '../../../api/migrateApi'
+import {
+  assess,
+  assessProject,
+  downloadClassTests,
+  downloadTestsBundle,
+} from '../../../api/migrateApi'
 import type { ClassReadiness, ReadinessReport, RestApiEndpoint } from '../../../api/migrateApi'
 import { BUCKETS } from '../../../config/engine'
 import type { Bucket } from '../../../config/engine'
@@ -318,6 +323,7 @@ function PortfolioReport({
   onAssureClass,
 }: ReportProps) {
   const t = report.totals
+  const sessionId = report.sessionId
   const methodsLabel = t.methods.toLocaleString('en-US')
   const pctN = Math.round((t.methodNetReady / t.methods) * 100)
   const pctW = Math.round((t.methodWindowsGated / t.methods) * 100)
@@ -353,6 +359,8 @@ function PortfolioReport({
     (c) => c.bucket === 'net-ready' && !netted.includes(c.name),
   )?.name
   const blocked = t.netReady === 0
+  // Every ready class is assured: the panel flips from a "keep going" CTA to a download-the-suite one.
+  const allAssured = remaining === 0 && nettedReady > 0
 
   const toggle = (name: string) => setExpanded({ ...expanded, [name]: !expanded[name] })
 
@@ -431,9 +439,19 @@ function PortfolioReport({
         <div className="assure-progress-card" data-testid="queue-progress">
           <div className="assure-progress-head">
             <span className="assure-progress-title">Assurance progress</span>
-            <span className="assure-progress-count">
-              {nettedReady} / {t.netReady} assured
-            </span>
+            <div className="assure-progress-head-right">
+              <span className="assure-progress-count">
+                {nettedReady} / {t.netReady} assured
+              </span>
+              <button
+                type="button"
+                className="btn-download"
+                title="Download every assured class's test suite as a zip"
+                onClick={() => downloadTestsBundle(sessionId)}
+              >
+                ↓ Download all tests ({nettedReady})
+              </button>
+            </div>
           </div>
           <div className="assure-progress-track">
             <div className="assure-progress-fill" style={{ width: queuePct }} />
@@ -477,7 +495,17 @@ function PortfolioReport({
                 </div>
                 <div className="class-action" onClick={(e) => e.stopPropagation()}>
                   {isNetted ? (
-                    <span className="assured-chip">✓ Assured</span>
+                    <div className="class-action-netted">
+                      <span className="assured-chip">✓ Assured</span>
+                      <button
+                        type="button"
+                        className="btn-download"
+                        title={`Download ${c.name}Tests.cs`}
+                        onClick={() => downloadClassTests(sessionId, c.name)}
+                      >
+                        ↓ tests
+                      </button>
+                    </div>
                   ) : isReady ? (
                     <button className="btn-plex btn-sm" onClick={() => onAssureClass?.(c.name)}>
                       Assure this class →
@@ -523,6 +551,20 @@ function PortfolioReport({
               runner for the methods that are clean but stuck in the UI.
             </div>
           </div>
+        </div>
+      ) : allAssured ? (
+        <div className="proceed-panel" data-testid="proceed-panel">
+          <div>
+            <div className="proceed-title">All ready classes assured</div>
+            <div className="proceed-desc">
+              {nettedReady} baseline test {nettedReady === 1 ? 'suite' : 'suites'} recorded against
+              your untouched VB.NET. Download them as a runnable MSTest project to drop into your
+              own CI — or grab any single class from its row above.
+            </div>
+          </div>
+          <button type="button" className="btn-plex" onClick={() => downloadTestsBundle(sessionId)}>
+            ↓ Download all tests (.zip)
+          </button>
         </div>
       ) : (
         <div className="proceed-panel" data-testid="proceed-panel">
