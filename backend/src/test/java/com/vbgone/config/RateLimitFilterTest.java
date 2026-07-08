@@ -82,6 +82,50 @@ class RateLimitFilterTest {
     }
 
     @Test
+    void rateLimitsAssureEndpoints() throws ServletException, IOException {
+        for (int i = 0; i < 100; i++) {
+            MockHttpServletResponse ok = new MockHttpServletResponse();
+            filter.doFilter(new MockHttpServletRequest("POST", "/api/assure/baseline-tests"), ok, filterChain);
+            assertThat(ok.getStatus()).isEqualTo(200);
+        }
+
+        MockHttpServletResponse blocked = new MockHttpServletResponse();
+        filter.doFilter(new MockHttpServletRequest("POST", "/api/assure/baseline-tests"), blocked, filterChain);
+
+        assertThat(blocked.getStatus()).isEqualTo(429);
+    }
+
+    @Test
+    void rateLimitsMutationJobStart() throws ServletException, IOException {
+        for (int i = 0; i < 100; i++) {
+            filter.doFilter(new MockHttpServletRequest("POST", "/api/assure/mutation-test"),
+                    new MockHttpServletResponse(), filterChain);
+        }
+
+        MockHttpServletResponse blocked = new MockHttpServletResponse();
+        filter.doFilter(new MockHttpServletRequest("POST", "/api/assure/mutation-test"), blocked, filterChain);
+
+        assertThat(blocked.getStatus()).isEqualTo(429);
+    }
+
+    @Test
+    void doesNotRateLimitMutationStatusPolling() throws ServletException, IOException {
+        // Exhaust the IP's bucket via another rate-limited endpoint (buckets are per-IP).
+        for (int i = 0; i < 100; i++) {
+            filter.doFilter(new MockHttpServletRequest("POST", "/api/assure/baseline-tests"),
+                    new MockHttpServletResponse(), filterChain);
+        }
+
+        // The polled job-status GET must still pass — it is skipped, never consulting the bucket.
+        MockHttpServletRequest poll = new MockHttpServletRequest("GET", "/api/assure/mutation-test/job-123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(poll, response, filterChain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(filterChain).doFilter(poll, response);
+    }
+
+    @Test
     void returns429WithJsonContentType() throws ServletException, IOException {
         for (int i = 0; i < 100; i++) {
             filter.doFilter(
