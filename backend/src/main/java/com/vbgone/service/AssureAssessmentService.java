@@ -19,6 +19,8 @@ import java.util.regex.Pattern;
  * <p>It's the per-method evolution of the frontend's {@code looksUiCoupled} heuristic:
  * <ul>
  *   <li>touches controls / pops dialogs / is a UI event handler → <b>refactor-first</b>;
+ *   <li>reads or writes ASP.NET intrinsics ({@code Session}/{@code Application}/{@code HttpContext}) —
+ *       ambient web-host state that can't run headless → <b>refactor-first</b>;
  *   <li>pure, but its class is WinForms-bound → <b>windows-gated</b>;
  *   <li>pure and UI-free → <b>net-ready</b>.
  * </ul>
@@ -43,9 +45,19 @@ public class AssureAssessmentService {
             "(?im)^[ \\t]*(?:Friend|Private|Public|Protected|Dim)?\\s*(?:WithEvents\\s+)?(\\w+)\\s+As\\s+"
                     + "(?:System\\.Windows\\.Forms\\.)?(?:" + CONTROL_TYPES + ")\\b");
 
+    // Genuinely UI-specific properties. The ADO.NET/collection-ambiguous ones (Rows, Cells,
+    // Items, DataSource) are deliberately NOT here — they fire on DataTable/DataSet/DataRow far
+    // more often than on a grid, so matching them receiver-blind flags ordinary data code as UI.
+    // A grid touched through a *declared* control field is still caught by the controlFields path.
     private static final Pattern CONTROL_PROP = Pattern.compile(
-            "\\b\\w+\\.(Text|Enabled|Visible|Checked|SelectedIndex|SelectedItem|SelectedValue|Items|"
-                    + "DataSource|Rows|Cells|Focus|Show|ShowDialog)\\b");
+            "\\b\\w+\\.(Text|Enabled|Visible|Checked|SelectedIndex|SelectedItem|SelectedValue|"
+                    + "Focus|Show|ShowDialog)\\b");
+
+    // ASP.NET intrinsics used as ambient state — the request-pipeline coupling that stops a
+    // method running headless. Case-sensitive on the conventional PascalCase so a lowercase
+    // local (e.g. a `response As String` parameter) isn't mistaken for the intrinsic object.
+    private static final Pattern WEB_CONTEXT = Pattern.compile(
+            "\\b(?:Session|Application)\\s*[(.]|\\bHttpContext\\b");
 
     private static final Pattern INHERITS = Pattern.compile("(?im)^[ \\t]*Inherits\\s+([\\w.]+)");
 
@@ -177,12 +189,14 @@ public class AssureAssessmentService {
     private MethodReadiness classifyMethod(String name, String visibility, boolean handler,
                                            String methodBody, boolean uiCoupled, Set<String> controlFields) {
         boolean touchesControls = touchesControls(methodBody, controlFields);
+        boolean touchesWebContext = touchesWebContext(methodBody);
 
-        if (touchesControls || (handler && (touchesControls || uiCoupled))) {
+        if (touchesControls || touchesWebContext || (handler && uiCoupled)) {
             String reason = methodBody.matches("(?s).*\\b(MsgBox|MessageBox)\\b.*")
                     ? "pops a dialog / mutates controls directly"
                     : handler ? "UI event handler — reads and writes controls"
-                    : "reads or writes control state directly";
+                    : touchesControls ? "reads or writes control state directly"
+                    : "reads or writes ASP.NET Session/Application state — needs the web host";
             return new MethodReadiness(name, visibility, Bucket.REFACTOR_FIRST, reason);
         }
         if (uiCoupled) {
@@ -222,6 +236,11 @@ public class AssureAssessmentService {
             if (Pattern.compile("\\b" + Pattern.quote(field) + "\\b").matcher(methodBody).find()) return true;
         }
         return false;
+    }
+
+    /** True when the method reads or writes ASP.NET ambient state — it can't run outside the web host. */
+    private boolean touchesWebContext(String methodBody) {
+        return WEB_CONTEXT.matcher(methodBody).find();
     }
 
     private String classReason(Bucket bucket, boolean uiCoupled, List<MethodReadiness> methods) {
