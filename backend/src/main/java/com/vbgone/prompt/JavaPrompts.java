@@ -45,6 +45,15 @@ public class JavaPrompts implements PromptLanguage {
             path, edge cases, and error conditions including divide by zero, null inputs, and \
             boundary values.
 
+            CRITICAL — BRANCH COVERAGE: Before writing tests, enumerate every decision point in \
+            the VB.NET source — each If/ElseIf/Else, Select Case arm, loop body vs skipped loop, \
+            guard clause, early return, and short-circuited Boolean (AndAlso/OrElse). Write at \
+            least one asserting test that exercises EACH side of EVERY branch, so that every \
+            reachable path through each method is covered. For a condition like \
+            'If x > 10 Then ... Else ...', include a test where x > 10, one where x < 10, and one \
+            at the boundary x = 10. Target full BRANCH coverage, not merely line coverage — a \
+            method is not adequately tested until every branch outcome has its own asserting test.
+
             CRITICAL — TEST CONSISTENCY: When a method has multiple interacting rules \
             (e.g. tiered pricing, conditional fees, cascading thresholds), every test MUST \
             account for ALL rules that apply to its specific inputs. Before writing any \
