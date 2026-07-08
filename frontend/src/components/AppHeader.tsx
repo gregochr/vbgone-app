@@ -7,12 +7,16 @@ const USD_TO_GBP = 0.79
 const JAVA_LOCK_TITLE =
   "Protect runs tests against your original VB.NET on the CLR, so it's C# only. Switch to Migrate for Java."
 
+const ENGINE_LOCK_TITLE =
+  'Set the engine on step 1, before you start. In Protect the provider is fixed once the run begins.'
+
 export function AppHeader() {
   const {
     mode,
     targetLanguage,
     provider,
     modelOverrides,
+    currentStep,
     setMode,
     setTargetLanguage,
     openEngine,
@@ -23,6 +27,9 @@ export function AppHeader() {
   const prov = PROVIDERS[provider]
   const overridden = hasOverrides(modelOverrides)
   const protect = mode === 'protect'
+  // Protect fixes the provider once the run is under way — the engine is only
+  // changeable on step 1 (Upload). Migrate leaves it changeable throughout.
+  const engineLocked = protect && currentStep > 0
 
   const modeSegment = (value: Mode, label: string) => (
     <button
@@ -106,7 +113,13 @@ export function AppHeader() {
 
         <div className="control-group">
           <span className="micro-label">ENGINE</span>
-          <button type="button" className="engine-button" onClick={openEngine}>
+          <button
+            type="button"
+            className={`engine-button${engineLocked ? ' locked' : ''}`}
+            onClick={engineLocked ? undefined : openEngine}
+            aria-disabled={engineLocked || undefined}
+            title={engineLocked ? ENGINE_LOCK_TITLE : undefined}
+          >
             <span className="engine-dot" style={{ background: providerColor(provider) }} />
             <span>{prov.name}</span>
             {overridden && <span className="engine-custom">custom</span>}

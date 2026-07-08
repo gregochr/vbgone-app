@@ -394,7 +394,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     return initialState
   })
   const [stepReady, setStepReady] = useState(false)
-  const { mode, provider, modelOverrides, setSessionCost } = useWizardConfig()
+  const { mode, provider, modelOverrides, setSessionCost, setCurrentStep } = useWizardConfig()
   const sessionIdRef = useRef<string | undefined>(projectMode ? projectMode.sessionId : undefined)
 
   const protect = mode === 'protect'
@@ -421,6 +421,12 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   useEffect(() => {
     refreshCost()
   }, [step, refreshCost])
+
+  // Surface the current step so the header can lock the engine after step 1
+  // (Protect fixes the provider once the run is under way).
+  useEffect(() => {
+    setCurrentStep(step)
+  }, [step, setCurrentStep])
 
   // Switching MODE resets the wizard: step semantics differ too much to carry state.
   // Keep the uploaded file (Upload is identical in both modes); clear everything else.
