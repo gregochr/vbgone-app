@@ -390,6 +390,26 @@
   color: var(--amber);
 }
 
+/* ── Add more tests (augment a thin net) ── */
+.augment-panel {
+  margin: 4px 0 18px;
+  padding: 15px 18px;
+  border-radius: 11px;
+  border: 1px solid rgba(52, 211, 153, 0.24);
+  background: rgba(52, 211, 153, 0.04);
+}
+
+.augment-intro {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #b6bcc5;
+  margin-bottom: 12px;
+}
+
+.augment-intro strong {
+  color: #eaeef3;
+}
+
 /* ── Mutation testing ("Prove the net") ── */
 .mutation-panel {
   margin: 4px 0 18px;

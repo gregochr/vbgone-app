@@ -6,10 +6,12 @@ import com.vbgone.ai.anthropic.AnthropicProvider;
 import com.vbgone.ai.github.GitHubModelsProvider;
 import com.vbgone.build.VbCharacterisationRunner;
 import com.vbgone.model.*;
+import com.vbgone.prompt.CSharpPrompts;
 import com.vbgone.session.SessionStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -176,6 +178,41 @@ class AssureServiceTest {
 
         // An unfaithful (red) suite is never offered for download.
         assertThat(session.getBaselineSuites()).doesNotContainKey("OrderProcessor");
+    }
+
+    // ── augmentBaselineTests ──
+
+    @Test
+    void augmentBaselineTests_usesTheAugmentPromptWithTheCurrentSuiteAndCoverage() {
+        MigrationSession session = session("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse(
+                        "[TestClass] public class OrderProcessorBaselineTests { [TestMethod] public void A() {} [TestMethod] public void B() {} }"));
+        when(runner.run(any(), eq("OrderProcessor"), any()))
+                .thenReturn(build(BuildStatus.GREEN, 60, 60, 0));
+
+        String currentSuite = "[TestClass] public class OrderProcessorBaselineTests { [TestMethod] public void A() {} }";
+        BaselineTestsResult result = service.augmentBaselineTests(
+                "s1", "OrderProcessor", currentSuite, 45.5, null, null, null);
+
+        assertThat(result.netFaithful()).isTrue();
+        assertThat(result.testCount()).isEqualTo(60);
+
+        // Prove it drove the AUGMENT prompt, and fed the model the existing suite + the coverage gap.
+        ArgumentCaptor<String> system = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> user = ArgumentCaptor.forClass(String.class);
+        verify(claudeClient).sendWithCachedSystemPrompt(system.capture(), user.capture(), any(), anyLong());
+        assertThat(system.getValue()).isEqualTo(CSharpPrompts.AUGMENT_BASELINE_TESTS_SYSTEM_PROMPT);
+        assertThat(user.getValue()).contains("46% of the class").contains(currentSuite);
+    }
+
+    @Test
+    void augmentBaselineTests_throwsOnMissingSession() {
+        when(sessionStore.get("bad")).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.augmentBaselineTests("bad", "OrderProcessor", "code", null, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Session not found");
     }
 
     @Test

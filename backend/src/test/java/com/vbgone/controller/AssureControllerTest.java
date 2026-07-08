@@ -115,6 +115,25 @@ class AssureControllerTest {
     }
 
     @Test
+    void augmentBaselineTests_returns200WithTheExtendedNet() throws Exception {
+        BuildResult build = new BuildResult(SESSION_ID, BuildStatus.GREEN, 60, 60, 0, List.of(), List.of(),
+                88.0, 90.0);
+        when(assureService.augmentBaselineTests(eq(SESSION_ID), eq("OrderProcessor"), anyString(),
+                any(), any(), any(), any()))
+                .thenReturn(new BaselineTestsResult(SESSION_ID, "OrderProcessor", "OrderProcessorBaselineTests",
+                        "[TestClass] public class OrderProcessorBaselineTests {}", 60, true, build, List.of()));
+
+        mockMvc.perform(post("/api/assure/augment-baseline-tests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AugmentBaselineRequest(
+                                SESSION_ID, "OrderProcessor", "current suite", 45.5, null, null, null))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.netFaithful").value(true))
+                .andExpect(jsonPath("$.testCount").value(60))
+                .andExpect(jsonPath("$.build.coveragePercent").value(88.0));
+    }
+
+    @Test
     void rerunBaselineTests_returns200WithFailingAssertions() throws Exception {
         BuildResult build = new BuildResult(SESSION_ID, BuildStatus.RED, 43, 41, 2, List.of(),
                 List.of("ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged"));

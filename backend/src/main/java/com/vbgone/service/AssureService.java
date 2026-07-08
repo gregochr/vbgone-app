@@ -90,6 +90,27 @@ public class AssureService {
     }
 
     /**
+     * "Add more tests" — extend a green characterisation suite to pin more of the class. Sends the
+     * current suite, the original VB and the current coverage to the model, asks it to KEEP every
+     * existing test and add new ones for the untested behaviour, then re-runs the augmented suite
+     * (which stays green if the new tests are faithful, or drops to the repair loop if one drifts).
+     */
+    public BaselineTestsResult augmentBaselineTests(String sessionId, String className, String currentCode,
+                                                    Double coveragePercent, String provider,
+                                                    String targetLanguage, Map<String, String> modelOverrides) {
+        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
+        MigrationSession session = getSession(sessionId);
+
+        String userMessage = prompts.augmentBaselineTestsUserMessage(
+                className, session.getVbContentForClass(className), currentCode, coveragePercent);
+        AiResponse response = call(options, ModelRole.REASONING,
+                CSharpPrompts.AUGMENT_BASELINE_TESTS_SYSTEM_PROMPT, userMessage, 16384L, "augment-baseline-tests", session);
+        String code = prompts.repairTruncated(prompts.stripWrappers(prompts.stripCodeFences(response.text())));
+
+        return executeSuite(session, className, code);
+    }
+
+    /**
      * Accept a red baseline by quarantining the unrepairable test(s): mark each {@code [Ignore(...)]}
      * (kept in the suite and flagged for a human, but skipped by MSTest) and re-run the rest against
      * the original VB. When the remainder is green this records a downloadable per-class suite, so a

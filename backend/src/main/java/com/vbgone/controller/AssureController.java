@@ -1,6 +1,7 @@
 package com.vbgone.controller;
 
 import com.vbgone.model.AssessRequest;
+import com.vbgone.model.AugmentBaselineRequest;
 import com.vbgone.model.BaselineRerunRequest;
 import com.vbgone.model.BaselineResult;
 import com.vbgone.model.BaselineTestsResult;
@@ -84,6 +85,14 @@ public class AssureController {
     public BaselineTestsResult rerunBaselineTests(@RequestBody BaselineRerunRequest request) {
         return assureService.rerunBaselineTests(
                 request.sessionId(), request.className(), request.code());
+    }
+
+    /** "Add more tests" — extend a thin green net; the model adds tests for the untested code, then re-run. */
+    @PostMapping("/augment-baseline-tests")
+    public BaselineTestsResult augmentBaselineTests(@RequestBody AugmentBaselineRequest request) {
+        return assureService.augmentBaselineTests(
+                request.sessionId(), request.className(), request.code(), request.coveragePercent(),
+                request.provider(), request.targetLanguage(), request.modelOverrides());
     }
 
     /**

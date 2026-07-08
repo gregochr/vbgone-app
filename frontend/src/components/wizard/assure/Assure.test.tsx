@@ -238,6 +238,40 @@ describe('Step4BaselineTests', () => {
     expect(screen.getByText('You now have a safety net of tests')).toBeInTheDocument()
   })
 
+  it('offers "Add more tests" on a thin green net and coverage climbs after augmenting', async () => {
+    const user = userEvent.setup()
+    const thinNet: BaselineTestsResult = {
+      ...mockBaselineTests,
+      build: { ...mockBaselineTests.build, coveragePercent: 45.5, branchCoveragePercent: 100 },
+    }
+    function Harness() {
+      const [s, setS] = useState<WizardState>({
+        ...baseState,
+        baselineTests: thinNet,
+        netFaithful: true,
+      })
+      return (
+        <Step4BaselineTests
+          state={s}
+          update={(p) => setS((prev) => ({ ...prev, ...p }))}
+          onReady={() => {}}
+        />
+      )
+    }
+    renderWithConfig(<Harness />)
+
+    // The thin-net prompt appears alongside the (amber) coverage badge.
+    expect(screen.getByTestId('augment-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('coverage-badge')).toHaveTextContent('45.5%')
+
+    await user.click(screen.getByTestId('augment-start'))
+
+    // The mock augment returns a fuller suite; coverage updates in place.
+    await waitFor(() => expect(screen.getByTestId('coverage-badge')).toHaveTextContent('94.0%'), {
+      timeout: 3000,
+    })
+  })
+
   const driftedTests = (): BaselineTestsResult => ({
     ...mockBaselineTests,
     netFaithful: false,
