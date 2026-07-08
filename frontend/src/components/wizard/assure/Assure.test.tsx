@@ -367,7 +367,13 @@ describe('Step4BaselineTests', () => {
     // Red drift banner + failed-tests panel + the demo switcher appear.
     expect(screen.getByTestId('net-banner-red')).toBeInTheDocument()
     expect(screen.getByTestId('failed-tests')).toBeInTheDocument()
-    expect(screen.getByText('PlaceOrder_TotalWithFraction_TruncatesToInt')).toBeInTheDocument()
+    // The failing test name also appears as a highlighted token in the code block,
+    // so scope this to the failed-tests panel to keep the match unambiguous.
+    expect(
+      within(screen.getByTestId('failed-tests')).getByText(
+        'PlaceOrder_TotalWithFraction_TruncatesToInt',
+      ),
+    ).toBeInTheDocument()
     expect(screen.getByText('Auto-repair · up to 3 attempts')).toBeInTheDocument()
 
     // Switching to the "Unfixable" arc swaps the failing test on show.

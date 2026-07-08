@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { Highlight, themes } from 'prism-react-renderer'
+// Registers the C# grammar on the bundled Prism (side-effect import). Without it,
+// language="csharp" has no grammar and renders as one flat plain-text token.
+import './prismCsharp'
 
 interface Props {
   code: string

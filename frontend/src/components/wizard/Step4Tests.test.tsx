@@ -73,7 +73,14 @@ describe('Step4Tests', () => {
     render(<Step4Tests state={doneState} update={vi.fn()} onReady={vi.fn()} />)
     expect(screen.getByText(/10 \/ 10 tests failing/)).toBeInTheDocument()
     expect(screen.getByText('Generated Tests (10 tests)')).toBeInTheDocument()
-    expect(screen.getByText('[TestFixture] public class FooTests { }')).toBeInTheDocument()
+    // Code is syntax-highlighted, so the text is split across token spans —
+    // match the <pre> element's aggregate content rather than a single text node.
+    expect(
+      screen.getByText(
+        (_, el) =>
+          el?.tagName === 'PRE' && el.textContent === '[TestFixture] public class FooTests { }',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('code viewers are collapsed by default', () => {

@@ -6,6 +6,9 @@ import { CollapsibleCode } from './CollapsibleCode'
 vi.mock('prism-react-renderer', () => ({
   Highlight: ({ code }: { code: string }) => <pre>{code}</pre>,
   themes: { vsDark: {} },
+  // CodeBlock imports ./prismCsharp, which registers a grammar on this Prism at
+  // module load. Stub the methods it calls so the mocked module doesn't throw.
+  Prism: { languages: { extend: () => ({}), insertBefore: () => {} } },
 }))
 
 describe('CollapsibleCode', () => {
