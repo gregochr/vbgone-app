@@ -188,6 +188,14 @@
 .engine-button:hover {
   border-color: #3a4049;
 }
+/* Locked engine button — Protect fixes the provider after step 1 (Upload). */
+.engine-button.locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.engine-button.locked:hover {
+  border-color: var(--border-strong);
+}
 .engine-dot {
   width: 8px;
   height: 8px;

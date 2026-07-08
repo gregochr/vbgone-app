@@ -10,6 +10,14 @@ export interface WizardConfig {
   modelOverrides: ModelOverrides
   engineOpen: boolean
 
+  /**
+   * Current wizard step (0-indexed), reported by WizardShell. Drives the
+   * Protect engine lock: the provider is only changeable on step 1 (Upload),
+   * so the header disables the engine button once the run is under way.
+   */
+  currentStep: number
+  setCurrentStep: (step: number) => void
+
   /** Switching mode forces C# in Protect; WizardShell resets its step state. */
   setMode: (mode: Mode) => void
   setTargetLanguage: (lang: TargetLanguage) => void
@@ -44,6 +52,8 @@ const DEFAULT_CONFIG: WizardConfig = {
   provider: 'anthropic',
   modelOverrides: EMPTY_OVERRIDES,
   engineOpen: false,
+  currentStep: 0,
+  setCurrentStep: noop,
   setMode: noop,
   setTargetLanguage: noop,
   setProvider: noop,
@@ -70,13 +80,17 @@ export function WizardConfigProvider({ children }: { children: ReactNode }) {
   const [modelOverrides, setModelOverrides] = useState<ModelOverrides>(EMPTY_OVERRIDES)
   const [engineOpen, setEngineOpen] = useState(false)
   const [sessionCost, setSessionCost] = useState(0)
+  const [currentStep, setCurrentStep] = useState(0)
 
   const setMode = useCallback((next: Mode) => {
     setModeState(next)
     // Protect runs against the original VB.NET on the CLR — C# only.
     if (next === 'protect') setTargetLanguageState('csharp')
-    // A fresh mode is a fresh run — drop the accumulated session cost.
+    // A fresh mode is a fresh run — drop the accumulated session cost and
+    // snap the step back to 0 synchronously so the header's engine lock
+    // doesn't flash (WizardShell also resets its own step to 0).
     setSessionCost(0)
+    setCurrentStep(0)
   }, [])
 
   const setTargetLanguage = useCallback((lang: TargetLanguage) => {
@@ -120,6 +134,8 @@ export function WizardConfigProvider({ children }: { children: ReactNode }) {
       provider,
       modelOverrides,
       engineOpen,
+      currentStep,
+      setCurrentStep,
       setMode,
       setTargetLanguage,
       setProvider,
@@ -137,6 +153,7 @@ export function WizardConfigProvider({ children }: { children: ReactNode }) {
       provider,
       modelOverrides,
       engineOpen,
+      currentStep,
       setMode,
       setTargetLanguage,
       setProvider,
