@@ -56,6 +56,7 @@ public class VbCharacterisationRunner {
                 <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
                 <PackageReference Include="MSTest.TestAdapter" Version="3.6.1" />
                 <PackageReference Include="MSTest.TestFramework" Version="3.6.1" />
+                <PackageReference Include="coverlet.collector" Version="6.0.2" />
               </ItemGroup>
               <ItemGroup>
                 <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
@@ -114,7 +115,10 @@ public class VbCharacterisationRunner {
             TrxParser.Parsed parsed = TrxParser.parse(sessionId, trxContent);
             // Surface the per-assertion failure messages so the UI can show which drifted.
             session.setFailureMessages(parsed.failureMessages());
-            return parsed.result();
+            // Line coverage of the legacy VB assembly — how much of the original the net pins.
+            Path testResults = assureDir.resolve(className + ".Baseline").resolve("TestResults");
+            return parsed.result().withCoverage(
+                    CoverageParser.parseLineCoveragePercent(testResults, className));
 
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {

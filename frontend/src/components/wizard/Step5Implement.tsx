@@ -3,6 +3,7 @@ import type { WizardState } from './WizardShell'
 import { implement, buildAfterImplement, retryImplement, build } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CollapsibleCode } from './CollapsibleCode'
+import { CoverageBadge } from './CoverageBadge'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { LANGS, PROVIDERS, modelLabelFor, providerColor } from '../../config/engine'
 
@@ -162,6 +163,8 @@ export function Step5Implement({ state, update, onReady }: Props) {
             </ul>
           )}
         </div>
+
+        <CoverageBadge coveragePercent={b.coveragePercent} ofLabel="the implementation" />
 
         {canRetry && !showRetryConfirm && (
           <button

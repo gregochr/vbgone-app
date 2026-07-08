@@ -3,6 +3,7 @@ import type { WizardState } from '../WizardShell'
 import { runBaselineTests, rerunBaselineTests, repairBaselineTest } from '../../../api/migrateApi'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { CodeBlock } from '../CodeBlock'
+import { CoverageBadge } from '../CoverageBadge'
 import { useWizardConfig } from '../../../config/WizardConfigContext'
 import {
   PROVIDERS,
@@ -325,6 +326,14 @@ export function Step4BaselineTests({
             </div>
           </div>
         )
+      )}
+
+      {/* Coverage of the legacy VB — how much of the original the safety net actually pins. */}
+      {!compileError && !noTests && (
+        <CoverageBadge
+          coveragePercent={tests.build.coveragePercent}
+          ofLabel="your original VB.NET"
+        />
       )}
 
       {/* Compile failure — explain Assure's precondition (runs on its own), tailored to cause. */}
