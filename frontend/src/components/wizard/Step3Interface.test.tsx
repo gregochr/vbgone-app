@@ -55,7 +55,14 @@ describe('Step3Interface', () => {
   it('displays mocked API response data', () => {
     const stateWithIface = { ...baseState, interfaceResult: mockInterface }
     render(<Step3Interface state={stateWithIface} update={vi.fn()} onReady={vi.fn()} />)
-    expect(screen.getByText('public interface IFoo { int Bar(); }')).toBeInTheDocument()
+    // Code is syntax-highlighted, so the text is split across token spans —
+    // match the <pre> element's aggregate content rather than a single text node.
+    expect(
+      screen.getByText(
+        (_, el) =>
+          el?.tagName === 'PRE' && el.textContent === 'public interface IFoo { int Bar(); }',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('shows confirm dialog before making API call', () => {

@@ -87,7 +87,11 @@ describe('Step5Implement', () => {
     expect(
       screen.getByText(/10 \/ 10 tests passing — this is the GREEN phase of Red-Green TDD/),
     ).toBeInTheDocument()
-    expect(screen.getByText(mockImpl.code)).toBeInTheDocument()
+    // Code is syntax-highlighted, so the text is split across token spans —
+    // match the <pre> element's aggregate content rather than a single text node.
+    expect(
+      screen.getByText((_, el) => el?.tagName === 'PRE' && el.textContent === mockImpl.code),
+    ).toBeInTheDocument()
   })
 
   it('selecting STUB shows confirm then calls implement with STUB mode', async () => {
