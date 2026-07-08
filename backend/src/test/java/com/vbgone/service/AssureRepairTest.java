@@ -36,7 +36,7 @@ class AssureRepairTest {
 
     private static final String SUITE = """
             [TestClass]
-            public class OrderProcessorBaseline
+            public class OrderProcessorBaselineTests
             {
                 [TestMethod]
                 public void PlaceOrder_TotalWithFraction_TruncatesToInt()
@@ -84,7 +84,7 @@ class AssureRepairTest {
     void extractTestMethod_isolatesTheNamedBlock() {
         String block = AssureService.extractTestMethod(SUITE, "PlaceOrder_TotalWithFraction_TruncatesToInt");
         assertThat(block).contains("[TestMethod]").contains("Assert.AreEqual(12, result);");
-        assertThat(block).doesNotContain("public class OrderProcessorBaseline");
+        assertThat(block).doesNotContain("public class OrderProcessorBaselineTests");
     }
 
     @Test

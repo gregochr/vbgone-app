@@ -90,8 +90,8 @@ class AssureControllerTest {
     void baselineTests_returns200WithNetResult() throws Exception {
         BuildResult build = new BuildResult(SESSION_ID, BuildStatus.GREEN, 43, 43, 0, List.of(), List.of());
         when(assureService.runBaselineTests(eq(SESSION_ID), eq("OrderProcessor"), any(), any(), any()))
-                .thenReturn(new BaselineTestsResult(SESSION_ID, "OrderProcessor", "OrderProcessorBaseline",
-                        "[TestClass] public class OrderProcessorBaseline {}", 43, true, build, List.of()));
+                .thenReturn(new BaselineTestsResult(SESSION_ID, "OrderProcessor", "OrderProcessorBaselineTests",
+                        "[TestClass] public class OrderProcessorBaselineTests {}", 43, true, build, List.of()));
 
         mockMvc.perform(post("/api/assure/baseline-tests")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -108,8 +108,8 @@ class AssureControllerTest {
         BuildResult build = new BuildResult(SESSION_ID, BuildStatus.RED, 43, 41, 2, List.of(),
                 List.of("ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged"));
         when(assureService.rerunBaselineTests(eq(SESSION_ID), eq("OrderProcessor"), anyString()))
-                .thenReturn(new BaselineTestsResult(SESSION_ID, "OrderProcessor", "OrderProcessorBaseline",
-                        "[TestClass] public class OrderProcessorBaseline {}", 43, false, build,
+                .thenReturn(new BaselineTestsResult(SESSION_ID, "OrderProcessor", "OrderProcessorBaselineTests",
+                        "[TestClass] public class OrderProcessorBaselineTests {}", 43, false, build,
                         List.of(new TestFailure("ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged",
                                 "Expected: 100 but was: 90"))));
 
@@ -132,7 +132,7 @@ class AssureControllerTest {
                         new RepairAttempt.DiffLine("+", "Assert.AreEqual(13, result);")),
                 new RepairAttempt.Gate(true, "Still calls PlaceOrder and still checks the return value."),
                 new RepairAttempt.Rerun(true, "23 / 23 passing against your untouched VB.NET."),
-                "green", "[TestClass] public class OrderProcessorBaseline {}", true);
+                "green", "[TestClass] public class OrderProcessorBaselineTests {}", true);
         when(assureService.repairAttempt(any())).thenReturn(attempt);
 
         mockMvc.perform(post("/api/assure/repair")

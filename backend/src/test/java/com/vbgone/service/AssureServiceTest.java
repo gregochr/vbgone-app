@@ -105,14 +105,14 @@ class AssureServiceTest {
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
                 .thenReturn(claudeResponse(
-                        "[TestClass] public class OrderProcessorBaseline { [TestMethod] public void A() {} }"));
+                        "[TestClass] public class OrderProcessorBaselineTests { [TestMethod] public void A() {} }"));
         when(runner.run(any(), eq("OrderProcessor"), any()))
                 .thenReturn(build(BuildStatus.GREEN, 43, 43, 0));
 
         BaselineTestsResult result = service.runBaselineTests("s1", "OrderProcessor", null, null, null);
 
         assertThat(result.netFaithful()).isTrue();
-        assertThat(result.testClassName()).isEqualTo("OrderProcessorBaseline");
+        assertThat(result.testClassName()).isEqualTo("OrderProcessorBaselineTests");
         assertThat(result.testCount()).isEqualTo(43);
         assertThat(result.build().buildStatus()).isEqualTo(BuildStatus.GREEN);
         assertThat(result.failures()).isEmpty();
@@ -126,7 +126,7 @@ class AssureServiceTest {
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
                 .thenReturn(claudeResponse(
-                        "[TestClass] public class OrderProcessorBaseline { [TestMethod] public void A() {} }"));
+                        "[TestClass] public class OrderProcessorBaselineTests { [TestMethod] public void A() {} }"));
         // The runner stores per-assertion messages on the session (as the real one does).
         when(runner.run(any(), eq("OrderProcessor"), any())).thenAnswer(inv -> {
             MigrationSession s = inv.getArgument(0);
@@ -153,7 +153,7 @@ class AssureServiceTest {
                 .thenReturn(build(BuildStatus.GREEN, 43, 43, 0));
 
         BaselineTestsResult result = service.rerunBaselineTests("s1", "OrderProcessor",
-                "[TestClass] public class OrderProcessorBaseline { [TestMethod] public void A() {} }");
+                "[TestClass] public class OrderProcessorBaselineTests { [TestMethod] public void A() {} }");
 
         assertThat(result.netFaithful()).isTrue();
         assertThat(result.failures()).isEmpty();
@@ -172,7 +172,7 @@ class AssureServiceTest {
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
                 .thenReturn(claudeResponse("""
                         [TestClass]
-                        public class OrderProcessorBaseline
+                        public class OrderProcessorBaselineTests
                         {
                             [TestMethod]
                             public void SplitPerHead_ZeroHeadcount_Throws() { }
@@ -188,9 +188,9 @@ class AssureServiceTest {
 
     @Test
     void ensureTestClassAttribute_reattachesWhenMissing() {
-        String stripped = "public class OrderProcessorBaseline\n{\n    [TestMethod]\n    public void A() {}\n}";
+        String stripped = "public class OrderProcessorBaselineTests\n{\n    [TestMethod]\n    public void A() {}\n}";
         String fixed = AssureService.ensureTestClassAttribute(stripped);
-        assertThat(fixed).contains("[TestClass]\npublic class OrderProcessorBaseline");
+        assertThat(fixed).contains("[TestClass]\npublic class OrderProcessorBaselineTests");
     }
 
     @Test
@@ -211,7 +211,7 @@ class AssureServiceTest {
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
                 .thenReturn(claudeResponse(
-                        "[TestClass] public class OrderProcessorBaseline { [TestMethod] public void A() {} }"));
+                        "[TestClass] public class OrderProcessorBaselineTests { [TestMethod] public void A() {} }"));
         when(runner.run(any(), eq("OrderProcessor"), any()))
                 .thenReturn(build(BuildStatus.ERROR, 0, 0, 0));
 

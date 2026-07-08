@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { WizardState } from '../WizardShell'
 import { runBaselineTests, rerunBaselineTests, repairBaselineTest } from '../../../api/migrateApi'
 import { ConfirmDialog } from '../ConfirmDialog'
@@ -12,16 +12,8 @@ import {
   modelLabelFor,
   providerColor,
 } from '../../../config/engine'
-import {
-  REPAIR_SCENARIOS,
-  SCENARIO_ORDER,
-  REPAIR_PASS_COUNT,
-  REPAIR_TOTAL,
-  TAG_META,
-  cardBorderFor,
-  buildBaselineCode,
-} from './repairScenarios'
-import type { RepairAttempt, RepairScenarioKey } from './repairScenarios'
+import { TAG_META, cardBorderFor } from './repairCard'
+import type { RepairAttempt } from './repairCard'
 
 interface Props {
   state: WizardState
@@ -38,10 +30,6 @@ interface Props {
 
 const KICKER = 'STEP 04 · BASELINE TESTS'
 const TITLE = 'Confirm the baseline'
-
-/** ~1.15s "running" then settle; ~0.48s gap before revealing the next attempt. */
-const ATTEMPT_RUN_MS = 1150
-const ATTEMPT_GAP_MS = 480
 
 type LoggedAttempt = RepairAttempt & { status: 'running' | 'done' }
 
@@ -71,17 +59,9 @@ export function Step4BaselineTests({
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(!state.baselineTests)
 
-  // ── Auto-repair demo state (client-driven, exactly as the design prototype) ──
-  // Entered from the green state via "simulate a failed run"; the scenario switcher picks
-  // which of the three arcs the loop demonstrates.
-  const [simulating, setSimulating] = useState(false)
-  const [scenarioKey, setScenarioKey] = useState<RepairScenarioKey>('easy')
+  // ── Auto-repair loop state (a genuine red run drives the backend loop) ──
   const [repairLog, setRepairLog] = useState<LoggedAttempt[]>([])
-  const [repairRunning, setRepairRunning] = useState(false)
   const [repairOutcome, setRepairOutcome] = useState<'succeeded' | 'quarantined' | null>(null)
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
-
-  // ── Real auto-repair state (a genuine red run drives the backend loop, not the demo) ──
   const [realRepairStarted, setRealRepairStarted] = useState(false)
   const [realRepairCode, setRealRepairCode] = useState<string | null>(null)
 
@@ -93,7 +73,6 @@ export function Step4BaselineTests({
 
   useEffect(() => {
     if (state.baselineTests) onReady()
-    return () => timers.current.forEach(clearTimeout)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const applyResult = (result: import('../../../api/migrateApi').BaselineTestsResult) => {
@@ -129,10 +108,7 @@ export function Step4BaselineTests({
 
   // ── Auto-repair loop control ──
   const resetRepair = () => {
-    timers.current.forEach(clearTimeout)
-    timers.current = []
     setRepairLog([])
-    setRepairRunning(false)
     setRepairOutcome(null)
     setRealRepairStarted(false)
     setRealRepairCode(null)
@@ -151,7 +127,6 @@ export function Step4BaselineTests({
     if (!state.baselineTests) return
     resetRepair()
     setRealRepairStarted(true)
-    setRepairRunning(true)
     let code = state.baselineTests.code
     let outcome: 'succeeded' | 'quarantined' = 'quarantined'
     try {
@@ -200,61 +175,14 @@ export function Step4BaselineTests({
         }
       }
     } catch (err) {
-      setRepairRunning(false)
       setError(err instanceof Error ? err.message : 'Auto-repair failed')
       return
     }
-    setRepairRunning(false)
     setRepairOutcome(outcome)
     // Persist the corrected suite so the code panel keeps it; leave netFaithful for the loop's
     // own banner to report (flipping it here would swap the cards for the plain green view).
     if (state.baselineTests) update({ baselineTests: { ...state.baselineTests, code } })
     if (outcome === 'succeeded') onReady()
-  }
-
-  const simulateFailedRun = () => {
-    resetRepair()
-    setScenarioKey('easy')
-    setSimulating(true)
-  }
-
-  const pickScenario = (key: RepairScenarioKey) => {
-    if (repairRunning) return
-    resetRepair()
-    setScenarioKey(key)
-  }
-
-  const stopSimulating = () => {
-    resetRepair()
-    setSimulating(false)
-  }
-
-  const startRepair = () => {
-    const scenario = REPAIR_SCENARIOS[scenarioKey]
-    resetRepair()
-    setRepairRunning(true)
-    let i = 0
-    const step = () => {
-      if (i >= scenario.attempts.length) {
-        setRepairRunning(false)
-        setRepairOutcome(scenario.outcome)
-        return
-      }
-      const attempt = scenario.attempts[i]
-      setRepairLog((log) => [...log, { ...attempt, status: 'running' }])
-      timers.current.push(
-        setTimeout(() => {
-          setRepairLog((log) => {
-            const next = log.slice()
-            next[next.length - 1] = { ...attempt, status: 'done' }
-            return next
-          })
-          i++
-          timers.current.push(setTimeout(step, ATTEMPT_GAP_MS))
-        }, ATTEMPT_RUN_MS),
-      )
-    }
-    step()
   }
 
   const header = (
@@ -344,157 +272,6 @@ export function Step4BaselineTests({
   const noTests = !faithful && !compileError && total === 0
   const uiCoupled = compileError && !fromQueue && looksUiCoupled(state.content)
 
-  // ── Auto-repair demo view — entered from the green state via "simulate a failed run" ──
-  if (simulating) {
-    const scenario = REPAIR_SCENARIOS[scenarioKey]
-    const succeeded = repairOutcome === 'succeeded'
-    const quarantined = repairOutcome === 'quarantined'
-    const preRepair = !repairRunning && repairLog.length === 0 && !repairOutcome
-    const repairedCode = buildBaselineCode(className, succeeded && scenarioKey === 'easy')
-
-    return (
-      <div>
-        {header}
-        <p className="step-subtitle">
-          {prov.name} writes a set of {ASSURE_TEST_FW} tests that check the <strong>real</strong>{' '}
-          behaviour — the actual errors and converted values — then runs them against your original
-          VB.NET. Here, <strong>green is the goal</strong>.
-        </p>
-
-        {preRepair && (
-          <>
-            <div className="net-banner net-red" data-testid="net-banner-red">
-              <span className="net-banner-label">{'▲'} TESTS FAILED</span>
-              <div className="net-banner-body">
-                <span className="net-banner-text">
-                  {scenario.drift.count.split(' / ')[0]} tests failed against your{' '}
-                  <strong>untouched</strong> original. The test expects behaviour the code doesn't
-                  actually have — so <strong>the test is wrong, not your code</strong>. Fix the
-                  test, then re-run.
-                </span>
-              </div>
-            </div>
-
-            <div className="failed-tests" data-testid="failed-tests">
-              <div className="failed-tests-head">FAILED TESTS</div>
-              <div className="failed-test-name">{scenario.drift.test}</div>
-              <div className="failed-test-msg">{scenario.drift.message}</div>
-            </div>
-
-            <div className="repair-action-row">
-              <button className="btn-plex" onClick={startRepair}>
-                Auto-repair · up to 3 attempts
-              </button>
-              <button className="btn-ghost" onClick={stopSimulating}>
-                Edit manually &amp; re-run
-              </button>
-            </div>
-            <div className="repair-caption">
-              Auto-repair changes only the failing test to match what the code actually does — the{' '}
-              {REPAIR_PASS_COUNT} passing tests stay untouched. Every edit is checked (no
-              meaningless always-pass tests; same method &amp; inputs) and logged.
-            </div>
-
-            {/* Demo-only affordance — pick which arc the loop demonstrates. */}
-            <div className="demo-switcher" data-testid="demo-switcher">
-              <span className="demo-switcher-label">DEMO FAILURE</span>
-              {SCENARIO_ORDER.map((key) => (
-                <button
-                  key={key}
-                  className={`demo-switcher-btn ${scenarioKey === key ? 'active' : ''}`}
-                  onClick={() => pickScenario(key)}
-                >
-                  {REPAIR_SCENARIOS[key].label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {(repairRunning || repairLog.length > 0) && !succeeded && !quarantined && (
-          <RepairLoop
-            test={scenario.drift.test}
-            log={repairLog}
-            total={scenario.attempts.length}
-            provider={provider}
-            overrides={modelOverrides}
-          />
-        )}
-
-        {succeeded && (
-          <div className="net-banner net-green repair-outcome" data-testid="repair-succeeded">
-            <span className="net-banner-label">{'✓'} BASELINE REPAIRED</span>
-            <div className="net-banner-body">
-              <span className="net-banner-text">
-                The failing test now matches what the code actually does — {REPAIR_TOTAL} /{' '}
-                {REPAIR_TOTAL} green against your untouched VB.NET. Only that test changed; the rest
-                are untouched.
-              </span>
-              <div className="repair-audit">
-                logged · {scenario.drift.test} · before and after saved in the audit trail
-              </div>
-            </div>
-          </div>
-        )}
-
-        {quarantined && (
-          <div className="quarantine-card" data-testid="repair-quarantined">
-            <span className="quarantine-glyph" aria-hidden="true">
-              {'⚠️'}
-            </span>
-            <div className="quarantine-body">
-              <div className="quarantine-title">
-                Gave up after 3 attempts — test set aside for review
-              </div>
-              <p className="quarantine-text">
-                <code className="quarantine-test">{scenario.drift.test}</code> can't be tested
-                reliably: it gives a <strong>different answer every run</strong> (a sequence number
-                based on the current time), so no fixed test can match it. Auto-repair wouldn't fake
-                a pass. It's left out of the baseline and flagged for a person to check; the other{' '}
-                {REPAIR_PASS_COUNT} tests are fine.
-              </p>
-              <div className="quarantine-actions">
-                {fromQueue ? (
-                  <>
-                    <button className="btn-plex btn-sm" onClick={onAssureNext}>
-                      Assure with 1 quarantined ({REPAIR_PASS_COUNT}/{REPAIR_TOTAL}) →
-                    </button>
-                    <button className="btn-ghost" onClick={onBackToReadiness}>
-                      Back to readiness
-                    </button>
-                  </>
-                ) : (
-                  <span className="quarantine-note">
-                    baseline saved with {REPAIR_PASS_COUNT} / {REPAIR_TOTAL} · 1 flagged for review
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="code-header">
-          <span>{className || 'OrderService'}BaselineTests.cs</span>
-          <span className="code-header-caption">{ASSURE_TEST_FW} · vs original VB.NET</span>
-        </div>
-        <CodeBlock code={repairedCode} />
-
-        {/* When the loop makes the baseline green again, close out as the real green path does. */}
-        {succeeded && !fromQueue && <BaselineClosing />}
-        {succeeded && fromQueue && (
-          <QueueDone
-            className={className}
-            assuredCount={assuredCount}
-            readyTotal={readyTotal}
-            nextClassName={nextClassName}
-            onAssureNext={onAssureNext}
-            onBackToReadiness={onBackToReadiness}
-          />
-        )}
-      </div>
-    )
-  }
-
   // A genuine red run (compiled, tests discovered, ≥1 real failure) drives the auto-repair loop;
   // compile errors and empty suites keep their own distinct manual paths.
   const firstFailing = tests.failures[0]?.name ?? ''
@@ -518,13 +295,6 @@ export function Step4BaselineTests({
             how your code behaves today — if one fails, it means a test is wrong,{' '}
             <strong>not that your code is broken</strong>.
           </span>
-          <button
-            className="net-simulate-btn"
-            onClick={simulateFailedRun}
-            data-testid="simulate-fail"
-          >
-            simulate a failed run
-          </button>
         </div>
       ) : (
         showTopRedBanner && (

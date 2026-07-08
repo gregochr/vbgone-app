@@ -119,8 +119,8 @@ const mockBaseline: BaselineResult = {
 const mockBaselineTests: BaselineTestsResult = {
   sessionId: 'session-1',
   className: 'OrderProcessor',
-  testClassName: 'OrderProcessorBaseline',
-  code: '[TestClass] public class OrderProcessorBaseline {}',
+  testClassName: 'OrderProcessorBaselineTests',
+  code: '[TestClass] public class OrderProcessorBaselineTests {}',
   testCount: 43,
   netFaithful: true,
   build: {
@@ -294,12 +294,15 @@ describe('Step4BaselineTests', () => {
     await user.click(screen.getByText('Auto-repair · up to 3 attempts'))
 
     // The attempt card and the repaired banner appear once the (mocked) backend responds.
-    // The mock repair call is deliberately slow, so poll past its delay.
-    expect(await screen.findByTestId('repair-loop')).toBeInTheDocument()
-    const banner = await screen.findByTestId('repair-succeeded', undefined, { timeout: 4000 })
+    // The mock repair call is deliberately slow, so poll with a generous timeout that stays
+    // reliable even when the suite runs under load.
+    expect(
+      await screen.findByTestId('repair-loop', undefined, { timeout: 8000 }),
+    ).toBeInTheDocument()
+    const banner = await screen.findByTestId('repair-succeeded', undefined, { timeout: 8000 })
     expect(banner).toHaveTextContent(/BASELINE REPAIRED/)
     expect(screen.getByTestId('baseline-closing')).toBeInTheDocument()
-  }, 8000)
+  }, 15000)
 
   it('shows a distinct "0 runnable tests" state (not drift) and offers re-generation', () => {
     // The suite compiled and ran (no errors), but MSTest discovered 0 tests — total 0/0.
@@ -386,61 +389,6 @@ describe('Step4BaselineTests', () => {
     expect(hint).toHaveTextContent(/self-contained with no UI or platform dependencies/)
     expect(hint).not.toHaveTextContent(/UI-coupled/)
   })
-
-  // ── Auto-repair loop (client-driven demo, reveals attempts on timers) ──
-  it('enters the pre-repair state and switches demo scenarios from the green banner', async () => {
-    const user = userEvent.setup()
-    const state = { ...baseState, baselineTests: mockBaselineTests, netFaithful: true }
-    renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
-
-    await user.click(screen.getByTestId('simulate-fail'))
-    // Red drift banner + failed-tests panel + the demo switcher appear.
-    expect(screen.getByTestId('net-banner-red')).toBeInTheDocument()
-    expect(screen.getByTestId('failed-tests')).toBeInTheDocument()
-    // The failing test name also appears as a highlighted token in the code block,
-    // so scope this to the failed-tests panel to keep the match unambiguous.
-    expect(
-      within(screen.getByTestId('failed-tests')).getByText(
-        'PlaceOrder_TotalWithFraction_TruncatesToInt',
-      ),
-    ).toBeInTheDocument()
-    expect(screen.getByText('Auto-repair · up to 3 attempts')).toBeInTheDocument()
-
-    // Switching to the "Unfixable" arc swaps the failing test on show.
-    await user.click(screen.getByText('Unfixable'))
-    expect(screen.getByText('PlaceOrder_StampsSequenceNumber')).toBeInTheDocument()
-  })
-
-  // Attempts reveal on real timers (~1.15s each + ~0.48s gap), so these poll with a
-  // generous timeout rather than fake timers (which deadlock against async userEvent here).
-  it('runs the simple-fix arc to a repaired baseline', async () => {
-    const user = userEvent.setup()
-    const state = { ...baseState, baselineTests: mockBaselineTests, netFaithful: true }
-    renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
-
-    await user.click(screen.getByTestId('simulate-fail'))
-    await user.click(screen.getByText('Auto-repair · up to 3 attempts'))
-
-    const banner = await screen.findByTestId('repair-succeeded', undefined, { timeout: 4000 })
-    expect(banner).toHaveTextContent(/BASELINE REPAIRED/)
-    expect(screen.getByTestId('baseline-closing')).toBeInTheDocument()
-  }, 8000)
-
-  it('quarantines the unfixable (different-answer-every-run) test after 3 attempts', async () => {
-    const user = userEvent.setup()
-    const state = { ...baseState, baselineTests: mockBaselineTests, netFaithful: true }
-    renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
-
-    await user.click(screen.getByTestId('simulate-fail'))
-    await user.click(screen.getByText('Unfixable'))
-    await user.click(screen.getByText('Auto-repair · up to 3 attempts'))
-
-    const card = await screen.findByTestId('repair-quarantined', undefined, { timeout: 9000 })
-    expect(card).toHaveTextContent(/set aside for review/)
-    expect(card).toHaveTextContent(/different answer every run/)
-    // A quarantine leaves the baseline red — no closing panel.
-    expect(screen.queryByTestId('baseline-closing')).not.toBeInTheDocument()
-  }, 14000)
 })
 
 describe('StepReadiness (single-file verdict)', () => {

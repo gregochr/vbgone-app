@@ -119,7 +119,7 @@ describe('migrateApi mock functions', () => {
   it('runBaselineTests returns a faithful green net against the original', async () => {
     const result = await runBaselineTests('session-1', 'OrderProcessor')
     expect(result.netFaithful).toBe(true)
-    expect(result.testClassName).toBe('OrderProcessorBaseline')
+    expect(result.testClassName).toBe('OrderProcessorBaselineTests')
     expect(result.build.buildStatus).toBe('GREEN')
     expect(result.build.passed).toBe(result.build.total)
     expect(result.code).toContain('[TestClass]')
@@ -127,7 +127,7 @@ describe('migrateApi mock functions', () => {
   })
 
   it('rerunBaselineTests runs the edited net (no regeneration) and reflects it', async () => {
-    const edited = '[TestClass] public class OrderProcessorBaseline { /* corrected */ }'
+    const edited = '[TestClass] public class OrderProcessorBaselineTests { /* corrected */ }'
     const result = await rerunBaselineTests('session-1', 'OrderProcessor', edited)
     expect(result.netFaithful).toBe(true)
     expect(result.code).toBe(edited)
