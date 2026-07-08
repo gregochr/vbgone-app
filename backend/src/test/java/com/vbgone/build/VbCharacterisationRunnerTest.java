@@ -60,8 +60,8 @@ class VbCharacterisationRunnerTest {
     }
 
     private TestsResult suite(String id) {
-        return new TestsResult(id, "OrderProcessor", "OrderProcessorBaseline",
-                "[TestClass] public class OrderProcessorBaseline { [TestMethod] public void T() {} }", 1);
+        return new TestsResult(id, "OrderProcessor", "OrderProcessorBaselineTests",
+                "[TestClass] public class OrderProcessorBaselineTests { [TestMethod] public void T() {} }", 1);
     }
 
     private void writeTrx(String sessionId, String trx) throws IOException {
@@ -149,6 +149,6 @@ class VbCharacterisationRunnerTest {
         assertThat(Files.readString(assure.resolve("OrderProcessor.Baseline")
                 .resolve("OrderProcessor.Baseline.csproj")))
                 .contains("../OrderProcessor.Vb/OrderProcessor.vbproj");
-        assertThat(assure.resolve("OrderProcessor.Baseline").resolve("OrderProcessorBaseline.cs")).exists();
+        assertThat(assure.resolve("OrderProcessor.Baseline").resolve("OrderProcessorBaselineTests.cs")).exists();
     }
 }

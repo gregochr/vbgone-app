@@ -1800,26 +1800,6 @@
 
 /* ── Step 4 — auto-repair loop ── */
 
-/* Trailing demo affordance on the green banner. */
-.net-green > .net-banner-text {
-  flex: 1;
-}
-.net-simulate-btn {
-  flex: none;
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  color: var(--text-muted);
-  font-size: 11.5px;
-  padding: 6px 11px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-family: var(--font-mono);
-}
-.net-simulate-btn:hover {
-  border-color: #3a4049;
-  color: var(--text);
-}
-
 /* Failed-tests panel (shared by the demo drift and a real failing run). */
 .failed-tests {
   background: var(--bg-panel-2, #101215);
@@ -1877,43 +1857,6 @@
   color: var(--text-faint);
   line-height: 1.55;
   margin: 9px 2px 16px;
-}
-
-/* Demo scenario switcher (demo-only). */
-.demo-switcher {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-  padding: 11px 13px;
-  background: var(--bg-code);
-  border: 1px dashed var(--border);
-  border-radius: 10px;
-}
-.demo-switcher-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  color: var(--text-faint);
-}
-.demo-switcher-btn {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 12px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-family: var(--font-ui);
-}
-.demo-switcher-btn:hover {
-  border-color: #3a4049;
-}
-.demo-switcher-btn.active {
-  background: var(--accent-soft);
-  border-color: var(--accent-ring);
-  color: var(--accent-text);
 }
 
 /* Attempt cards. */

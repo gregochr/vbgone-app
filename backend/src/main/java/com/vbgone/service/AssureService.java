@@ -165,7 +165,7 @@ public class AssureService {
     private BuildResult runSuite(MigrationSession session, String className, String code) {
         String wrapped = ensureTestClassAttribute(code);
         TestsResult suite = new TestsResult(session.getSessionId(), className,
-                className + "Baseline", wrapped, prompts.countMsTests(wrapped));
+                className + "BaselineTests", wrapped, prompts.countMsTests(wrapped));
         BuildResult build = runner.run(session, className, suite);
         session.setBaselineSuite(suite);
         session.setNetBuild(build);
@@ -360,7 +360,7 @@ public class AssureService {
     /** Wraps the suite, runs it against the original VB on the CLR sidecar, builds the result. */
     private BaselineTestsResult executeSuite(MigrationSession session, String className, String code) {
         code = ensureTestClassAttribute(code);
-        String testClassName = className + "Baseline";
+        String testClassName = className + "BaselineTests";
         int generatedCount = prompts.countMsTests(code);
         TestsResult suite = new TestsResult(session.getSessionId(), className, testClassName, code, generatedCount);
         session.setBaselineSuite(suite);

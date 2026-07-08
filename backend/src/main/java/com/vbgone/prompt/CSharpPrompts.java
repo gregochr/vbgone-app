@@ -126,11 +126,11 @@ public class CSharpPrompts implements PromptLanguage {
 
     /** Assure step 4 — asks for an MSTest characterisation suite over the original behaviour. */
     public String baselineTestsUserMessage(String className, String vbSource) {
-        return "Generate an MSTest characterisation suite named " + className + "Baseline that pins "
+        return "Generate an MSTest characterisation suite named " + className + "BaselineTests that pins "
                 + "the CURRENT behaviour of " + className + " — assert the real exception types and "
                 + "coerced results, defects included. Instantiate new " + className + "().\n\n"
                 + "The test class MUST follow this structure exactly:\n"
-                + "[TestClass]\npublic class " + className + "Baseline\n{\n"
+                + "[TestClass]\npublic class " + className + "BaselineTests\n{\n"
                 + "    // [TestMethod] characterisation tests here — no namespace block\n}\n\n"
                 + "Original VB.NET behaviour:\n" + vbSource;
     }

@@ -385,7 +385,7 @@ const MOCK_OBSERVED_BEHAVIOUR: ObservedBehaviour[] = [
 ]
 
 const MOCK_BASELINE_TEST_CODE = `[TestClass]
-public class OrderProcessorBaseline
+public class OrderProcessorBaselineTests
 {
     // Characterises OrderProcessor.dll exactly as it runs today.
     // GREEN = behaviour unchanged. It does NOT mean correct.
@@ -850,7 +850,7 @@ const mockGreenNet = (sessionId: string, className: string, code: string): Basel
   return {
     sessionId,
     className,
-    testClassName: `${className}Baseline`,
+    testClassName: `${className}BaselineTests`,
     code,
     testCount: total,
     netFaithful: true,
