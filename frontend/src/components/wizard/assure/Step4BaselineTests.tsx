@@ -3,6 +3,7 @@ import type { WizardState } from '../WizardShell'
 import {
   runBaselineTests,
   rerunBaselineTests,
+  augmentBaselineTests,
   quarantineBaseline,
   repairBaselineTest,
 } from '../../../api/migrateApi'
@@ -63,6 +64,7 @@ export function Step4BaselineTests({
   const reasoningModel = modelLabelFor(provider, 'reasoning', modelOverrides)
   const reasoningModelId = modelFor(provider, 'reasoning', modelOverrides)
   const [loading, setLoading] = useState(false)
+  const [augmenting, setAugmenting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(!state.baselineTests)
 
@@ -118,6 +120,30 @@ export function Step4BaselineTests({
     rerunBaselineTests(sessionId, className, state.baselineTests.code)
       .then(applyResult)
       .catch(onError)
+  }
+
+  // "Add more tests" — send the current green suite + its coverage to Claude, which appends
+  // characterisation tests for the untested code; the augmented suite re-runs and coverage updates.
+  const augment = () => {
+    const current = state.baselineTests
+    if (!current) return
+    setAugmenting(true)
+    setError(null)
+    augmentBaselineTests(
+      sessionId,
+      className,
+      current.code,
+      current.build.coveragePercent ?? null,
+      engineParams,
+    )
+      .then((r) => {
+        setAugmenting(false)
+        applyResult(r)
+      })
+      .catch((e) => {
+        setAugmenting(false)
+        onError(e)
+      })
   }
 
   const editSuite = (edited: string) => {
@@ -309,6 +335,7 @@ export function Step4BaselineTests({
   const faithful = tests.netFaithful
   const { passed, total, failed } = tests.build
   const compileError = tests.build.errors.length > 0
+  const belowTarget = (tests.build.coveragePercent ?? 100) < 80
   const noTests = !faithful && !compileError && total === 0
   const uiCoupled = compileError && !fromQueue && looksUiCoupled(state.content)
 
@@ -374,6 +401,28 @@ export function Step4BaselineTests({
           branchPercent={tests.build.branchCoveragePercent}
           ofLabel="your original VB.NET"
         />
+      )}
+
+      {/* Add more tests — extend a thin net; Claude writes tests for the untested code, then re-runs. */}
+      {faithful && (
+        <div className="augment-panel" data-testid="augment-panel">
+          <div className="augment-intro">
+            <strong>Thin net?</strong>{' '}
+            {belowTarget
+              ? `Only ${tests.build.coveragePercent?.toFixed(0)}% of ${className} is pinned. `
+              : ''}
+            Ask Claude to add characterisation tests for the parts of {className} not yet covered —
+            it keeps every current test and appends more, then re-runs.
+          </div>
+          <button
+            className="btn-plex"
+            onClick={augment}
+            disabled={augmenting}
+            data-testid="augment-start"
+          >
+            {augmenting ? 'Writing more tests…' : 'Add more tests'}
+          </button>
+        </div>
       )}
 
       {/* Mutation testing — prove the net actually catches regressions (only once it's green). */}

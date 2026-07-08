@@ -127,6 +127,25 @@ public class CSharpPrompts implements PromptLanguage {
 
             Return only raw C# code. No markdown. No backticks. No explanation.""";
 
+    public static final String AUGMENT_BASELINE_TESTS_SYSTEM_PROMPT = """
+            You are a VB.NET behaviour archaeologist EXTENDING an existing MSTest characterisation \
+            suite to pin more of a legacy class. You are given the current suite and the original \
+            VB.NET. Keep EVERY existing [TestMethod] exactly as it is, and ADD new [TestMethod]s that \
+            characterise behaviour the current suite does not yet exercise: untested public methods, \
+            untaken branches (each side of an If / Select Case / loop), and edge inputs — null, zero, \
+            empty, negatives, and boundary values.
+
+            Assert the REAL current behaviour, defects included — the actual exception types thrown \
+            (e.g. DivideByZeroException, InvalidCastException, NullReferenceException) and the real \
+            coerced/stringified results, NOT idealised or corrected behaviour. GREEN means behaviour \
+            is unchanged; it does NOT mean correct. Do NOT weaken or delete any existing assertion, \
+            and never add a meaningless always-pass test.
+
+            Return the FULL [TestClass] — every existing test plus the new ones — with the SAME class \
+            name. Instantiate the real class directly. The class and its types are in the root \
+            namespace: do NOT add a namespace block and do NOT add 'using' statements for the class \
+            under test. Return only raw C# code. No markdown. No backticks. No explanation.""";
+
     /** Assure step 3 — asks the model for the concrete public surface as JSON. */
     public String baselineSurfaceUserMessage(String className, String vbSource) {
         return "List the actual public surface of the VB.NET class " + className
@@ -141,6 +160,23 @@ public class CSharpPrompts implements PromptLanguage {
                 + "The test class MUST follow this structure exactly:\n"
                 + "[TestClass]\npublic class " + className + "BaselineTests\n{\n"
                 + "    // [TestMethod] characterisation tests here — no namespace block\n}\n\n"
+                + "Original VB.NET behaviour:\n" + vbSource;
+    }
+
+    /**
+     * Assure "add more tests" — extend an existing green suite to pin more of the class. Carries the
+     * current suite, the source, and (when known) the current line coverage so the model knows how
+     * thin the net is and how much room there is to grow.
+     */
+    public String augmentBaselineTestsUserMessage(String className, String vbSource,
+                                                  String currentSuite, Double coveragePercent) {
+        String thinness = coveragePercent == null
+                ? "The current characterisation suite for " + className + " leaves parts of the class unpinned — extend it."
+                : "The current characterisation suite for " + className + " covers only "
+                        + Math.round(coveragePercent) + "% of the class — extend it to pin more.";
+        return thinness + " Keep EVERY existing [TestMethod]; ADD new ones that exercise the methods, "
+                + "branches and edge inputs not yet tested. Instantiate new " + className + "().\n\n"
+                + "Current suite (keep all of these tests, add more):\n" + currentSuite + "\n\n"
                 + "Original VB.NET behaviour:\n" + vbSource;
     }
 

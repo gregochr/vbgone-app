@@ -1854,6 +1854,35 @@ public class OrderProcessor : IOrderProcessor
     return mockGreenNet(sessionId, className, code)
   },
 
+  async augmentBaselineTests(
+    sessionId: string,
+    className: string,
+    code: string,
+    coveragePercent: number | null,
+    engine?: EngineParams,
+  ): Promise<BaselineTestsResult> {
+    void coveragePercent
+    void engine
+    await delay(1500)
+    // Demo: Claude adds targeted tests, so the net stays green and coverage climbs.
+    const base = mockGreenNet(
+      sessionId,
+      className,
+      code + '\n\n    [TestMethod]\n    public void GetDiscountTier_At1000_IsSilver() { }',
+    )
+    return {
+      ...base,
+      testCount: base.testCount + 7,
+      build: {
+        ...base.build,
+        total: base.build.total + 7,
+        passed: base.build.passed + 7,
+        coveragePercent: 94.0,
+        branchCoveragePercent: 100.0,
+      },
+    }
+  },
+
   async quarantineBaseline(
     sessionId: string,
     className: string,
@@ -2113,6 +2142,23 @@ const realApi = {
     return data
   },
 
+  async augmentBaselineTests(
+    sessionId: string,
+    className: string,
+    code: string,
+    coveragePercent: number | null,
+    engine?: EngineParams,
+  ): Promise<BaselineTestsResult> {
+    const { data } = await assureApi.post<BaselineTestsResult>('/augment-baseline-tests', {
+      sessionId,
+      className,
+      code,
+      coveragePercent,
+      ...engine,
+    })
+    return data
+  },
+
   async quarantineBaseline(
     sessionId: string,
     className: string,
@@ -2202,6 +2248,7 @@ export const uploadProject = active.uploadProject
 export const generateBaseline = active.generateBaseline
 export const runBaselineTests = active.runBaselineTests
 export const rerunBaselineTests = active.rerunBaselineTests
+export const augmentBaselineTests = active.augmentBaselineTests
 export const quarantineBaseline = active.quarantineBaseline
 export const repairBaselineTest = active.repairBaselineTest
 export const startMutationTest = active.startMutationTest
