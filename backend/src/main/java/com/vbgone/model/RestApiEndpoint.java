@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * A web API endpoint spotted statically in the source — an ASP.NET Web API action or an ASMX
- * web method. Protect can't wrap these in a safety net yet, so they're reported as a separate,
+ * web method. Assure can't wrap these in a safety net yet, so they're reported as a separate,
  * parallel list rather than folded into the readiness buckets.
  *
  * @param verb      HTTP verb (GET/POST/PUT/PATCH/DELETE)

@@ -12,7 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Protect's front-gate classifier. A purely <b>static</b> pass — no AI, no sidecar, nothing
+ * Assure's front-gate classifier. A purely <b>static</b> pass — no AI, no sidecar, nothing
  * leaves the tenant — that buckets every business-logic method of the uploaded VB.NET into
  * {@link Bucket#NET_READY} / {@link Bucket#WINDOWS_GATED} / {@link Bucket#REFACTOR_FIRST}.
  *
@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
  * Heuristic by design — the report is presented as an estimate.
  */
 @Service
-public class ProtectAssessmentService {
+public class AssureAssessmentService {
 
     private static final Pattern CLASS_BLOCK = Pattern.compile(
             "(?ms)^[ \\t]*(?:Public|Friend|Private|Partial|\\s)*Class\\s+(\\w+)\\b(.*?)^[ \\t]*End\\s+Class");
@@ -49,7 +49,7 @@ public class ProtectAssessmentService {
 
     private static final Pattern INHERITS = Pattern.compile("(?im)^[ \\t]*Inherits\\s+([\\w.]+)");
 
-    // ── REST API surface extraction (a separate, future Protect target) ──
+    // ── REST API surface extraction (a separate, future Assure target) ──
 
     /** A public action method, capturing any attribute lines that immediately precede it. */
     private static final Pattern ACTION_METHOD = Pattern.compile(
@@ -80,7 +80,7 @@ public class ProtectAssessmentService {
 
     private final SessionStore sessionStore;
 
-    public ProtectAssessmentService(SessionStore sessionStore) {
+    public AssureAssessmentService(SessionStore sessionStore) {
         this.sessionStore = sessionStore;
     }
 
@@ -98,7 +98,7 @@ public class ProtectAssessmentService {
         List<String> netReadyBlocks = new ArrayList<>();
         List<RestApiEndpoint> restApis = new ArrayList<>();
         classifyInto(content, file, session, classes, netReadyBlocks, restApis);
-        session.setProtectableSource(String.join("\n\n", netReadyBlocks));
+        session.setAssurableSource(String.join("\n\n", netReadyBlocks));
 
         return new ReadinessReport(session.getSessionId(), tally(classes), "static", classes, restApis);
     }
@@ -107,7 +107,7 @@ public class ProtectAssessmentService {
      * Classify an uploaded estate (a zip's worth of .vb files). The session was created by
      * {@code ZipExtractorService.extract}. Each class's {@code file} is its relative path;
      * per-class sources are stored for the drill-in, and the net-ready subset is pinned as the
-     * headless-compilable {@code protectableSource}.
+     * headless-compilable {@code assurableSource}.
      */
     public ReadinessReport assessProject(ZipManifest manifest) {
         MigrationSession session = sessionStore.get(manifest.sessionId())
@@ -119,7 +119,7 @@ public class ProtectAssessmentService {
         for (VbSourceFile f : manifest.files()) {
             classifyInto(f.content(), f.relativePath(), session, classes, netReadyBlocks, restApis);
         }
-        session.setProtectableSource(String.join("\n\n", netReadyBlocks));
+        session.setAssurableSource(String.join("\n\n", netReadyBlocks));
 
         return new ReadinessReport(session.getSessionId(), tally(classes), "static", classes, restApis);
     }
@@ -136,7 +136,7 @@ public class ProtectAssessmentService {
             String body = cm.group(2);
 
             // Web API controllers / ASMX services are reported as endpoints, not as readiness
-            // classes — they're a separate, future Protect target and aren't in the class buckets.
+            // classes — they're a separate, future Assure target and aren't in the class buckets.
             List<RestApiEndpoint> endpoints = extractEndpoints(className, file, precedingAttrs(src, className), body);
             if (!endpoints.isEmpty()) {
                 restApis.addAll(endpoints);

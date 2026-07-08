@@ -1463,10 +1463,10 @@
 }
 
 /* ────────────────────────────────────────────────────────────
-   Protect mode panels
+   Assure mode panels
    ──────────────────────────────────────────────────────────── */
 
-/* Step 2 — Observed Behaviour (the heart of Protect, visually dominant) */
+/* Step 2 — Observed Behaviour (the heart of Assure, visually dominant) */
 .observed-behaviour {
   background: var(--bg-code);
   border: 1px solid rgba(227, 168, 60, 0.26);
@@ -2106,7 +2106,7 @@
   color: var(--text-muted);
 }
 
-/* ── Protect Readiness — single-file verdict (Screen F) ── */
+/* ── Assure Readiness — single-file verdict (Screen F) ── */
 .inline-mono {
   font-family: var(--font-mono);
   font-size: 0.92em;
@@ -2227,7 +2227,7 @@
   line-height: 1.4;
 }
 
-/* ── Protect Readiness — portfolio report (Screens B–E) ── */
+/* ── Assure Readiness — portfolio report (Screens B–E) ── */
 .wizard-content:has(.readiness-report) {
   max-width: 1020px;
 }
@@ -2403,44 +2403,44 @@
   margin-top: 4px;
 }
 
-/* protect queue progress (distinct from Migrate's queue-progress) */
-.protect-progress-card {
+/* assure queue progress (distinct from Migrate's queue-progress) */
+.assure-progress-card {
   background: #101215;
   border: 1px solid #1c1f25;
   border-radius: 12px;
   padding: 16px 18px;
   margin-bottom: 18px;
 }
-.protect-progress-head {
+.assure-progress-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 9px;
 }
-.protect-progress-title {
+.assure-progress-title {
   font-size: 13px;
   color: #cdd2d9;
   font-weight: 600;
 }
-.protect-progress-count {
+.assure-progress-count {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--green);
 }
-.protect-progress-track {
+.assure-progress-track {
   height: 7px;
   background: #1c1f25;
   border-radius: 4px;
   overflow: hidden;
 }
-.protect-progress-fill {
+.assure-progress-fill {
   height: 100%;
   background: var(--green);
   border-radius: 4px;
   transition: width 0.3s;
 }
 
-/* REST API endpoints panel (future Protect target — read-only list) */
+/* REST API endpoints panel (future Assure target — read-only list) */
 .rest-panel {
   background: #14171b;
   border: 1px solid var(--border);
@@ -2789,7 +2789,7 @@
   padding: 7px 13px;
   font-size: 13px;
 }
-.protected-chip {
+.assured-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;

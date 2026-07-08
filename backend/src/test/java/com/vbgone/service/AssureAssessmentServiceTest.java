@@ -15,15 +15,15 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ProtectAssessmentServiceTest {
+class AssureAssessmentServiceTest {
 
-    private ProtectAssessmentService service;
+    private AssureAssessmentService service;
     private SessionStore sessionStore;
 
     @BeforeEach
     void setUp() {
         sessionStore = new SessionStore();
-        service = new ProtectAssessmentService(sessionStore);
+        service = new AssureAssessmentService(sessionStore);
     }
 
     private ClassReadiness classNamed(ReadinessReport r, String name) {
@@ -289,13 +289,13 @@ class ProtectAssessmentServiceTest {
         assertThat(r.totals().refactorFirst()).isGreaterThan(0);
     }
 
-    // ── protectable subset (the compile-scope fix) + estate scan ──
+    // ── assurable subset (the compile-scope fix) + estate scan ──
 
     @Test
-    void assess_pinsOnlyNetReadyClassesAsTheProtectableSubset() {
+    void assess_pinsOnlyNetReadyClassesAsTheAssurableSubset() {
         ReadinessReport r = service.assess("LegacyEstate.zip", DEMO_MIXED);
         MigrationSession s = sessionStore.get(r.sessionId()).orElseThrow();
-        String subset = s.getProtectableSource();
+        String subset = s.getAssurableSource();
         // The subset that the CLR run compiles must contain the clean classes...
         assertThat(subset).contains("Public Class OrderService").contains("Public Class PricingEngine");
         // ...and NONE of the WinForms classes that would break a headless build.
@@ -331,7 +331,7 @@ class ProtectAssessmentServiceTest {
         assertThat(classNamed(r, "MainForm").file()).isEqualTo("Forms/MainForm.vb");
         // The drill-in compiles only the net-ready class, from across the estate.
         MigrationSession s = sessionStore.get(r.sessionId()).orElseThrow();
-        assertThat(s.getProtectableSource()).contains("OrderService").doesNotContain("Inherits Form");
+        assertThat(s.getAssurableSource()).contains("OrderService").doesNotContain("Inherits Form");
         assertThat(s.getVbContentForClass("OrderService")).contains("Public Class OrderService");
     }
 

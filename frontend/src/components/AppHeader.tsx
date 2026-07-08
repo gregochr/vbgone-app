@@ -5,10 +5,10 @@ import type { Mode, TargetLanguage } from '../config/engine'
 const USD_TO_GBP = 0.79
 
 const JAVA_LOCK_TITLE =
-  "Protect runs tests against your original VB.NET on the CLR, so it's C# only. Switch to Migrate for Java."
+  "Assure runs tests against your original VB.NET on the CLR, so it's C# only. Switch to Migrate for Java."
 
 const ENGINE_LOCK_TITLE =
-  'Set the engine on step 1, before you start. In Protect the provider is fixed once the run begins.'
+  'Set the engine on step 1, before you start. In Assure the provider is fixed once the run begins.'
 
 export function AppHeader() {
   const {
@@ -26,10 +26,10 @@ export function AppHeader() {
   const lang = LANGS[targetLanguage]
   const prov = PROVIDERS[provider]
   const overridden = hasOverrides(modelOverrides)
-  const protect = mode === 'protect'
-  // Protect fixes the provider once the run is under way — the engine is only
+  const assure = mode === 'assure'
+  // Assure fixes the provider once the run is under way — the engine is only
   // changeable on step 1 (Upload). Migrate leaves it changeable throughout.
-  const engineLocked = protect && currentStep > 0
+  const engineLocked = assure && currentStep > 0
 
   const modeSegment = (value: Mode, label: string) => (
     <button
@@ -43,8 +43,8 @@ export function AppHeader() {
   )
 
   const segment = (value: TargetLanguage, label: string) => {
-    // Protect is C#-only: the Java segment is locked, not just inactive.
-    const locked = protect && value === 'java'
+    // Assure is C#-only: the Java segment is locked, not just inactive.
+    const locked = assure && value === 'java'
     return (
       <button
         type="button"
@@ -86,7 +86,7 @@ export function AppHeader() {
           <span className="brand-word">vbgone</span>
         </div>
         <span className="brand-caption">
-          {protect ? 'VB.NET · behaviour safety net' : `VB.NET → ${lang.lang}`}
+          {assure ? 'VB.NET · behaviour safety net' : `VB.NET → ${lang.lang}`}
         </span>
       </div>
 
@@ -95,7 +95,7 @@ export function AppHeader() {
           <span className="micro-label">MODE</span>
           <div className="target-toggle" role="group" aria-label="Wizard mode">
             {modeSegment('migrate', 'Migrate')}
-            {modeSegment('protect', 'Protect')}
+            {modeSegment('assure', 'Assure')}
           </div>
         </div>
 

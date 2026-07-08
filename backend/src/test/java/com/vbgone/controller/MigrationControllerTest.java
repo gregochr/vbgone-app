@@ -83,8 +83,8 @@ class MigrationControllerTest {
     }
 
     @Test
-    void analyse_passesProtectModeThrough() throws Exception {
-        when(analysisService.analyse(any(), any(), any(), any(), any(), eq("protect")))
+    void analyse_passesAssureModeThrough() throws Exception {
+        when(analysisService.analyse(any(), any(), any(), any(), any(), eq("assure")))
                 .thenReturn(new AnalysisResult(
                         SESSION_ID,
                         List.of(new ClassInfo("OrderProcessor", List.of("SplitPerHead"), List.of(),
@@ -96,7 +96,7 @@ class MigrationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new AnalyseRequest("OrderProcessor.vb", "Public Class OrderProcessor...",
-                                        null, null, null, "protect"))))
+                                        null, null, null, "assure"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary").value("Characterised."));
     }

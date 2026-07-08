@@ -19,7 +19,7 @@ const KICKER = 'STEP 03 · BASELINE'
 const TITLE = 'Record current behaviour'
 
 /**
- * Protect step 3. Inverts Migrate's Interface step: instead of building a clean
+ * Assure step 3. Inverts Migrate's Interface step: instead of building a clean
  * contract, it records the concrete class's *actual* public surface against the real
  * assemblies — bugs included — so a later dependency patch surfaces any change.
  */
@@ -73,7 +73,7 @@ export function Step3Baseline({
             ← readiness
           </button>
           <span className="queue-breadcrumb-sep">/</span>
-          <span className="queue-breadcrumb-active">protecting {activeClass ?? className}</span>
+          <span className="queue-breadcrumb-active">assuring {activeClass ?? className}</span>
         </div>
       )}
       <h2 className="step-title">{TITLE}</h2>
@@ -134,7 +134,7 @@ export function Step3Baseline({
       <div>
         {header}
         <p className="step-subtitle">
-          Protect doesn't build a new, cleaner version — we keep your original as-is. This records
+          Assure doesn't build a new, cleaner version — we keep your original as-is. This records
           the class's actual public surface, run against your real code, including the behaviours
           the scan flagged as bugs.
         </p>
@@ -169,8 +169,8 @@ export function Step3Baseline({
           <div className="pin-notice-heading">Behaviour recorded as-is</div>
           <p>
             VBGone is recording exactly how this class runs today, including known bugs (e.g. an
-            unhandled divide-by-zero). That's on purpose — Protect locks in current behaviour so
-            that if patching a dependency changes anything, you'll see it.
+            unhandled divide-by-zero). That's on purpose — Assure locks in current behaviour so that
+            if patching a dependency changes anything, you'll see it.
           </p>
           <div className="pin-subbar">Green means unchanged, not correct.</div>
         </div>

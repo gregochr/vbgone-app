@@ -1,7 +1,7 @@
 package com.vbgone.model;
 
 /**
- * Protect step 4 result — the generated MSTest characterisation suite plus the outcome of
+ * Assure step 4 result — the generated MSTest characterisation suite plus the outcome of
  * running it against the original VB.NET on the CLR.
  *
  * <p>{@code netFaithful} is the success signal: true when every assertion holds against the

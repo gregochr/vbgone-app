@@ -6,7 +6,7 @@ import {
   DEMO_FILENAME,
   DEMO_COMPLEX_CONTENT,
   DEMO_COMPLEX_FILENAME,
-  DEMO_PROTECT_CONTENT,
+  DEMO_ASSURE_CONTENT,
   DEMO_ESTATE_MIXED,
   DEMO_ESTATE_BLOCKED,
   DEMO_PROJECT_FILES,
@@ -29,7 +29,7 @@ type UploadMode = 'single' | 'project'
 export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props) {
   const { targetLanguage, mode: wizardMode } = useWizardConfig()
   const lang = LANGS[targetLanguage]
-  const protect = wizardMode === 'protect'
+  const assure = wizardMode === 'assure'
   const [mode, setMode] = useState<UploadMode>('single')
   const [zipFile, setZipFile] = useState<File | null>(null)
   const [zipFiles, setZipFiles] = useState<{ path: string; size: number }[]>([])
@@ -99,23 +99,23 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
   }
 
   const loadComplexDemo = () => {
-    // Protect runs the original VB headless on the CLR, so it needs UI-free source. Same
+    // Assure runs the original VB headless on the CLR, so it needs UI-free source. Same
     // filename → the same OrderProcessor analysis/observed-behaviour; clean compilable body.
     update({
       filename: DEMO_COMPLEX_FILENAME,
-      content: protect ? DEMO_PROTECT_CONTENT : DEMO_COMPLEX_CONTENT,
+      content: assure ? DEMO_ASSURE_CONTENT : DEMO_COMPLEX_CONTENT,
     })
     onReady()
   }
 
-  // Protect portfolio demos — a .zip filename routes Readiness to the portfolio report;
+  // Assure portfolio demos — a .zip filename routes Readiness to the portfolio report;
   // the content is real multi-class VB.NET so the live /assess classifier produces a report.
   const loadPortfolio = (filename: string, content: string) => {
     update({ filename, content, zipFile: null })
     onReady()
   }
 
-  // Protect: capture a real uploaded .zip estate and advance to Readiness, which scans it via
+  // Assure: capture a real uploaded .zip estate and advance to Readiness, which scans it via
   // /assess-project (extract .vb files, classify across them). Migrate keeps its own analysis.
   const captureEstate = () => {
     if (!zipFile) return
@@ -177,15 +177,15 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
       <div className="step-kicker">STEP 01 · SOURCE</div>
       <h2 className="step-title">Upload legacy VB.NET</h2>
       <p className="step-subtitle">
-        {protect
+        {assure
           ? 'Drop a .vb file or a .zip project. VBGone reads the legacy VB.NET and builds a behavioural baseline around it — so you can patch vulnerable dependencies without changing how it works.'
           : mode === 'single'
             ? `Drop a .vb file or a .zip project. VBGone extracts the business logic and migrates it to tested ${lang.lang}, one class at a time.`
             : 'Upload a .zip containing your VB.NET solution. VBGone will analyse all classes, build a dependency graph, and guide you through migrating each class in the optimal order.'}
       </p>
 
-      {/* Protect: a real estate zip has been captured — ready to assess at the next step. */}
-      {protect && state.zipFile && (
+      {/* Assure: a real estate zip has been captured — ready to assess at the next step. */}
+      {assure && state.zipFile && (
         <div className="zip-summary" style={{ marginTop: 16 }}>
           <div className="zip-header">
             <div className="zip-icon">{'📦'}</div>
@@ -370,7 +370,7 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
                   </p>
                 </InfoTip>
               </div>
-              {protect && (
+              {assure && (
                 <div className="demo-button-group" style={{ marginTop: 10 }}>
                   <button
                     className="btn-plex"
@@ -489,11 +489,8 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
                 ))}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-                <button
-                  className="btn-plex"
-                  onClick={protect ? captureEstate : handleUploadProject}
-                >
-                  {protect ? 'Assess estate →' : 'Analyse Project'}
+                <button className="btn-plex" onClick={assure ? captureEstate : handleUploadProject}>
+                  {assure ? 'Assess estate →' : 'Analyse Project'}
                 </button>
               </div>
             </div>
@@ -522,9 +519,9 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
 
       <div className="lang-note" data-testid="lang-note">
         <span className="lang-note-dot" />
-        {protect ? (
+        {assure ? (
           <span>
-            <strong>Protect mode</strong> · tests are emitted in C# but run against your original
+            <strong>Assure mode</strong> · tests are emitted in C# but run against your original
             VB.NET on the CLR · MSTest. Point it at a business-logic class — UI-coupled forms can't
             run headless.
           </span>

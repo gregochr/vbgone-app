@@ -85,7 +85,7 @@ public class CSharpPrompts implements PromptLanguage {
             Return ONLY the complete C# class. No markdown. No backticks. No explanation. \
             No analysis. No discussion. No test code. Just the class starting with 'public class'.""";
 
-    // ── Protect-mode prompts (C#-only; Protect locks TARGET to C#) ──
+    // ── Assure-mode prompts (C#-only; Assure locks TARGET to C#) ──
 
     public static final String BASELINE_SURFACE_SYSTEM_PROMPT = """
             You are a VB.NET behaviour archaeologist. Given a VB.NET class, list its ACTUAL public \
@@ -118,13 +118,13 @@ public class CSharpPrompts implements PromptLanguage {
 
             Return only raw C# code. No markdown. No backticks. No explanation.""";
 
-    /** Protect step 3 — asks the model for the concrete public surface as JSON. */
+    /** Assure step 3 — asks the model for the concrete public surface as JSON. */
     public String baselineSurfaceUserMessage(String className, String vbSource) {
         return "List the actual public surface of the VB.NET class " + className
                 + " as C# signatures, flagging known defects. VB.NET source:\n" + vbSource;
     }
 
-    /** Protect step 4 — asks for an MSTest characterisation suite over the original behaviour. */
+    /** Assure step 4 — asks for an MSTest characterisation suite over the original behaviour. */
     public String baselineTestsUserMessage(String className, String vbSource) {
         return "Generate an MSTest characterisation suite named " + className + "Baseline that pins "
                 + "the CURRENT behaviour of " + className + " — assert the real exception types and "

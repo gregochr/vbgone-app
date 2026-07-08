@@ -1,7 +1,7 @@
 package com.vbgone.model;
 
 /**
- * One edge-case row in Protect's Observed Behaviour block: a condition, the outcome the
+ * One edge-case row in Assure's Observed Behaviour block: a condition, the outcome the
  * legacy code produces today, and the kind of outcome (colours it in the UI).
  *
  * @param cond    the input condition, e.g. "headcount = 0"

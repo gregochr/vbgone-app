@@ -6,7 +6,7 @@ import { CodeBlock } from '../CodeBlock'
 import { useWizardConfig } from '../../../config/WizardConfigContext'
 import {
   PROVIDERS,
-  PROTECT_TEST_FW,
+  ASSURE_TEST_FW,
   looksUiCoupled,
   modelFor,
   modelLabelFor,
@@ -29,10 +29,10 @@ interface Props {
   onReady: () => void
   /** Portfolio queue drill-in — swaps the closing panel for the queue done-state. */
   fromQueue?: boolean
-  protectedCount?: number
+  assuredCount?: number
   readyTotal?: number
   nextClassName?: string
-  onProtectNext?: () => void
+  onAssureNext?: () => void
   onBackToReadiness?: () => void
 }
 
@@ -46,7 +46,7 @@ const ATTEMPT_GAP_MS = 480
 type LoggedAttempt = RepairAttempt & { status: 'running' | 'done' }
 
 /**
- * Protect step 4 (last). Generates an MSTest suite that records how the *original*,
+ * Assure step 4 (last). Generates an MSTest suite that records how the *original*,
  * unmodified VB.NET behaves today, then runs it against that original on the CLR. Polarity
  * flips from Migrate: green is the goal. Because the code is untouched, a failing test can
  * only mean the test is wrong — not the code — so a red run drives the auto-repair loop
@@ -57,10 +57,10 @@ export function Step4BaselineTests({
   update,
   onReady,
   fromQueue,
-  protectedCount = 0,
+  assuredCount = 0,
   readyTotal = 0,
   nextClassName,
-  onProtectNext,
+  onAssureNext,
   onBackToReadiness,
 }: Props) {
   const { provider, modelOverrides, engineParams } = useWizardConfig()
@@ -191,7 +191,7 @@ export function Step4BaselineTests({
         <ConfirmDialog onConfirm={runSuite} onCancel={() => setShowConfirm(false)}>
           <p>
             This will make an API call to {prov.name} ({reasoningModelId}) via the {prov.vendor}{' '}
-            provider to capture your app's current behaviour as a {PROTECT_TEST_FW} test suite, then
+            provider to capture your app's current behaviour as a {ASSURE_TEST_FW} test suite, then
             compile and run it against your original VB.NET on the CLR.
           </p>
           <p>
@@ -238,7 +238,7 @@ export function Step4BaselineTests({
       <div>
         {header}
         <p className="step-subtitle">
-          {prov.name} writes a set of {PROTECT_TEST_FW} tests that check the <strong>real</strong>{' '}
+          {prov.name} writes a set of {ASSURE_TEST_FW} tests that check the <strong>real</strong>{' '}
           behaviour — the actual errors and converted values — then runs them against your original
           VB.NET. Here, <strong>green is the goal</strong>.
         </p>
@@ -276,7 +276,7 @@ export function Step4BaselineTests({
       <div>
         {header}
         <p className="step-subtitle">
-          {prov.name} writes a set of {PROTECT_TEST_FW} tests that check the <strong>real</strong>{' '}
+          {prov.name} writes a set of {ASSURE_TEST_FW} tests that check the <strong>real</strong>{' '}
           behaviour — the actual errors and converted values — then runs them against your original
           VB.NET. Here, <strong>green is the goal</strong>.
         </p>
@@ -376,8 +376,8 @@ export function Step4BaselineTests({
               <div className="quarantine-actions">
                 {fromQueue ? (
                   <>
-                    <button className="btn-plex btn-sm" onClick={onProtectNext}>
-                      Protect with 1 quarantined ({REPAIR_PASS_COUNT}/{REPAIR_TOTAL}) →
+                    <button className="btn-plex btn-sm" onClick={onAssureNext}>
+                      Assure with 1 quarantined ({REPAIR_PASS_COUNT}/{REPAIR_TOTAL}) →
                     </button>
                     <button className="btn-ghost" onClick={onBackToReadiness}>
                       Back to readiness
@@ -395,7 +395,7 @@ export function Step4BaselineTests({
 
         <div className="code-header">
           <span>{className || 'OrderService'}BaselineTests.cs</span>
-          <span className="code-header-caption">{PROTECT_TEST_FW} · vs original VB.NET</span>
+          <span className="code-header-caption">{ASSURE_TEST_FW} · vs original VB.NET</span>
         </div>
         <CodeBlock code={repairedCode} />
 
@@ -404,10 +404,10 @@ export function Step4BaselineTests({
         {succeeded && fromQueue && (
           <QueueDone
             className={className}
-            protectedCount={protectedCount}
+            assuredCount={assuredCount}
             readyTotal={readyTotal}
             nextClassName={nextClassName}
-            onProtectNext={onProtectNext}
+            onAssureNext={onAssureNext}
             onBackToReadiness={onBackToReadiness}
           />
         )}
@@ -463,7 +463,7 @@ export function Step4BaselineTests({
         </div>
       )}
 
-      {/* Compile failure — explain Protect's precondition (runs on its own), tailored to cause. */}
+      {/* Compile failure — explain Assure's precondition (runs on its own), tailored to cause. */}
       {compileError && (
         <div className="net-precondition" data-testid="net-precondition">
           <span className="net-precondition-glyph" aria-hidden="true">
@@ -471,17 +471,17 @@ export function Step4BaselineTests({
           </span>
           {uiCoupled ? (
             <span>
-              This source looks <strong>UI-coupled</strong> (WinForms). Protect runs your original
+              This source looks <strong>UI-coupled</strong> (WinForms). Assure runs your original
               VB.NET on its own on the CLR, so it can only cover a{' '}
               <strong>business-logic class that runs without the screen</strong> — one that doesn't
               import <code>System.Windows.Forms</code>, inherit <code>Form</code>, or touch
-              controls. If the logic already lives in a separate class, point Protect at that file;
+              controls. If the logic already lives in a separate class, point Assure at that file;
               if it's inside the form's event handlers, it has to be separated first (that's a
               Migrate-style change).
             </span>
           ) : (
             <span>
-              Protect compiles your original VB.NET and runs it on its own on the CLR. The source
+              Assure compiles your original VB.NET and runs it on its own on the CLR. The source
               needs to be self-contained with no UI or platform dependencies. Fix the errors above
               (or upload just the business-logic class) and re-run.
             </span>
@@ -512,7 +512,7 @@ export function Step4BaselineTests({
 
       <div className="code-header">
         <span>{tests.testClassName}.cs</span>
-        <span className="code-header-caption">{PROTECT_TEST_FW} · vs original VB.NET</span>
+        <span className="code-header-caption">{ASSURE_TEST_FW} · vs original VB.NET</span>
       </div>
       {/* Editable in the red state so the user can correct the wrong test(s) by hand. */}
       <CodeBlock code={tests.code} editable={!faithful} onEdit={editSuite} />
@@ -544,10 +544,10 @@ export function Step4BaselineTests({
       {faithful && fromQueue && (
         <QueueDone
           className={className}
-          protectedCount={protectedCount}
+          assuredCount={assuredCount}
           readyTotal={readyTotal}
           nextClassName={nextClassName}
-          onProtectNext={onProtectNext}
+          onAssureNext={onAssureNext}
           onBackToReadiness={onBackToReadiness}
         />
       )}
@@ -671,17 +671,17 @@ function BaselineClosing() {
 
 function QueueDone({
   className,
-  protectedCount,
+  assuredCount,
   readyTotal,
   nextClassName,
-  onProtectNext,
+  onAssureNext,
   onBackToReadiness,
 }: {
   className: string
-  protectedCount: number
+  assuredCount: number
   readyTotal: number
   nextClassName?: string
-  onProtectNext?: () => void
+  onAssureNext?: () => void
   onBackToReadiness?: () => void
 }) {
   return (
@@ -691,20 +691,20 @@ function QueueDone({
           {'✓'}
         </span>
         <div>
-          <div className="queue-done-title">{className} protected</div>
+          <div className="queue-done-title">{className} assured</div>
           <div className="queue-done-count">
-            {protectedCount + 1} / {readyTotal} ready classes protected
+            {assuredCount + 1} / {readyTotal} ready classes assured
           </div>
         </div>
       </div>
       <div className="queue-done-actions">
         {nextClassName ? (
-          <button className="btn-plex" onClick={onProtectNext}>
-            Protect next class — {nextClassName} →
+          <button className="btn-plex" onClick={onAssureNext}>
+            Assure next class — {nextClassName} →
           </button>
         ) : (
           <button className="btn-plex" onClick={onBackToReadiness}>
-            All ready classes protected — back to readiness
+            All ready classes assured — back to readiness
           </button>
         )}
         {nextClassName && (

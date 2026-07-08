@@ -6,13 +6,13 @@ import { Step3Interface } from './Step3Interface'
 import { Step4Tests } from './Step4Tests'
 import { Step5Implement } from './Step5Implement'
 import { Step6PR } from './Step6PR'
-import { Step3Baseline } from './protect/Step3Baseline'
-import { Step4BaselineTests } from './protect/Step4BaselineTests'
-import { StepReadiness } from './protect/StepReadiness'
+import { Step3Baseline } from './assure/Step3Baseline'
+import { Step4BaselineTests } from './assure/Step4BaselineTests'
+import { StepReadiness } from './assure/StepReadiness'
 import { InfoTip } from './InfoTip'
 import { fetchCost } from '../../api/migrateApi'
 import { useWizardConfig } from '../../config/WizardConfigContext'
-import { STEP_ROLES, PROTECT_STEP_ROLES, modelLabelFor } from '../../config/engine'
+import { STEP_ROLES, ASSURE_STEP_ROLES, modelLabelFor } from '../../config/engine'
 import type {
   AnalysisResult,
   InterfaceResult,
@@ -204,19 +204,19 @@ const STEPS: { label: string; tip: React.ReactNode }[] = [
   },
 ]
 
-// Protect mode renders four steps. Upload reuses the Migrate dropzone; Analysis is the
-// same engine with a forensic persona; Baseline and Baseline Tests are Protect-only.
-const PROTECT_STEPS: { label: string; tip: React.ReactNode }[] = [
+// Assure mode renders four steps. Upload reuses the Migrate dropzone; Analysis is the
+// same engine with a forensic persona; Baseline and Baseline Tests are Assure-only.
+const ASSURE_STEPS: { label: string; tip: React.ReactNode }[] = [
   {
     label: 'Upload',
     tip: (
       <>
         <p>
-          <strong>Protect builds a safety net of tests around your legacy VB.NET</strong> — it
+          <strong>Assure builds a safety net of tests around your legacy VB.NET</strong> — it
           changes nothing. Upload a <strong>.vb</strong> file or a <strong>.zip</strong> to start.
         </p>
         <p>
-          Reach for Protect when the job is "we have CVEs in our libraries and no test coverage to
+          Reach for Assure when the job is "we have CVEs in our libraries and no test coverage to
           patch safely" — not "we want off VB.NET". The safety net lets you upgrade a vulnerable
           dependency and prove nothing else changed.
         </p>
@@ -234,9 +234,9 @@ const PROTECT_STEPS: { label: string; tip: React.ReactNode }[] = [
           the CLR without the WinForms screen.
         </p>
         <p>
-          A portfolio is bucketed into <strong>Ready to protect</strong>,{' '}
+          A portfolio is bucketed into <strong>Ready to assure</strong>,{' '}
           <strong>Needs Windows runner</strong>, and <strong>Tangled in the UI</strong>. Only ready
-          classes can be protected today.
+          classes can be assured today.
         </p>
       </>
     ),
@@ -246,7 +246,7 @@ const PROTECT_STEPS: { label: string; tip: React.ReactNode }[] = [
     tip: (
       <>
         <p>
-          Protect doesn't build a new, cleaner version — we keep your original as-is.{' '}
+          Assure doesn't build a new, cleaner version — we keep your original as-is.{' '}
           <strong>Claude Haiku</strong> records the concrete class's actual public surface, run
           against your real code, including the behaviours flagged as bugs.
         </p>
@@ -299,14 +299,14 @@ export interface WizardState {
   implementResult: ImplementResult | null
   greenBuild: BuildResult | null
   prResult: PullRequestResult | null
-  // Protect-mode artifacts:
-  /** A real uploaded .zip estate (Protect portfolio scan) — sent to /assess-project. */
+  // Assure-mode artifacts:
+  /** A real uploaded .zip estate (Assure portfolio scan) — sent to /assess-project. */
   zipFile: File | null
   readiness: ReadinessReport | null
   baselineResult: BaselineResult | null
   baselineTests: BaselineTestsResult | null
   netFaithful: boolean
-  /** Portfolio queue: class names protected so far, and whether we drilled in from the report. */
+  /** Portfolio queue: class names assured so far, and whether we drilled in from the report. */
   netted: string[]
   fromQueue: boolean
 }
@@ -397,9 +397,9 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   const { mode, provider, modelOverrides, setSessionCost, setCurrentStep } = useWizardConfig()
   const sessionIdRef = useRef<string | undefined>(projectMode ? projectMode.sessionId : undefined)
 
-  const protect = mode === 'protect'
-  const activeSteps = protect ? PROTECT_STEPS : STEPS
-  const activeRoles = protect ? PROTECT_STEP_ROLES : STEP_ROLES
+  const assure = mode === 'assure'
+  const activeSteps = assure ? ASSURE_STEPS : STEPS
+  const activeRoles = assure ? ASSURE_STEP_ROLES : STEP_ROLES
   const lastIndex = activeSteps.length - 1
 
   const update = (partial: Partial<WizardState>) => {
@@ -423,7 +423,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   }, [step, refreshCost])
 
   // Surface the current step so the header can lock the engine after step 1
-  // (Protect fixes the provider once the run is under way).
+  // (Assure fixes the provider once the run is under way).
   useEffect(() => {
     setCurrentStep(step)
   }, [step, setCurrentStep])
@@ -459,18 +459,18 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
 
   const totalClasses = state.analysis?.suggestedMigrationOrder?.length ?? 1
   // Multi-class iteration (queue + loop-back arc) is a Migrate-only flow.
-  const isMultiClass = !projectMode && !protect && totalClasses > 1
-  // Protect can always step back to Readiness/Upload; Migrate locks to the class loop.
-  const minStep = projectMode ? 2 : !protect && state.currentClassIndex > 0 ? 2 : 0
+  const isMultiClass = !projectMode && !assure && totalClasses > 1
+  // Assure can always step back to Readiness/Upload; Migrate locks to the class loop.
+  const minStep = projectMode ? 2 : !assure && state.currentClassIndex > 0 ? 2 : 0
 
-  // ── Protect portfolio queue navigation ──
-  const protectOrder = state.analysis?.suggestedMigrationOrder ?? []
-  const activeClassName: string | undefined = protectOrder[state.currentClassIndex]
+  // ── Assure portfolio queue navigation ──
+  const assureOrder = state.analysis?.suggestedMigrationOrder ?? []
+  const activeClassName: string | undefined = assureOrder[state.currentClassIndex]
   const isPortfolioInput = state.filename.toLowerCase().endsWith('.zip')
-  const firstUnprotected = (done: string[]) => protectOrder.find((n) => !done.includes(n))
+  const firstUnassured = (done: string[]) => assureOrder.find((n) => !done.includes(n))
 
-  const protectClass = (name: string) => {
-    const idx = protectOrder.indexOf(name)
+  const assureClass = (name: string) => {
+    const idx = assureOrder.indexOf(name)
     if (idx < 0) return
     setState((prev) => ({
       ...prev,
@@ -484,15 +484,15 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     setStep(2) // Baseline
   }
 
-  const protectNext = () => {
+  const assureNext = () => {
     const done = activeClassName ? [...state.netted, activeClassName] : state.netted
-    const next = firstUnprotected(done)
+    const next = firstUnassured(done)
     setState((prev) => ({
       ...prev,
       netted: done,
       ...(next
         ? {
-            currentClassIndex: protectOrder.indexOf(next),
+            currentClassIndex: assureOrder.indexOf(next),
             baselineResult: null,
             baselineTests: null,
             netFaithful: true,
@@ -520,15 +520,15 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     setStep(1) // Readiness
   }
 
-  const nextClassName = firstUnprotected(
+  const nextClassName = firstUnassured(
     activeClassName ? [...state.netted, activeClassName] : state.netted,
   )
 
   const next = () => {
-    // Protect portfolio: advancing from the Readiness report drills into the first ready class.
-    if (protect && step === 1 && isPortfolioInput) {
-      const fr = firstUnprotected(state.netted)
-      if (fr) protectClass(fr)
+    // Assure portfolio: advancing from the Readiness report drills into the first ready class.
+    if (assure && step === 1 && isPortfolioInput) {
+      const fr = firstUnassured(state.netted)
+      if (fr) assureClass(fr)
       return
     }
     // After Step 5 (index 4) in multi-class: save and advance or finish
@@ -636,18 +636,18 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     />
   )
   const analysis = <Step2Analysis key={1} state={state} update={update} onReady={onReady} />
-  const steps = protect
+  const steps = assure
     ? [
         upload,
         <StepReadiness
-          key="1-protect"
+          key="1-assure"
           state={state}
           update={update}
           onReady={onReady}
-          onProtectClass={protectClass}
+          onAssureClass={assureClass}
         />,
         <Step3Baseline
-          key="2-protect"
+          key="2-assure"
           state={state}
           update={update}
           onReady={onReady}
@@ -656,15 +656,15 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
           onBackToReadiness={backToReadiness}
         />,
         <Step4BaselineTests
-          key="3-protect"
+          key="3-assure"
           state={state}
           update={update}
           onReady={onReady}
           fromQueue={state.fromQueue}
-          protectedCount={state.netted.length}
-          readyTotal={state.readiness?.totals.netReady ?? protectOrder.length}
+          assuredCount={state.netted.length}
+          readyTotal={state.readiness?.totals.netReady ?? assureOrder.length}
           nextClassName={nextClassName}
-          onProtectNext={protectNext}
+          onAssureNext={assureNext}
           onBackToReadiness={backToReadiness}
         />,
       ]
@@ -691,7 +691,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
         style={{ position: 'relative' }}
       >
         {activeSteps.map(({ label, tip }, i) => {
-          const isCompleted = i < step || (!protect && i === 5 && !!state.prResult)
+          const isCompleted = i < step || (!assure && i === 5 && !!state.prResult)
           const isActive = i === step
           const role = activeRoles[i]
           const sub =
@@ -828,7 +828,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
             onClick={next}
             disabled={!stepReady}
             title={
-              protect
+              assure
                 ? 'Next step'
                 : step === 4 && state.greenBuild && state.greenBuild.buildStatus !== 'GREEN'
                   ? 'Fix failing tests before raising a PR'
@@ -837,7 +837,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
                     : NEXT_TITLES[step]
             }
           >
-            {!protect && step === 4 && isMultiClass && state.currentClassIndex < totalClasses - 1
+            {!assure && step === 4 && isMultiClass && state.currentClassIndex < totalClasses - 1
               ? 'Next Class'
               : 'Next'}
           </button>

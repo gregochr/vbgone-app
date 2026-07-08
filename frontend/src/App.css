@@ -158,7 +158,7 @@
   color: var(--accent-text);
   box-shadow: inset 0 0 0 1px var(--accent-ring);
 }
-/* Locked segment — e.g. Java in Protect mode (CLR is C#-only). */
+/* Locked segment — e.g. Java in Assure mode (CLR is C#-only). */
 .target-seg.locked {
   color: #454b54;
   opacity: 0.65;
@@ -188,7 +188,7 @@
 .engine-button:hover {
   border-color: #3a4049;
 }
-/* Locked engine button — Protect fixes the provider after step 1 (Upload). */
+/* Locked engine button — Assure fixes the provider after step 1 (Upload). */
 .engine-button.locked {
   opacity: 0.55;
   cursor: not-allowed;

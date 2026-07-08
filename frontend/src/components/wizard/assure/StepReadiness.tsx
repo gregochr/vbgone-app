@@ -10,17 +10,17 @@ interface Props {
   update: (partial: Partial<WizardState>) => void
   onReady: () => void
   /** Drill into the per-class Baseline flow for a ready class (portfolio queue). */
-  onProtectClass?: (className: string) => void
+  onAssureClass?: (className: string) => void
 }
 
 const KICKER = 'STEP 02 · READINESS'
 
 /**
- * Protect step 2 — the front gate. A static (no-AI) pass that classifies the source into
+ * Assure step 2 — the front gate. A static (no-AI) pass that classifies the source into
  * three readiness buckets. A single `.vb` renders an instant verdict card; a `.zip` portfolio
- * renders the readiness report + a queue of ready classes to protect one at a time.
+ * renders the readiness report + a queue of ready classes to assure one at a time.
  */
-export function StepReadiness({ state, update, onReady, onProtectClass }: Props) {
+export function StepReadiness({ state, update, onReady, onAssureClass }: Props) {
   const isPortfolio = state.filename.toLowerCase().endsWith('.zip')
   const report = state.readiness
   // For a single .vb the report's file equals the filename; reuse only a matching report.
@@ -40,7 +40,7 @@ export function StepReadiness({ state, update, onReady, onProtectClass }: Props)
 
   const subtitleFor = (r: ReadinessReport) => {
     const t = r.totals
-    return `${t.netReady} of ${t.classes} classes are ready to protect today. ${t.windowsGated} unlock with a Windows runner; ${t.refactorFirst} need refactoring first.`
+    return `${t.netReady} of ${t.classes} classes are ready to assure today. ${t.windowsGated} unlock with a Windows runner; ${t.refactorFirst} need refactoring first.`
   }
 
   const deriveAnalysis = (r: ReadinessReport): WizardState['analysis'] => {
@@ -116,7 +116,7 @@ export function StepReadiness({ state, update, onReady, onProtectClass }: Props)
     <>
       <div className="step-kicker">{KICKER}</div>
       <h2 className="step-title">
-        {isPortfolio ? 'Assess the estate' : 'Can we protect this yet?'}
+        {isPortfolio ? 'Assess the estate' : 'Can we assure this yet?'}
       </h2>
     </>
   )
@@ -135,7 +135,7 @@ export function StepReadiness({ state, update, onReady, onProtectClass }: Props)
     if (usable)
       return (
         <PortfolioReport
-          {...{ report: report!, filter, setFilter, expanded, setExpanded, netted, onProtectClass }}
+          {...{ report: report!, filter, setFilter, expanded, setExpanded, netted, onAssureClass }}
         />
       )
     if (scanning && !scannedEmpty) {
@@ -194,10 +194,10 @@ export function StepReadiness({ state, update, onReady, onProtectClass }: Props)
         {header}
         <p className="step-subtitle">
           A fast static pass classifies every business-logic method as{' '}
-          <strong style={{ color: BUCKETS['net-ready'].color }}>ready to protect</strong>,{' '}
+          <strong style={{ color: BUCKETS['net-ready'].color }}>ready to assure</strong>,{' '}
           <strong style={{ color: BUCKETS['windows-gated'].color }}>needs a Windows runner</strong>,
           or <strong style={{ color: BUCKETS['refactor-first'].color }}>tangled in the UI</strong> —
-          so you know up front how much of this Protect can cover today.
+          so you know up front how much of this Assure can cover today.
         </p>
         <div className="scan-idle-row">
           <span className="scan-idle-note">
@@ -261,8 +261,8 @@ function BucketTag({ bucket, sm }: { bucket: Bucket; sm?: boolean }) {
 function VerdictCard({ cls, ready }: { cls: ClassReadiness; ready: boolean }) {
   const meta = BUCKETS[cls.bucket]
   const headline = ready
-    ? 'Ready to protect — this class has business logic that runs on its own.'
-    : `Can't protect this as-is — ${cls.reason}.`
+    ? 'Ready to assure — this class has business logic that runs on its own.'
+    : `Can't assure this as-is — ${cls.reason}.`
 
   return (
     <div
@@ -305,7 +305,7 @@ interface ReportProps {
   expanded: Record<string, boolean>
   setExpanded: (e: Record<string, boolean>) => void
   netted: string[]
-  onProtectClass?: (name: string) => void
+  onAssureClass?: (name: string) => void
 }
 
 function PortfolioReport({
@@ -315,7 +315,7 @@ function PortfolioReport({
   expanded,
   setExpanded,
   netted,
-  onProtectClass,
+  onAssureClass,
 }: ReportProps) {
   const t = report.totals
   const methodsLabel = t.methods.toLocaleString('en-US')
@@ -324,7 +324,7 @@ function PortfolioReport({
   const pctR = 100 - pctN - pctW
   const seg = (pct: number) => ({ width: `${pct}%`, minWidth: pct > 0 ? 3 : 0 })
 
-  const subtitle = `${t.netReady} of ${t.classes} classes are ready to protect today. ${t.windowsGated} unlock with a Windows runner; ${t.refactorFirst} need refactoring first.`
+  const subtitle = `${t.netReady} of ${t.classes} classes are ready to assure today. ${t.windowsGated} unlock with a Windows runner; ${t.refactorFirst} need refactoring first.`
 
   const tiles: { bucket: Bucket; count: number; methods: number }[] = [
     { bucket: 'net-ready', count: t.netReady, methods: t.methodNetReady },
@@ -359,13 +359,13 @@ function PortfolioReport({
   return (
     <div className="readiness-report" data-testid="readiness-report">
       <div className="step-kicker">{KICKER}</div>
-      <h2 className="step-title">Protect readiness</h2>
+      <h2 className="step-title">Assure readiness</h2>
       <p className="step-subtitle report-subtitle">{subtitle}</p>
 
       {/* breakdown */}
       <div className="breakdown-panel">
         <div className="breakdown-caption">
-          <span className="breakdown-caption-l">READY TO PROTECT TODAY</span>
+          <span className="breakdown-caption-l">READY TO ASSURE TODAY</span>
           <span className="breakdown-caption-r">
             share of {methodsLabel} business-logic methods
           </span>
@@ -428,15 +428,15 @@ function PortfolioReport({
       )}
 
       {queueActive && (
-        <div className="protect-progress-card" data-testid="queue-progress">
-          <div className="protect-progress-head">
-            <span className="protect-progress-title">Protection progress</span>
-            <span className="protect-progress-count">
-              {nettedReady} / {t.netReady} protected
+        <div className="assure-progress-card" data-testid="queue-progress">
+          <div className="assure-progress-head">
+            <span className="assure-progress-title">Assurance progress</span>
+            <span className="assure-progress-count">
+              {nettedReady} / {t.netReady} assured
             </span>
           </div>
-          <div className="protect-progress-track">
-            <div className="protect-progress-fill" style={{ width: queuePct }} />
+          <div className="assure-progress-track">
+            <div className="assure-progress-fill" style={{ width: queuePct }} />
           </div>
         </div>
       )}
@@ -477,10 +477,10 @@ function PortfolioReport({
                 </div>
                 <div className="class-action" onClick={(e) => e.stopPropagation()}>
                   {isNetted ? (
-                    <span className="protected-chip">✓ Protected</span>
+                    <span className="assured-chip">✓ Assured</span>
                   ) : isReady ? (
-                    <button className="btn-plex btn-sm" onClick={() => onProtectClass?.(c.name)}>
-                      Protect this class →
+                    <button className="btn-plex btn-sm" onClick={() => onAssureClass?.(c.name)}>
+                      Assure this class →
                     </button>
                   ) : (
                     <span className="disabled-chip" title={BUCKETS[c.bucket].tip}>
@@ -515,10 +515,10 @@ function PortfolioReport({
             ⚠️
           </span>
           <div>
-            <div className="portfolio-gate-title">Nothing to protect yet</div>
+            <div className="portfolio-gate-title">Nothing to assure yet</div>
             <div className="portfolio-gate-body">
               Every class here ties its logic to the WinForms screen, so there's nothing that can
-              run on its own to test. Protect can't cover it yet — the business logic has to be
+              run on its own to test. Assure can't cover it yet — the business logic has to be
               pulled out into separate classes first (that's a Migrate job), or wait for the Windows
               runner for the methods that are clean but stuck in the UI.
             </div>
@@ -528,20 +528,20 @@ function PortfolioReport({
         <div className="proceed-panel" data-testid="proceed-panel">
           <div>
             <div className="proceed-title">
-              {nettedReady === 0 ? 'Ready to protect' : 'Keep going'}
+              {nettedReady === 0 ? 'Ready to assure' : 'Keep going'}
             </div>
             <div className="proceed-desc">
               {nettedReady === 0
                 ? 'Start with the classes that are ready. Each drills into Baseline → Baseline Tests, then returns here.'
-                : `${remaining} classes still ready to protect. Windows-runner and UI-tangled classes stay queued.`}
+                : `${remaining} classes still ready to assure. Windows-runner and UI-tangled classes stay queued.`}
             </div>
           </div>
           <button
             className="btn-plex"
-            onClick={() => firstReady && onProtectClass?.(firstReady)}
+            onClick={() => firstReady && onAssureClass?.(firstReady)}
             disabled={!firstReady}
           >
-            Protect the {remaining} ready classes →
+            Assure the {remaining} ready classes →
           </button>
         </div>
       )}
@@ -559,7 +559,7 @@ const VERB_COLOR: Record<RestApiEndpoint['verb'], string> = {
 }
 
 /**
- * The web API endpoints the scan found. Protect can't wrap these yet, so this is a read-only,
+ * The web API endpoints the scan found. Assure can't wrap these yet, so this is a read-only,
  * expandable list shown next to (not inside) the readiness buckets. Rows expand to show their
  * inputs and sample request/response bodies.
  */
@@ -585,7 +585,7 @@ function RestApiPanel({ endpoints }: { endpoints: RestApiEndpoint[] }) {
             <strong>
               {fileCount} file{fileCount === 1 ? '' : 's'}
             </strong>
-            . Protect can't put a safety net around these yet — support is planned, so we're listing
+            . Assure can't put a safety net around these yet — support is planned, so we're listing
             them here for now.
           </div>
         </div>

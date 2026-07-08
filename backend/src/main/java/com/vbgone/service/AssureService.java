@@ -16,15 +16,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Protect-mode generation + the real characterisation run. Mirrors {@code GenerationService}'s
+ * Assure-mode generation + the real characterisation run. Mirrors {@code GenerationService}'s
  * model-call + token-accounting shape, but produces a pinned baseline surface (step 3) and an
  * MSTest characterisation suite that is executed against the original VB.NET (step 4).
  *
- * <p>Protect is C#-only (TARGET is locked), so the prompts come straight from
+ * <p>Assure is C#-only (TARGET is locked), so the prompts come straight from
  * {@link CSharpPrompts} rather than the per-language registry.
  */
 @Service
-public class ProtectService {
+public class AssureService {
 
     private final AiProviderRegistry registry;
     private final SessionStore sessionStore;
@@ -32,7 +32,7 @@ public class ProtectService {
     private final VbCharacterisationRunner runner;
     private final CSharpPrompts prompts = new CSharpPrompts();
 
-    public ProtectService(AiProviderRegistry registry, SessionStore sessionStore,
+    public AssureService(AiProviderRegistry registry, SessionStore sessionStore,
                           ObjectMapper objectMapper, VbCharacterisationRunner runner) {
         this.registry = registry;
         this.sessionStore = sessionStore;

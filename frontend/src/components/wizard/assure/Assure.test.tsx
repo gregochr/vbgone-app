@@ -158,10 +158,10 @@ describe('AppHeader — MODE toggle', () => {
     expect(screen.getByText('VB.NET → C#')).toBeInTheDocument()
   })
 
-  it('locks Java and flips the caption when switching to Protect', async () => {
+  it('locks Java and flips the caption when switching to Assure', async () => {
     const user = userEvent.setup()
     renderWithConfig(<AppHeader />)
-    await user.click(screen.getByText('Protect'))
+    await user.click(screen.getByText('Assure'))
 
     expect(screen.getByText('VB.NET · behaviour safety net')).toBeInTheDocument()
     const java = screen.getByText('Java')
@@ -173,7 +173,7 @@ describe('AppHeader — MODE toggle', () => {
 })
 
 describe('WizardShell — mode-aware stepper', () => {
-  it('renders four relabelled Protect steps and STEP n / 4', async () => {
+  it('renders four relabelled Assure steps and STEP n / 4', async () => {
     const user = userEvent.setup()
     renderWithConfig(
       <>
@@ -181,7 +181,7 @@ describe('WizardShell — mode-aware stepper', () => {
         <WizardShell />
       </>,
     )
-    await user.click(screen.getByText('Protect'))
+    await user.click(screen.getByText('Assure'))
 
     expect(screen.getByText('Baseline', { exact: true })).toBeInTheDocument()
     expect(screen.getByText('Baseline Tests')).toBeInTheDocument()
@@ -198,7 +198,7 @@ describe('WizardShell — mode-aware stepper', () => {
         <WizardShell />
       </>,
     )
-    await user.click(screen.getByText('Protect'))
+    await user.click(screen.getByText('Assure'))
     await user.click(screen.getByText('Migrate'))
 
     expect(screen.getByText('Interface')).toBeInTheDocument()
@@ -408,14 +408,14 @@ describe('Step4BaselineTests', () => {
 })
 
 describe('StepReadiness (single-file verdict)', () => {
-  it('shows a Ready-to-protect verdict and signals ready when the class is net-ready', () => {
+  it('shows a Ready-to-assure verdict and signals ready when the class is net-ready', () => {
     const onReady = vi.fn()
     const state = { ...baseState, filename: 'OrderProcessor.vb', readiness: readyReport }
     renderWithConfig(<StepReadiness state={state} update={() => {}} onReady={onReady} />)
 
     const card = screen.getByTestId('verdict-card')
     expect(card).toHaveClass('verdict-ready')
-    expect(card).toHaveTextContent('Ready to protect')
+    expect(card).toHaveTextContent('Ready to assure')
     expect(card).toHaveTextContent('business logic that runs on its own')
     expect(card).toHaveTextContent('CalculateTotal')
     // Next is gated on readiness — a net-ready class signals ready.
@@ -430,7 +430,7 @@ describe('StepReadiness (single-file verdict)', () => {
     const card = screen.getByTestId('verdict-card')
     expect(card).toHaveClass('verdict-blocked')
     expect(card).toHaveTextContent('Tangled in the UI')
-    expect(card).toHaveTextContent("Can't protect this as-is")
+    expect(card).toHaveTextContent("Can't assure this as-is")
     // Blocked → Next stays disabled (onReady never fires).
     expect(onReady).not.toHaveBeenCalled()
   })
@@ -493,7 +493,7 @@ describe('StepReadiness (portfolio report)', () => {
     renderWithConfig(<StepReadiness state={portfolioState} update={() => {}} onReady={() => {}} />)
     expect(screen.getByTestId('readiness-report')).toBeInTheDocument()
     // net-ready row is actionable; the others are disabled with the right labels.
-    expect(screen.getByText('Protect this class →')).toBeInTheDocument()
+    expect(screen.getByText('Assure this class →')).toBeInTheDocument()
     expect(screen.getByText('Untangle first')).toBeInTheDocument()
     // "Needs Windows runner" appears as both a filter chip and the disabled action.
     expect(screen.getAllByText('Needs Windows runner').length).toBeGreaterThan(1)
@@ -502,26 +502,26 @@ describe('StepReadiness (portfolio report)', () => {
     expect(screen.getAllByText('33%').length).toBeGreaterThan(0)
   })
 
-  it('drills into the per-class flow when Protect this class is clicked', async () => {
-    const onProtectClass = vi.fn()
+  it('drills into the per-class flow when Assure this class is clicked', async () => {
+    const onAssureClass = vi.fn()
     const user = userEvent.setup()
     renderWithConfig(
       <StepReadiness
         state={portfolioState}
         update={() => {}}
         onReady={() => {}}
-        onProtectClass={onProtectClass}
+        onAssureClass={onAssureClass}
       />,
     )
-    await user.click(screen.getByText('Protect this class →'))
-    expect(onProtectClass).toHaveBeenCalledWith('OrderService')
+    await user.click(screen.getByText('Assure this class →'))
+    expect(onAssureClass).toHaveBeenCalledWith('OrderService')
   })
 
   it('filters the table to a single bucket', async () => {
     const user = userEvent.setup()
     renderWithConfig(<StepReadiness state={portfolioState} update={() => {}} onReady={() => {}} />)
     expect(screen.getByText('MainForm')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Ready to protect/ }))
+    await user.click(screen.getByRole('button', { name: /Ready to assure/ }))
     expect(screen.getByText('OrderService')).toBeInTheDocument()
     expect(screen.queryByText('MainForm')).not.toBeInTheDocument()
     expect(screen.queryByText('LedgerView')).not.toBeInTheDocument()
@@ -588,7 +588,7 @@ describe('StepReadiness (portfolio report)', () => {
       />,
     )
     expect(screen.getByTestId('portfolio-gate')).toBeInTheDocument()
-    expect(screen.getByText('Nothing to protect yet')).toBeInTheDocument()
+    expect(screen.getByText('Nothing to assure yet')).toBeInTheDocument()
     expect(screen.queryByTestId('proceed-panel')).not.toBeInTheDocument()
   })
 })
