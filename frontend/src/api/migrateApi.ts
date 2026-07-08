@@ -124,12 +124,55 @@ export interface ReadinessTotals {
   methodRefactorFirst: number
 }
 
+/** One input to a detected web API endpoint (a route or query-string value). */
+export interface RestApiParam {
+  name: string
+  /** Where the value comes from — part of the path, or the query string. */
+  in: 'path' | 'query'
+  type: string
+  /** Plain-English hint about the value. */
+  note: string
+}
+
+/**
+ * A web API endpoint the scan spotted in the source (an ASP.NET Web API action or an
+ * ASMX web method). Protect can't wrap these yet — they're shown as a separate list, not
+ * counted in the readiness buckets.
+ */
+export interface RestApiEndpoint {
+  verb: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  /** Route template, e.g. "/api/orders/{id}". */
+  route: string
+  /** Class.method that handles the call. */
+  handler: string
+  /** VB.NET file the endpoint was found in. */
+  source: string
+  /** How it was spotted. */
+  kind: 'Web API' | 'ASMX'
+  params: RestApiParam[]
+  /** Type name of the request body, or "—" when there isn't one. */
+  reqType: string
+  /** Sample request body, or null when the endpoint takes no body (hides the request column). */
+  req: string | null
+  /** Type name of the response. */
+  resType: string
+  /** HTTP status the handler returns, e.g. "200 OK". */
+  resStatus: string
+  /** Sample response body. */
+  res: string
+}
+
 /** Static (no-AI) classification of an uploaded estate into the three readiness buckets. */
 export interface ReadinessReport {
   sessionId: string
   totals: ReadinessTotals
   confidence: 'static' | 'llm-refined'
   classes: ClassReadiness[]
+  /**
+   * Web API endpoints found alongside the classes. Populated for portfolio scans that turn
+   * up controllers/services; absent or empty otherwise (the panel is then hidden).
+   */
+  restApis?: RestApiEndpoint[]
 }
 
 /** A single public member of the pinned baseline surface (Protect step 3). */
@@ -354,6 +397,139 @@ const mr = (name: string, visibility: string, bucket: Bucket, reason: string): M
   reason,
 })
 
+/* Web API endpoints for the mixed-portfolio demo — 9 across 5 files. Notes are kept plain. */
+const MOCK_REST_APIS: RestApiEndpoint[] = [
+  {
+    verb: 'GET',
+    route: '/api/orders',
+    handler: 'OrderApiController.Get',
+    source: 'Api/OrderApiController.vb',
+    kind: 'Web API',
+    params: [
+      { name: 'status', in: 'query', type: 'string', note: 'optional — open, shipped or closed' },
+      { name: 'page', in: 'query', type: 'int', note: 'which page of results (starts at 1)' },
+    ],
+    reqType: '—',
+    req: null,
+    resType: 'IEnumerable(Of OrderDto)',
+    resStatus: '200 OK',
+    res: '[\n  {\n    "id": 4821,\n    "customerId": 187,\n    "status": "open",\n    "total": 249.90,\n    "placedUtc": "2026-06-14T09:12:03Z"\n  }\n]',
+  },
+  {
+    verb: 'POST',
+    route: '/api/orders',
+    handler: 'OrderApiController.Create',
+    source: 'Api/OrderApiController.vb',
+    kind: 'Web API',
+    params: [],
+    reqType: 'CreateOrderRequest',
+    req: '{\n  "customerId": 187,\n  "lines": [\n    { "sku": "WB-114", "qty": 2 },\n    { "sku": "PK-009", "qty": 1 }\n  ],\n  "discountCode": "SPRING10"\n}',
+    resType: 'OrderDto',
+    resStatus: '201 Created',
+    res: '{\n  "id": 4822,\n  "customerId": 187,\n  "status": "open",\n  "total": 224.91\n}',
+  },
+  {
+    verb: 'GET',
+    route: '/api/orders/{id}',
+    handler: 'OrderApiController.GetById',
+    source: 'Api/OrderApiController.vb',
+    kind: 'Web API',
+    params: [{ name: 'id', in: 'path', type: 'int', note: 'which order to fetch' }],
+    reqType: '—',
+    req: null,
+    resType: 'OrderDto',
+    resStatus: '200 OK',
+    res: '{\n  "id": 4821,\n  "customerId": 187,\n  "status": "shipped",\n  "total": 249.90\n}',
+  },
+  {
+    verb: 'PUT',
+    route: '/api/orders/{id}',
+    handler: 'OrderApiController.Update',
+    source: 'Api/OrderApiController.vb',
+    kind: 'Web API',
+    params: [{ name: 'id', in: 'path', type: 'int', note: 'which order to change' }],
+    reqType: 'UpdateOrderRequest',
+    req: '{\n  "status": "shipped",\n  "trackingRef": "RM-8841-QK"\n}',
+    resType: 'OrderDto',
+    resStatus: '200 OK',
+    res: '{\n  "id": 4821,\n  "status": "shipped",\n  "trackingRef": "RM-8841-QK"\n}',
+  },
+  {
+    verb: 'GET',
+    route: '/api/pricing/quote',
+    handler: 'PricingController.Quote',
+    source: 'Api/PricingController.vb',
+    kind: 'Web API',
+    params: [
+      { name: 'sku', in: 'query', type: 'string', note: 'required' },
+      { name: 'qty', in: 'query', type: 'int', note: 'required' },
+    ],
+    reqType: '—',
+    req: null,
+    resType: 'QuoteDto',
+    resStatus: '200 OK',
+    res: '{\n  "sku": "WB-114",\n  "unit": 99.95,\n  "qty": 2,\n  "margin": 0.34,\n  "total": 199.90\n}',
+  },
+  {
+    verb: 'POST',
+    route: '/api/pricing/recalc',
+    handler: 'PricingController.Recalc',
+    source: 'Api/PricingController.vb',
+    kind: 'Web API',
+    params: [],
+    reqType: 'RecalcRequest',
+    req: '{\n  "orderId": 4821,\n  "tier": "wholesale"\n}',
+    resType: 'QuoteDto',
+    resStatus: '200 OK',
+    res: '{\n  "orderId": 4821,\n  "tier": "wholesale",\n  "total": 212.42\n}',
+  },
+  {
+    verb: 'GET',
+    route: '/api/customers/{id}/statement',
+    handler: 'StatementController.Get',
+    source: 'Api/StatementController.vb',
+    kind: 'Web API',
+    params: [
+      { name: 'id', in: 'path', type: 'int', note: 'which customer' },
+      { name: 'from', in: 'query', type: 'date', note: 'start date, like 2026-06-14' },
+      { name: 'to', in: 'query', type: 'date', note: 'end date, like 2026-06-14' },
+    ],
+    reqType: '—',
+    req: null,
+    resType: 'StatementDto',
+    resStatus: '200 OK',
+    res: '{\n  "customerId": 187,\n  "opening": 0.00,\n  "closing": 224.91,\n  "lines": 3\n}',
+  },
+  {
+    verb: 'DELETE',
+    route: '/api/customers/{id}',
+    handler: 'CustomerController.Delete',
+    source: 'Api/CustomerController.vb',
+    kind: 'Web API',
+    params: [{ name: 'id', in: 'path', type: 'int', note: 'which customer to remove' }],
+    reqType: '—',
+    req: null,
+    resType: '—',
+    resStatus: '204 No Content',
+    res: '(empty body)',
+  },
+  {
+    verb: 'GET',
+    route: '/TaxService.asmx/GetVatRate',
+    handler: 'TaxService.GetVatRate',
+    source: 'Services/TaxService.asmx.vb',
+    kind: 'ASMX',
+    params: [
+      { name: 'countryCode', in: 'query', type: 'string', note: '2-letter country code, like GB' },
+    ],
+    reqType: 'SOAP request',
+    req: '<soap:Body>\n  <GetVatRate xmlns="http://vbgone/tax">\n    <countryCode>GB</countryCode>\n  </GetVatRate>\n</soap:Body>',
+    resType: 'decimal',
+    resStatus: '200 OK',
+    res: '<GetVatRateResult>0.20</GetVatRateResult>',
+  },
+]
+
 const MOCK_READINESS: Record<
   'singleReady' | 'singleBlocked' | 'portfolioMixed' | 'portfolioBlocked',
   ReadinessReport
@@ -559,6 +735,7 @@ const MOCK_READINESS: Record<
         ],
       },
     ],
+    restApis: MOCK_REST_APIS,
   },
   portfolioBlocked: {
     sessionId: MOCK_SESSION_ID,
