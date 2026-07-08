@@ -2,6 +2,7 @@ package com.vbgone.service;
 
 import com.vbgone.model.Bucket;
 import com.vbgone.model.ClassReadiness;
+import com.vbgone.model.MethodReadiness;
 import com.vbgone.model.MigrationSession;
 import com.vbgone.model.ReadinessReport;
 import com.vbgone.model.RestApiEndpoint;
@@ -28,6 +29,10 @@ class AssureAssessmentServiceTest {
 
     private ClassReadiness classNamed(ReadinessReport r, String name) {
         return r.classes().stream().filter(c -> c.name().equals(name)).findFirst().orElseThrow();
+    }
+
+    private MethodReadiness method(ClassReadiness c, String name) {
+        return c.methods().stream().filter(m -> m.name().equals(name)).findFirst().orElseThrow();
     }
 
     @Test
@@ -102,6 +107,89 @@ class AssureAssessmentServiceTest {
 
         ClassReadiness c = classNamed(service.assess("PaymentDialog.vb", vb), "PaymentDialog");
         assertThat(c.methods().get(0).bucket()).isEqualTo(Bucket.REFACTOR_FIRST);
+    }
+
+    @Test
+    void dataTableRows_isNotMistakenForControls_staysNetReady() {
+        // Regression: `.Rows` on an ADO.NET DataTable must not be read as a DataGridView.
+        String vb = """
+                Public Class OrderGateway
+                    Public Function HasQueue() As Boolean
+                        Dim q As New OrdersBLL
+                        Return q.GetQBQueue().Rows.Count > 0
+                    End Function
+                    Public Function FirstId(dt As DataTable) As Integer
+                        Return CInt(dt.Rows(0).Item("O_ID"))
+                    End Function
+                End Class
+                """;
+
+        ClassReadiness c = classNamed(service.assess("OrderGateway.vb", vb), "OrderGateway");
+        assertThat(c.bucket()).isEqualTo(Bucket.NET_READY);
+        assertThat(c.methods()).allMatch(m -> m.bucket() == Bucket.NET_READY);
+    }
+
+    @Test
+    void aspNetSessionState_isRefactorFirst_asWebHostCoupling() {
+        // Session/Application are the request-pipeline coupling that stops a method running headless.
+        String vb = """
+                Public Class QBService
+                    Public Function ClientVersion(v As String) As String
+                        Return v
+                    End Function
+                    Public Function GetLastError(ticket As String) As String
+                        Return CStr(Session("QBLastError"))
+                    End Function
+                    Public Function CacheItem(id As String) As Boolean
+                        Application("KartrisQBItemListID") = id
+                        Return True
+                    End Function
+                End Class
+                """;
+
+        ClassReadiness c = classNamed(service.assess("QBService.vb", vb), "QBService");
+        assertThat(c.bucket()).isEqualTo(Bucket.REFACTOR_FIRST);
+
+        MethodReadiness clientVersion = method(c, "ClientVersion");
+        assertThat(clientVersion.bucket()).isEqualTo(Bucket.NET_READY);
+
+        MethodReadiness lastError = method(c, "GetLastError");
+        assertThat(lastError.bucket()).isEqualTo(Bucket.REFACTOR_FIRST);
+        assertThat(lastError.reason()).contains("Session/Application");
+
+        assertThat(method(c, "CacheItem").bucket()).isEqualTo(Bucket.REFACTOR_FIRST);
+    }
+
+    @Test
+    void lowercaseResponseLocal_isNotMistakenForTheIntrinsic() {
+        // A `response` parameter (lowercase) must not trip the PascalCase Session/Response intrinsic check.
+        String vb = """
+                Public Class Parser
+                    Public Function Length(response As String) As Integer
+                        Return response.Length
+                    End Function
+                End Class
+                """;
+
+        ClassReadiness c = classNamed(service.assess("Parser.vb", vb), "Parser");
+        assertThat(c.methods().get(0).bucket()).isEqualTo(Bucket.NET_READY);
+    }
+
+    @Test
+    void gridTouchedViaDeclaredControlField_stillCountsAsUi() {
+        // Removing Rows/Cells from CONTROL_PROP must not lose grid detection when it's a declared field.
+        String vb = """
+                Public Class GridForm
+                    Inherits Form
+                    Private WithEvents grid As DataGridView
+                    Private Sub ClearAll()
+                        grid.Rows.Clear()
+                    End Sub
+                End Class
+                """;
+
+        ClassReadiness c = classNamed(service.assess("GridForm.vb", vb), "GridForm");
+        assertThat(method(c, "ClearAll").bucket()).isEqualTo(Bucket.REFACTOR_FIRST);
     }
 
     @Test
