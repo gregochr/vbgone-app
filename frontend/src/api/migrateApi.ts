@@ -210,6 +210,33 @@ export interface BaselineTestsResult {
   failures: TestFailure[]
 }
 
+/** One line of a repair diff: op is "+", "-" or " " (context). */
+export interface RepairDiffLine {
+  op: '+' | '-' | ' '
+  text: string
+}
+
+/**
+ * One escalating auto-repair attempt (Assure step 4). Because the suite runs against the
+ * untouched original, a red test means the test is wrong — this rewrites just that test to
+ * match the real observed behaviour, gates the rewrite, and re-runs it. `tag`: green (fixed),
+ * red (still failing → escalate), escalated (no valid edit at this tier), flag (value differs
+ * every run), nofix (no valid fix → quarantine).
+ */
+export interface RepairAttemptResult {
+  tier: string
+  role: 'mechanical' | 'reasoning' | 'escalation'
+  model: string
+  rationale: string
+  diff: RepairDiffLine[]
+  gate: { ok: boolean; note: string }
+  rerun: { green: boolean; note: string } | null
+  tag: 'green' | 'red' | 'escalated' | 'flag' | 'nofix'
+  /** The suite after this attempt (carries the rewrite forward to the next tier). */
+  code: string
+  netFaithful: boolean
+}
+
 export interface PullRequestResult {
   sessionId: string
   prUrl: string
@@ -1720,6 +1747,41 @@ public class OrderProcessor : IOrderProcessor
     return mockGreenNet(sessionId, className, code)
   },
 
+  async repairBaselineTest(
+    sessionId: string,
+    className: string,
+    code: string,
+    failingTest: string,
+    tier: number,
+    engine?: EngineParams,
+  ): Promise<RepairAttemptResult> {
+    void sessionId
+    void className
+    void engine
+    await delay(1100)
+    // Demo: a single deterministic-swap tier makes the baseline green again.
+    const role = tier === 1 ? 'mechanical' : tier === 3 ? 'escalation' : 'reasoning'
+    return {
+      tier: tier === 1 ? 'Mechanical' : tier === 3 ? 'Escalation' : 'Reasoning',
+      role,
+      model: `mock-${role}`,
+      rationale:
+        'The observed return is 13 — VB.NET CInt banker-rounds 9.9 to 10, so the “truncates” premise was wrong. Correcting the expected value and the misleading name.',
+      diff: [
+        { op: '-', text: 'Assert.AreEqual(12, result);   // 9.9 truncates to 9' },
+        { op: '+', text: 'Assert.AreEqual(13, result);   // CInt rounds 9.9 -> 10' },
+      ],
+      gate: {
+        ok: true,
+        note: `Still calls ${failingTest.split('_')[0]} and still checks the return value. Not a meaningless always-pass test.`,
+      },
+      rerun: { green: true, note: '23 / 23 passing against your untouched VB.NET.' },
+      tag: 'green',
+      code: code.replace('Assert.AreEqual(12', 'Assert.AreEqual(13'),
+      netFaithful: true,
+    }
+  },
+
   async assess(filename: string, content: string): Promise<ReadinessReport> {
     void content
     await delay(700) // a fast static scan
@@ -1887,6 +1949,25 @@ const realApi = {
     return data
   },
 
+  async repairBaselineTest(
+    sessionId: string,
+    className: string,
+    code: string,
+    failingTest: string,
+    tier: number,
+    engine?: EngineParams,
+  ): Promise<RepairAttemptResult> {
+    const { data } = await assureApi.post<RepairAttemptResult>('/repair', {
+      sessionId,
+      className,
+      code,
+      failingTest,
+      tier,
+      ...engine,
+    })
+    return data
+  },
+
   async assess(filename: string, content: string): Promise<ReadinessReport> {
     const { data } = await assureApi.post<ReadinessReport>('/assess', { filename, content })
     return data
@@ -1924,6 +2005,7 @@ export const uploadProject = active.uploadProject
 export const generateBaseline = active.generateBaseline
 export const runBaselineTests = active.runBaselineTests
 export const rerunBaselineTests = active.rerunBaselineTests
+export const repairBaselineTest = active.repairBaselineTest
 export const assess = active.assess
 export const assessProject = active.assessProject
 export const fetchCost = active.fetchCost

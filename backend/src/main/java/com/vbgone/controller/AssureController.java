@@ -6,6 +6,8 @@ import com.vbgone.model.BaselineResult;
 import com.vbgone.model.BaselineTestsResult;
 import com.vbgone.model.ClassRequest;
 import com.vbgone.model.ReadinessReport;
+import com.vbgone.model.RepairAttempt;
+import com.vbgone.model.RepairRequest;
 import com.vbgone.model.ZipManifest;
 import com.vbgone.service.AssureAssessmentService;
 import com.vbgone.service.AssureService;
@@ -70,5 +72,16 @@ public class AssureController {
     public BaselineTestsResult rerunBaselineTests(@RequestBody BaselineRerunRequest request) {
         return assureService.rerunBaselineTests(
                 request.sessionId(), request.className(), request.code());
+    }
+
+    /**
+     * Auto-repair one failing baseline test at the given tier (1 → mechanical, 2 → reasoning,
+     * 3 → escalation). Rewrites just that test to match the real observed behaviour, gates the
+     * rewrite, and re-runs it against the original VB. The frontend calls this once per tier,
+     * feeding the previous attempt's code forward, until it goes green or quarantines.
+     */
+    @PostMapping("/repair")
+    public RepairAttempt repair(@RequestBody RepairRequest request) {
+        return assureService.repairAttempt(request);
     }
 }

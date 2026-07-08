@@ -123,4 +123,29 @@ class AssureControllerTest {
                         .value("ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged"))
                 .andExpect(jsonPath("$.failures[0].message").value("Expected: 100 but was: 90"));
     }
+
+    @Test
+    void repair_returns200WithAnAttemptCard() throws Exception {
+        RepairAttempt attempt = new RepairAttempt("Mechanical", "mechanical", "claude-haiku-4-5",
+                "CInt banker-rounds 9.9 to 10, so the truncates premise was wrong.",
+                List.of(new RepairAttempt.DiffLine("-", "Assert.AreEqual(12, result);"),
+                        new RepairAttempt.DiffLine("+", "Assert.AreEqual(13, result);")),
+                new RepairAttempt.Gate(true, "Still calls PlaceOrder and still checks the return value."),
+                new RepairAttempt.Rerun(true, "23 / 23 passing against your untouched VB.NET."),
+                "green", "[TestClass] public class OrderProcessorBaseline {}", true);
+        when(assureService.repairAttempt(any())).thenReturn(attempt);
+
+        mockMvc.perform(post("/api/assure/repair")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new RepairRequest(SESSION_ID,
+                                "OrderProcessor", "anthropic", "csharp", java.util.Map.of(),
+                                "[TestClass]...", "PlaceOrder_TotalWithFraction_TruncatesToInt", 1))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tier").value("Mechanical"))
+                .andExpect(jsonPath("$.tag").value("green"))
+                .andExpect(jsonPath("$.netFaithful").value(true))
+                .andExpect(jsonPath("$.gate.ok").value(true))
+                .andExpect(jsonPath("$.rerun.green").value(true))
+                .andExpect(jsonPath("$.diff[1].op").value("+"));
+    }
 }
