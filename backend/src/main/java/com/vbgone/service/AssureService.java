@@ -141,6 +141,8 @@ public class AssureService {
         BuildResult build = runSuite(session, request.className(), newCode);
         boolean green = build.buildStatus() == BuildStatus.GREEN && build.total() > 0;
         if (green) {
+            // The repaired suite now passes against the original — retain it for download.
+            session.putBaselineSuite(request.className(), session.getBaselineSuite());
             RepairAttempt.Rerun rerun = new RepairAttempt.Rerun(true,
                     build.passed() + " / " + build.total() + " passing against your untouched VB.NET.");
             return new RepairAttempt(tierName, role.name().toLowerCase(), modelId, plan.rationale(),
@@ -369,6 +371,10 @@ public class AssureService {
         BuildResult build = runner.run(session, className, suite);
         session.setNetBuild(build);
         boolean netFaithful = build.buildStatus() == BuildStatus.GREEN && build.total() > 0;
+
+        // Once the suite passes against the untouched original, retain it per class so the whole
+        // assured portfolio can be downloaded as one MSTest project (see AssureArtifactService).
+        if (netFaithful) session.putBaselineSuite(className, suite);
 
         // Pair each failing test with its assertion message so the red state is actionable.
         Map<String, String> messages = session.getFailureMessages();

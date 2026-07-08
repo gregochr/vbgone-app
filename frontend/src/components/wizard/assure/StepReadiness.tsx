@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { WizardState } from '../WizardShell'
-import { assess, assessProject } from '../../../api/migrateApi'
+import {
+  assess,
+  assessProject,
+  downloadClassTests,
+  downloadTestsBundle,
+} from '../../../api/migrateApi'
 import type { ClassReadiness, ReadinessReport, RestApiEndpoint } from '../../../api/migrateApi'
 import { BUCKETS } from '../../../config/engine'
 import type { Bucket } from '../../../config/engine'
@@ -37,6 +42,7 @@ export function StepReadiness({ state, update, onReady, onAssureClass }: Props) 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   const netted = state.netted ?? []
+  const assuredGreen = state.assuredGreen ?? []
 
   const subtitleFor = (r: ReadinessReport) => {
     const t = r.totals
@@ -135,7 +141,16 @@ export function StepReadiness({ state, update, onReady, onAssureClass }: Props) 
     if (usable)
       return (
         <PortfolioReport
-          {...{ report: report!, filter, setFilter, expanded, setExpanded, netted, onAssureClass }}
+          {...{
+            report: report!,
+            filter,
+            setFilter,
+            expanded,
+            setExpanded,
+            netted,
+            assuredGreen,
+            onAssureClass,
+          }}
         />
       )
     if (scanning && !scannedEmpty) {
@@ -305,6 +320,8 @@ interface ReportProps {
   expanded: Record<string, boolean>
   setExpanded: (e: Record<string, boolean>) => void
   netted: string[]
+  /** Subset of netted whose baseline went green — the classes with a downloadable suite. */
+  assuredGreen: string[]
   onAssureClass?: (name: string) => void
 }
 
@@ -315,9 +332,11 @@ function PortfolioReport({
   expanded,
   setExpanded,
   netted,
+  assuredGreen,
   onAssureClass,
 }: ReportProps) {
   const t = report.totals
+  const sessionId = report.sessionId
   const methodsLabel = t.methods.toLocaleString('en-US')
   const pctN = Math.round((t.methodNetReady / t.methods) * 100)
   const pctW = Math.round((t.methodWindowsGated / t.methods) * 100)
@@ -353,6 +372,13 @@ function PortfolioReport({
     (c) => c.bucket === 'net-ready' && !netted.includes(c.name),
   )?.name
   const blocked = t.netReady === 0
+  // Every ready class is assured: the panel flips from a "keep going" CTA to a download-the-suite one.
+  const allAssured = remaining === 0 && nettedReady > 0
+  // Downloadable = net-ready classes whose baseline actually went green (a suite exists server-side).
+  // This is a subset of the netted queue, which also holds classes left early or quarantined.
+  const downloadableCount = report.classes.filter(
+    (c) => c.bucket === 'net-ready' && assuredGreen.includes(c.name),
+  ).length
 
   const toggle = (name: string) => setExpanded({ ...expanded, [name]: !expanded[name] })
 
@@ -431,9 +457,21 @@ function PortfolioReport({
         <div className="assure-progress-card" data-testid="queue-progress">
           <div className="assure-progress-head">
             <span className="assure-progress-title">Assurance progress</span>
-            <span className="assure-progress-count">
-              {nettedReady} / {t.netReady} assured
-            </span>
+            <div className="assure-progress-head-right">
+              <span className="assure-progress-count">
+                {nettedReady} / {t.netReady} assured
+              </span>
+              {downloadableCount > 0 && (
+                <button
+                  type="button"
+                  className="btn-download"
+                  title="Download every assured class's test suite as a zip"
+                  onClick={() => downloadTestsBundle(sessionId)}
+                >
+                  ↓ Download all tests ({downloadableCount})
+                </button>
+              )}
+            </div>
           </div>
           <div className="assure-progress-track">
             <div className="assure-progress-fill" style={{ width: queuePct }} />
@@ -477,7 +515,19 @@ function PortfolioReport({
                 </div>
                 <div className="class-action" onClick={(e) => e.stopPropagation()}>
                   {isNetted ? (
-                    <span className="assured-chip">✓ Assured</span>
+                    <div className="class-action-netted">
+                      <span className="assured-chip">✓ Assured</span>
+                      {assuredGreen.includes(c.name) && (
+                        <button
+                          type="button"
+                          className="btn-download"
+                          title={`Download ${c.name}Tests.cs`}
+                          onClick={() => downloadClassTests(sessionId, c.name)}
+                        >
+                          ↓ tests
+                        </button>
+                      )}
+                    </div>
                   ) : isReady ? (
                     <button className="btn-plex btn-sm" onClick={() => onAssureClass?.(c.name)}>
                       Assure this class →
@@ -523,6 +573,26 @@ function PortfolioReport({
               runner for the methods that are clean but stuck in the UI.
             </div>
           </div>
+        </div>
+      ) : allAssured ? (
+        <div className="proceed-panel" data-testid="proceed-panel">
+          <div>
+            <div className="proceed-title">All ready classes assured</div>
+            <div className="proceed-desc">
+              {downloadableCount > 0
+                ? `${downloadableCount} baseline test ${downloadableCount === 1 ? 'suite' : 'suites'} recorded against your untouched VB.NET. Download them as a runnable MSTest project to drop into your own CI — or grab any single class from its row above.`
+                : 'Every ready class has been through the baseline flow, but none produced a faithful suite to download yet — revisit any class to re-run its baseline.'}
+            </div>
+          </div>
+          {downloadableCount > 0 && (
+            <button
+              type="button"
+              className="btn-plex"
+              onClick={() => downloadTestsBundle(sessionId)}
+            >
+              ↓ Download all tests (.zip)
+            </button>
+          )}
         </div>
       ) : (
         <div className="proceed-panel" data-testid="proceed-panel">

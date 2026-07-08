@@ -154,6 +154,42 @@ class AssureRepairTest {
     }
 
     @Test
+    void repairAttempt_greenRepairRecordsTheClassSuiteForDownload() {
+        MigrationSession session = session();
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(ai("""
+                        {"rationale":"CInt banker-rounds 9.9 to 10, so the truncates premise was wrong.",
+                         "newTest":"[TestMethod]\\npublic void PlaceOrder_TotalWithFraction_RoundsToInt()\\n{\\n    var sut = new OrderProcessor();\\n    int result = sut.PlaceOrder(3, 9.9m);\\n    Assert.AreEqual(13, result);\\n}",
+                         "noEdit":false}"""));
+        when(runner.run(any(), anyString(), any())).thenReturn(build(BuildStatus.GREEN, 23, 23, 0));
+
+        RepairAttempt attempt = service.repairAttempt(request(1));
+
+        // A repaired-green class becomes downloadable: its corrected suite is retained per class.
+        assertThat(session.getBaselineSuites()).containsKey("OrderProcessor");
+        assertThat(session.getBaselineSuites().get("OrderProcessor").code())
+                .isEqualTo(attempt.code());
+    }
+
+    @Test
+    void repairAttempt_quarantinedClassIsNotRecordedForDownload() {
+        MigrationSession session = session();
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(ai("""
+                        {"rationale":"still wrong",
+                         "newTest":"[TestMethod]\\npublic void PlaceOrder_TotalWithFraction_RoundsToInt()\\n{\\n    var sut = new OrderProcessor();\\n    int result = sut.PlaceOrder(3, 9.9m);\\n    Assert.AreEqual(13, result);\\n}",
+                         "noEdit":false}"""));
+        when(runner.run(any(), anyString(), any())).thenReturn(build(BuildStatus.RED, 23, 22, 1));
+
+        service.repairAttempt(request(1));
+
+        // A still-red (headed-for-quarantine) repair leaves nothing downloadable.
+        assertThat(session.getBaselineSuites()).doesNotContainKey("OrderProcessor");
+    }
+
+    @Test
     void repairAttempt_escalatesWithoutRunningWhenTheModelReportsNoEdit() {
         MigrationSession session = session();
         when(sessionStore.get("s1")).thenReturn(Optional.of(session));

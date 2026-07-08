@@ -308,6 +308,12 @@ export interface WizardState {
   netFaithful: boolean
   /** Portfolio queue: class names assured so far, and whether we drilled in from the report. */
   netted: string[]
+  /**
+   * Subset of {@link netted} whose baseline actually went green (initial pass or a successful
+   * repair) — i.e. the classes the backend recorded a downloadable suite for. Gates the
+   * test-suite download touchpoints, since `netted` also holds classes left early or quarantined.
+   */
+  assuredGreen?: string[]
   fromQueue: boolean
 }
 
@@ -330,6 +336,7 @@ const initialState: WizardState = {
   baselineTests: null,
   netFaithful: true,
   netted: [],
+  assuredGreen: [],
   fromQueue: false,
 }
 

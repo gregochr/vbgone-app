@@ -2,6 +2,7 @@ package com.vbgone.model;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +30,13 @@ public class MigrationSession {
     private BaselineResult baselineResult;
     private TestsResult baselineSuite;
     private BuildResult netBuild;
+    /**
+     * The faithful (green) MSTest baseline suite recorded per assured class, keyed by class name.
+     * Unlike {@link #baselineSuite} (a single field overwritten on every run/rerun/repair), this
+     * retains every class the user has assured so the whole portfolio's suites can be downloaded
+     * as one MSTest project. Insertion-ordered so the bundle is deterministic.
+     */
+    private final Map<String, TestsResult> baselineSuites = new LinkedHashMap<>();
     private final List<TokenUsage> tokenUsages = new ArrayList<>();
     private final Map<String, String> failureMessages = new HashMap<>();
 
@@ -82,6 +90,12 @@ public class MigrationSession {
 
     public BuildResult getNetBuild() { return netBuild; }
     public void setNetBuild(BuildResult netBuild) { this.netBuild = netBuild; }
+
+    /** Faithful baseline suites recorded per assured class (insertion-ordered), for download. */
+    public Map<String, TestsResult> getBaselineSuites() { return baselineSuites; }
+    public void putBaselineSuite(String className, TestsResult suite) {
+        baselineSuites.put(className, suite);
+    }
 
     public List<TokenUsage> getTokenUsages() { return tokenUsages; }
     public void addTokenUsage(TokenUsage usage) { tokenUsages.add(usage); }

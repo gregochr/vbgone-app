@@ -75,8 +75,20 @@ export function Step4BaselineTests({
     if (state.baselineTests) onReady()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A class is downloadable only once its baseline actually goes green — the backend records a
+  // suite for it only then (see AssureService.executeSuite / repair). `netted` alone isn't enough:
+  // it also holds classes left early or quarantined, which have no suite to download.
+  const withClass = (list: string[], name: string) =>
+    !name || list.includes(name) ? list : [...list, name]
+
   const applyResult = (result: import('../../../api/migrateApi').BaselineTestsResult) => {
-    update({ baselineTests: result, netFaithful: result.netFaithful })
+    update({
+      baselineTests: result,
+      netFaithful: result.netFaithful,
+      ...(result.netFaithful
+        ? { assuredGreen: withClass(state.assuredGreen ?? [], className) }
+        : {}),
+    })
     setLoading(false)
     onReady()
   }
@@ -182,7 +194,11 @@ export function Step4BaselineTests({
     // Persist the corrected suite so the code panel keeps it; leave netFaithful for the loop's
     // own banner to report (flipping it here would swap the cards for the plain green view).
     if (state.baselineTests) update({ baselineTests: { ...state.baselineTests, code } })
-    if (outcome === 'succeeded') onReady()
+    if (outcome === 'succeeded') {
+      // A repaired-green class is now downloadable (its suite is recorded server-side).
+      update({ assuredGreen: withClass(state.assuredGreen ?? [], className) })
+      onReady()
+    }
   }
 
   const header = (

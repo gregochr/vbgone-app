@@ -3,6 +3,7 @@ package com.vbgone.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vbgone.config.RateLimitFilter;
 import com.vbgone.model.*;
+import com.vbgone.service.AssureArtifactService;
 import com.vbgone.service.AssureAssessmentService;
 import com.vbgone.service.AssureService;
 import org.junit.jupiter.api.Test;
@@ -10,15 +11,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -40,6 +48,9 @@ class AssureControllerTest {
 
     @MockitoBean
     private com.vbgone.service.ZipExtractorService zipExtractorService;
+
+    @MockitoBean
+    private AssureArtifactService artifactService;
 
     private static final String SESSION_ID = "s-assure";
 
@@ -147,5 +158,53 @@ class AssureControllerTest {
                 .andExpect(jsonPath("$.gate.ok").value(true))
                 .andExpect(jsonPath("$.rerun.green").value(true))
                 .andExpect(jsonPath("$.diff[1].op").value("+"));
+    }
+
+    @Test
+    void classTests_returnsCsFileAsAttachment() throws Exception {
+        String code = "[TestClass] public class OrderProcessorBaseline { }";
+        when(artifactService.classTestFile(SESSION_ID, "OrderProcessor"))
+                .thenReturn(new AssureArtifactService.TestFileArtifact("OrderProcessorTests.cs", code));
+
+        mockMvc.perform(get("/api/assure/{sessionId}/tests/{className}", SESSION_ID, "OrderProcessor"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_PLAIN))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
+                        org.hamcrest.Matchers.containsString("attachment")))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
+                        org.hamcrest.Matchers.containsString("OrderProcessorTests.cs")))
+                .andExpect(content().string(code));
+    }
+
+    @Test
+    void classTests_unknownClass_is404() throws Exception {
+        when(artifactService.classTestFile(SESSION_ID, "Ghost"))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "no suite"));
+
+        mockMvc.perform(get("/api/assure/{sessionId}/tests/{className}", SESSION_ID, "Ghost"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testsBundle_returnsZipAsAttachment() throws Exception {
+        byte[] zip = "PK-fake-zip-bytes".getBytes(StandardCharsets.UTF_8);
+        when(artifactService.bundleZip(SESSION_ID)).thenReturn(zip);
+        when(artifactService.bundleFileName()).thenReturn("VBGone-Assure-Tests.zip");
+
+        mockMvc.perform(get("/api/assure/{sessionId}/tests.zip", SESSION_ID))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.parseMediaType("application/zip")))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
+                        org.hamcrest.Matchers.containsString("VBGone-Assure-Tests.zip")))
+                .andExpect(content().bytes(zip));
+    }
+
+    @Test
+    void testsBundle_noAssuredClasses_is404() throws Exception {
+        when(artifactService.bundleZip(SESSION_ID))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "nothing assured"));
+
+        mockMvc.perform(get("/api/assure/{sessionId}/tests.zip", SESSION_ID))
+                .andExpect(status().isNotFound());
     }
 }
