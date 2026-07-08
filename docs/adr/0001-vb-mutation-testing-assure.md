@@ -1,6 +1,6 @@
 # ADR-0001: Mutation testing for the Assure characterisation net (VB.NET)
 
-**Status:** Proposed
+**Status:** Accepted — implemented in PR #39 (bootstrap token-level generator; Roslyn VB still pending)
 **Date:** 2026-07-08
 **Deciders:** Chris (project owner); backend maintainers
 **Related:** `VbCharacterisationRunner`, `CoverageParser` (line/branch coverage, PR #35), the throwaway proof at [`spike/vb-mutation/`](../../spike/vb-mutation/README.md)
@@ -132,9 +132,9 @@ GET  /api/assure/mutation-test/{jobId}                    → { status, done/tot
 
 ## Action Items
 
-1. [ ] Land the throwaway spike (Option C, one operator, `GetDiscountTier`) to prove killed vs survived end-to-end on the sidecar — see [`spike/vb-mutation/`](../../spike/vb-mutation/README.md).
-2. [ ] Extract a suite-runnable core from `VbCharacterisationRunner` that takes (VB source, suite) and returns GREEN/RED, so the mutation job can call it per mutant without Spring wiring.
-3. [ ] Build the token-level generator with the boundary/boolean/arithmetic operators and string/comment exclusion.
-4. [ ] Add the async job (endpoints, job store, worker pool, streamed progress) with a baseline-must-be-green precondition.
-5. [ ] UI: mutation-score readout + surviving-mutant list on the Assure result, attributed and non-gating.
-6. [ ] Later: swap the generator to Roslyn VB (Option B); evaluate surfacing Stryker score on the Migration path.
+1. [x] Land the throwaway spike (Option C, one operator, `GetDiscountTier`) to prove killed vs survived end-to-end on the sidecar — see [`spike/vb-mutation/`](../../spike/vb-mutation/README.md). *(PR #37)*
+2. [x] Extract a suite-runnable core from `VbCharacterisationRunner` that takes (VB source, suite) and returns GREEN/RED, so the mutation job can call it per mutant without Spring wiring. *(`runAgainstSource`, PR #39)*
+3. [x] Build the token-level generator with the boundary/boolean/arithmetic operators and string/comment exclusion. *(`VbMutator` behind `MutantGenerator`, PR #39)*
+4. [x] Add the async job (endpoints, job store, worker pool, streamed progress) with a baseline-must-be-green precondition. *(single-worker executor + polled status, PR #39)*
+5. [x] UI: mutation-score readout + surviving-mutant list on the Assure result, attributed and non-gating. *(`MutationPanel`, PR #39)*
+6. [ ] Later: swap the generator to Roslyn VB (Option B); scope mutations to the class under test in a multi-class subset; evaluate surfacing Stryker score on the Migration path.
