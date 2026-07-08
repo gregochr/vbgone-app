@@ -19,8 +19,9 @@ import { realApi, surfaceErrorBody } from './client'
 
 describe('surfaceErrorBody', () => {
   it('unwraps a { error } response body into an Error message', async () => {
-    await expect(surfaceErrorBody({ response: { data: { error: 'Interface must be generated first' } } }))
-      .rejects.toThrow('Interface must be generated first')
+    await expect(
+      surfaceErrorBody({ response: { data: { error: 'Interface must be generated first' } } }),
+    ).rejects.toThrow('Interface must be generated first')
   })
 
   it('passes the original error through when the body has no string error field', async () => {
@@ -55,7 +56,10 @@ describe('realApi', () => {
 
     const result = await realApi.analyse('Form1.vb', 'Public Class Form1')
 
-    expect(h.post).toHaveBeenCalledWith('/analyse', { filename: 'Form1.vb', content: 'Public Class Form1' })
+    expect(h.post).toHaveBeenCalledWith('/analyse', {
+      filename: 'Form1.vb',
+      content: 'Public Class Form1',
+    })
     expect(result).toEqual({ sessionId: 's1', classes: [] })
   })
 
