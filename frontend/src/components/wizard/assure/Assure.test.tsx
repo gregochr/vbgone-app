@@ -237,25 +237,26 @@ describe('Step4BaselineTests', () => {
     expect(screen.getByText('You now have a safety net of tests')).toBeInTheDocument()
   })
 
-  it('lists the failing tests and offers Edit tests & re-run when a run is red', () => {
-    const drifted: BaselineTestsResult = {
-      ...mockBaselineTests,
-      netFaithful: false,
-      build: {
-        ...mockBaselineTests.build,
-        buildStatus: 'RED',
-        passed: 41,
-        failed: 2,
-        failedTests: ['ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged'],
+  const driftedTests = (): BaselineTestsResult => ({
+    ...mockBaselineTests,
+    netFaithful: false,
+    build: {
+      ...mockBaselineTests.build,
+      buildStatus: 'RED',
+      passed: 41,
+      failed: 2,
+      failedTests: ['ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged'],
+    },
+    failures: [
+      {
+        name: 'ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged',
+        message: 'Expected: 100 but was: 90',
       },
-      failures: [
-        {
-          name: 'ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged',
-          message: 'Expected: 100 but was: 90',
-        },
-      ],
-    }
-    const state = { ...baseState, baselineTests: drifted, netFaithful: false }
+    ],
+  })
+
+  it('lists the failing tests and offers auto-repair (or a manual edit) on a genuine red run', () => {
+    const state = { ...baseState, baselineTests: driftedTests(), netFaithful: false }
     renderWithConfig(<Step4BaselineTests state={state} update={() => {}} onReady={() => {}} />)
 
     expect(screen.getByTestId('net-banner-red')).toBeInTheDocument()
@@ -265,11 +266,40 @@ describe('Step4BaselineTests', () => {
       screen.getByText('ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged'),
     ).toBeInTheDocument()
     expect(screen.getByText('Expected: 100 but was: 90')).toBeInTheDocument()
-    // The action makes the intent clear (edit, not just re-run) and the closing panel is hidden.
-    expect(screen.getByText('Edit tests & re-run')).toBeInTheDocument()
-    expect(screen.queryByText('Re-run suite')).not.toBeInTheDocument()
+    // Auto-repair is the primary response; a manual edit-and-re-run is the fallback.
+    expect(screen.getByText('Auto-repair · up to 3 attempts')).toBeInTheDocument()
+    expect(screen.getByText('Edit manually & re-run')).toBeInTheDocument()
     expect(screen.queryByTestId('baseline-closing')).not.toBeInTheDocument()
   })
+
+  it('runs the real backend repair loop on a genuine red run and reports a repaired baseline', async () => {
+    // In tests the API is mocked (VITE_USE_MOCKS), so repairBaselineTest returns a green fix.
+    const user = userEvent.setup()
+    function Harness() {
+      const [s, setS] = useState<WizardState>({
+        ...baseState,
+        baselineTests: driftedTests(),
+        netFaithful: false,
+      })
+      return (
+        <Step4BaselineTests
+          state={s}
+          update={(p) => setS((prev) => ({ ...prev, ...p }))}
+          onReady={() => {}}
+        />
+      )
+    }
+    renderWithConfig(<Harness />)
+
+    await user.click(screen.getByText('Auto-repair · up to 3 attempts'))
+
+    // The attempt card and the repaired banner appear once the (mocked) backend responds.
+    // The mock repair call is deliberately slow, so poll past its delay.
+    expect(await screen.findByTestId('repair-loop')).toBeInTheDocument()
+    const banner = await screen.findByTestId('repair-succeeded', undefined, { timeout: 4000 })
+    expect(banner).toHaveTextContent(/BASELINE REPAIRED/)
+    expect(screen.getByTestId('baseline-closing')).toBeInTheDocument()
+  }, 8000)
 
   it('shows a distinct "0 runnable tests" state (not drift) and offers re-generation', () => {
     // The suite compiled and ran (no errors), but MSTest discovered 0 tests — total 0/0.

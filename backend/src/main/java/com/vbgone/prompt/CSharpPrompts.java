@@ -135,6 +135,50 @@ public class CSharpPrompts implements PromptLanguage {
                 + "Original VB.NET behaviour:\n" + vbSource;
     }
 
+    /**
+     * Assure auto-repair — rewrites ONE failing characterisation test to match the real observed
+     * behaviour of the untouched original. The model is grounded on the actual runner output
+     * (Expected/Actual or the thrown type) and must not guess the "right" answer or touch the code
+     * under test. It returns strict JSON so the service can gate, splice and re-run the result.
+     */
+    public static final String REPAIR_SYSTEM_PROMPT = """
+            You repair ONE failing MSTest characterisation test. The class under test is the \
+            user's ORIGINAL, UNMODIFIED VB.NET — so a failing test can only mean the TEST is wrong, \
+            never the code. Rewrite the test to match the REAL observed behaviour shown in the \
+            runner output (the actual returned value, or the exact exception type thrown). Do NOT \
+            change the code under test. Do NOT guess an idealised answer — match what actually \
+            happened.
+
+            Hard rules:
+            - Keep the SAME method under test and the SAME inputs. Only the assertion (and, if it \
+            becomes misleading, the test name/comment) may change.
+            - Keep a REAL assertion on the return value or thrown exception. Never write a \
+            meaningless always-pass test (Assert.IsTrue(true), a deleted assert, a swallowing \
+            try/catch).
+            - If a value was expected but the code THREW, switch to Assert.ThrowsException<T> with \
+            the EXACT exception type from the output. If the code returned a different value, swap \
+            the expected literal to the observed one.
+            - If there is no valid single-test edit that matches the observed behaviour (e.g. the \
+            value is different on every run), set "noEdit": true and explain why — do NOT fake a pass.
+
+            Return STRICT JSON only, no markdown:
+            {"rationale": "one or two plain sentences", "newTest": "the full rewritten [TestMethod] \
+            method, or empty string if noEdit", "noEdit": false}""";
+
+    /**
+     * Assure auto-repair user message for a single tier. Carries the failing test as it stands,
+     * the method under test's VB source, and the exact runner output to ground the rewrite.
+     */
+    public String repairUserMessage(String failingTest, String currentTest, String vbSource,
+                                    String observed, String tierGuidance) {
+        return "Repair the failing test `" + failingTest + "`.\n\n"
+                + "Runner output (the REAL observed behaviour to match):\n"
+                + (observed == null || observed.isBlank() ? "(no message captured)" : observed) + "\n\n"
+                + "The failing test as it stands now:\n" + currentTest + "\n\n"
+                + "The original VB.NET under test (do NOT change it):\n" + vbSource + "\n\n"
+                + tierGuidance;
+    }
+
     /** Counts MSTest test methods ([TestMethod] / [DataTestMethod]). */
     public int countMsTests(String code) {
         if (code == null) return 0;

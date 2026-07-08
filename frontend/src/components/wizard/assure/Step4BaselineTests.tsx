@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { WizardState } from '../WizardShell'
-import { runBaselineTests, rerunBaselineTests } from '../../../api/migrateApi'
+import { runBaselineTests, rerunBaselineTests, repairBaselineTest } from '../../../api/migrateApi'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { CodeBlock } from '../CodeBlock'
 import { useWizardConfig } from '../../../config/WizardConfigContext'
@@ -81,6 +81,10 @@ export function Step4BaselineTests({
   const [repairOutcome, setRepairOutcome] = useState<'succeeded' | 'quarantined' | null>(null)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
 
+  // ── Real auto-repair state (a genuine red run drives the backend loop, not the demo) ──
+  const [realRepairStarted, setRealRepairStarted] = useState(false)
+  const [realRepairCode, setRealRepairCode] = useState<string | null>(null)
+
   const className =
     state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
     state.analysis?.classes[0]?.name ??
@@ -130,6 +134,82 @@ export function Step4BaselineTests({
     setRepairLog([])
     setRepairRunning(false)
     setRepairOutcome(null)
+    setRealRepairStarted(false)
+    setRealRepairCode(null)
+  }
+
+  // Escalating tiers: mechanical (cheap swap) → reasoning (restructure) → escalation (exact type).
+  const TIER_ROLES = ['mechanical', 'reasoning', 'escalation'] as const
+
+  /**
+   * Real auto-repair on a genuine red run: call the backend once per tier, feeding the previous
+   * attempt's code forward, rendering each card as it settles. Stops on the first green attempt;
+   * three non-green attempts (or a value that differs every run) end in quarantine. The backend
+   * owns the actual rewrite, the validity gate and the re-run — this only orchestrates the loop.
+   */
+  const startRealRepair = async (failingTest: string) => {
+    if (!state.baselineTests) return
+    resetRepair()
+    setRealRepairStarted(true)
+    setRepairRunning(true)
+    let code = state.baselineTests.code
+    let outcome: 'succeeded' | 'quarantined' = 'quarantined'
+    try {
+      for (let tier = 1; tier <= 3; tier++) {
+        const role = TIER_ROLES[tier - 1]
+        setRepairLog((log) => [
+          ...log,
+          {
+            tier: role.charAt(0).toUpperCase() + role.slice(1),
+            role,
+            rationale: '',
+            diff: [],
+            gate: { ok: true, note: '' },
+            rerun: null,
+            tag: 'red',
+            status: 'running',
+          },
+        ])
+        const attempt = await repairBaselineTest(
+          sessionId,
+          className,
+          code,
+          failingTest,
+          tier,
+          engineParams,
+        )
+        code = attempt.code
+        setRealRepairCode(code)
+        setRepairLog((log) => {
+          const next = log.slice()
+          next[next.length - 1] = {
+            tier: attempt.tier,
+            role: attempt.role,
+            rationale: attempt.rationale,
+            diff: attempt.diff,
+            gate: attempt.gate,
+            rerun: attempt.rerun,
+            tag: attempt.tag,
+            status: 'done',
+          }
+          return next
+        })
+        if (attempt.netFaithful) {
+          outcome = 'succeeded'
+          break
+        }
+      }
+    } catch (err) {
+      setRepairRunning(false)
+      setError(err instanceof Error ? err.message : 'Auto-repair failed')
+      return
+    }
+    setRepairRunning(false)
+    setRepairOutcome(outcome)
+    // Persist the corrected suite so the code panel keeps it; leave netFaithful for the loop's
+    // own banner to report (flipping it here would swap the cards for the plain green view).
+    if (state.baselineTests) update({ baselineTests: { ...state.baselineTests, code } })
+    if (outcome === 'succeeded') onReady()
   }
 
   const simulateFailedRun = () => {
@@ -415,6 +495,17 @@ export function Step4BaselineTests({
     )
   }
 
+  // A genuine red run (compiled, tests discovered, ≥1 real failure) drives the auto-repair loop;
+  // compile errors and empty suites keep their own distinct manual paths.
+  const firstFailing = tests.failures[0]?.name ?? ''
+  const genuineDrift = !faithful && !compileError && !noTests
+  const canAutoRepair = genuineDrift && firstFailing !== ''
+  const repairSucceeded = repairOutcome === 'succeeded'
+  const repairQuarantined = repairOutcome === 'quarantined'
+  const showTopRedBanner = !faithful && !(genuineDrift && realRepairStarted)
+  const showClosing = faithful || (genuineDrift && repairSucceeded)
+  const codePanelCode = realRepairCode ?? tests.code
+
   return (
     <div>
       {header}
@@ -436,31 +527,34 @@ export function Step4BaselineTests({
           </button>
         </div>
       ) : (
-        <div className="net-banner net-red" data-testid="net-banner-red">
-          <span className="net-banner-label">{'▲'} TESTS FAILED</span>
-          <div className="net-banner-body">
-            {compileError ? (
-              <span className="net-banner-text">
-                The tests or the original VB didn't compile against the CLR, so we couldn't record
-                how it behaves. This is <strong>not a pass</strong> — fix the issue below and
-                re-run.
-              </span>
-            ) : noTests ? (
-              <span className="net-banner-text" data-testid="net-no-tests">
-                The suite compiled and ran, but MSTest discovered <strong>0 runnable tests</strong>{' '}
-                — so there's nothing recorded yet. This isn't a wrong test and there's nothing to
-                fix; it's an empty suite. <strong>Re-generate the suite</strong> and run it again.
-              </span>
-            ) : (
-              <span className="net-banner-text">
-                {failed} / {total} failed against your <strong>untouched</strong> original. The test
-                expects behaviour the code doesn't actually have — so{' '}
-                <strong>the test is wrong, not your code</strong>. Fix the flagged test(s) below,
-                then re-run.
-              </span>
-            )}
+        showTopRedBanner && (
+          <div className="net-banner net-red" data-testid="net-banner-red">
+            <span className="net-banner-label">{'▲'} TESTS FAILED</span>
+            <div className="net-banner-body">
+              {compileError ? (
+                <span className="net-banner-text">
+                  The tests or the original VB didn't compile against the CLR, so we couldn't record
+                  how it behaves. This is <strong>not a pass</strong> — fix the issue below and
+                  re-run.
+                </span>
+              ) : noTests ? (
+                <span className="net-banner-text" data-testid="net-no-tests">
+                  The suite compiled and ran, but MSTest discovered{' '}
+                  <strong>0 runnable tests</strong> — so there's nothing recorded yet. This isn't a
+                  wrong test and there's nothing to fix; it's an empty suite.{' '}
+                  <strong>Re-generate the suite</strong> and run it again.
+                </span>
+              ) : (
+                <span className="net-banner-text">
+                  {failed} / {total} failed against your <strong>untouched</strong> original. The
+                  test expects behaviour the code doesn't actually have — so{' '}
+                  <strong>the test is wrong, not your code</strong>. Auto-repair rewrites the
+                  failing test to match what the code does.
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {/* Compile failure — explain Assure's precondition (runs on its own), tailored to cause. */}
@@ -489,8 +583,9 @@ export function Step4BaselineTests({
         </div>
       )}
 
-      {/* Failing tests (or compile errors) — the actionable detail behind the headline. */}
-      {!faithful && (compileError ? tests.build.errors.length > 0 : tests.failures.length > 0) && (
+      {/* Failing tests (or compile errors) — the actionable detail, until a repair takes over. */}
+      {((compileError && tests.build.errors.length > 0) ||
+        (genuineDrift && !realRepairStarted && tests.failures.length > 0)) && (
         <div className="failed-tests" data-testid="failed-tests">
           <div className="failed-tests-head">
             {compileError ? 'COMPILE ERRORS' : 'FAILED TESTS'}
@@ -510,13 +605,59 @@ export function Step4BaselineTests({
         </div>
       )}
 
+      {/* Auto-repair action row — a genuine red run, before the loop starts. */}
+      {canAutoRepair && !realRepairStarted && (
+        <>
+          <div className="repair-action-row">
+            <button className="btn-plex" onClick={() => startRealRepair(firstFailing)}>
+              Auto-repair · up to 3 attempts
+            </button>
+            <button className="btn-ghost" onClick={rerunSuite}>
+              Edit manually &amp; re-run
+            </button>
+          </div>
+          <div className="repair-caption">
+            Auto-repair changes only the failing test to match what the code actually does — the
+            passing tests stay untouched. Every edit is checked (no meaningless always-pass tests;
+            same method &amp; inputs) and logged.
+          </div>
+        </>
+      )}
+
+      {/* The real backend loop: attempt cards, then the succeeded or quarantine outcome. */}
+      {genuineDrift && realRepairStarted && (
+        <>
+          <RepairLoop
+            test={firstFailing}
+            log={repairLog}
+            total={3}
+            provider={provider}
+            overrides={modelOverrides}
+          />
+          {repairSucceeded && <RepairedBanner test={firstFailing} />}
+          {repairQuarantined && (
+            <QuarantineReal
+              test={firstFailing}
+              fromQueue={fromQueue}
+              onAssureNext={onAssureNext}
+              onBackToReadiness={onBackToReadiness}
+            />
+          )}
+        </>
+      )}
+
       <div className="code-header">
         <span>{tests.testClassName}.cs</span>
         <span className="code-header-caption">{ASSURE_TEST_FW} · vs original VB.NET</span>
       </div>
-      {/* Editable in the red state so the user can correct the wrong test(s) by hand. */}
-      <CodeBlock code={tests.code} editable={!faithful} onEdit={editSuite} />
+      {/* Editable while a fix hasn't started, so the user can also correct a test by hand. */}
+      <CodeBlock
+        code={codePanelCode}
+        editable={!faithful && !realRepairStarted}
+        onEdit={editSuite}
+      />
 
+      {/* Distinct manual paths: re-generate an empty suite, or edit-and-re-run a compile failure. */}
       {!faithful && noTests ? (
         <div className="net-rerun-row">
           <button className="btn-plex" onClick={() => setShowConfirm(true)}>
@@ -528,7 +669,7 @@ export function Step4BaselineTests({
           </span>
         </div>
       ) : (
-        !faithful && (
+        compileError && (
           <div className="net-rerun-row">
             <button className="btn-plex" onClick={rerunSuite}>
               Edit tests &amp; re-run
@@ -541,18 +682,19 @@ export function Step4BaselineTests({
       )}
 
       {/* Portfolio queue: a done-state that advances the queue. Single-file: the closing panel. */}
-      {faithful && fromQueue && (
-        <QueueDone
-          className={className}
-          assuredCount={assuredCount}
-          readyTotal={readyTotal}
-          nextClassName={nextClassName}
-          onAssureNext={onAssureNext}
-          onBackToReadiness={onBackToReadiness}
-        />
-      )}
-
-      {faithful && !fromQueue && <BaselineClosing />}
+      {showClosing &&
+        (fromQueue ? (
+          <QueueDone
+            className={className}
+            assuredCount={assuredCount}
+            readyTotal={readyTotal}
+            nextClassName={nextClassName}
+            onAssureNext={onAssureNext}
+            onBackToReadiness={onBackToReadiness}
+          />
+        ) : (
+          <BaselineClosing />
+        ))}
     </div>
   )
 }
@@ -712,6 +854,70 @@ function QueueDone({
             Back to readiness
           </button>
         )}
+      </div>
+    </div>
+  )
+}
+
+/** Green "BASELINE REPAIRED" banner shown when the real loop makes the baseline green again. */
+function RepairedBanner({ test }: { test: string }) {
+  return (
+    <div className="net-banner net-green repair-outcome" data-testid="repair-succeeded">
+      <span className="net-banner-label">{'✓'} BASELINE REPAIRED</span>
+      <div className="net-banner-body">
+        <span className="net-banner-text">
+          The failing test now matches what the code actually does — green against your untouched
+          VB.NET. Only that test changed; the rest are untouched.
+        </span>
+        <div className="repair-audit">
+          logged · {test} · before and after saved in the audit trail
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Amber quarantine card shown when three attempts can't produce a valid, reliable fix. */
+function QuarantineReal({
+  test,
+  fromQueue,
+  onAssureNext,
+  onBackToReadiness,
+}: {
+  test: string
+  fromQueue?: boolean
+  onAssureNext?: () => void
+  onBackToReadiness?: () => void
+}) {
+  return (
+    <div className="quarantine-card" data-testid="repair-quarantined">
+      <span className="quarantine-glyph" aria-hidden="true">
+        {'⚠️'}
+      </span>
+      <div className="quarantine-body">
+        <div className="quarantine-title">Gave up after 3 attempts — test set aside for review</div>
+        <p className="quarantine-text">
+          <code className="quarantine-test">{test}</code> couldn't be repaired: no fixed test
+          matches how the code behaves — it may give a <strong>different answer every run</strong>.
+          Auto-repair wouldn't fake a pass, so it's left out of the baseline and flagged for a
+          person to check; the other tests are unaffected.
+        </p>
+        <div className="quarantine-actions">
+          {fromQueue ? (
+            <>
+              <button className="btn-plex btn-sm" onClick={onAssureNext}>
+                Assure with 1 quarantined →
+              </button>
+              <button className="btn-ghost" onClick={onBackToReadiness}>
+                Back to readiness
+              </button>
+            </>
+          ) : (
+            <span className="quarantine-note">
+              baseline saved with the passing tests · 1 flagged for review
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )
