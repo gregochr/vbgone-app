@@ -49,9 +49,11 @@ public class AssureAssessmentService {
     // Items, DataSource) are deliberately NOT here — they fire on DataTable/DataSet/DataRow far
     // more often than on a grid, so matching them receiver-blind flags ordinary data code as UI.
     // A grid touched through a *declared* control field is still caught by the controlFields path.
+    // The `System` receiver is excluded so fully-qualified BCL usages (System.Text.StringBuilder,
+    // System.Text.Encoding.UTF8) aren't read as a control's `.Text` — same data-code-as-UI trap.
     private static final Pattern CONTROL_PROP = Pattern.compile(
-            "\\b\\w+\\.(Text|Enabled|Visible|Checked|SelectedIndex|SelectedItem|SelectedValue|"
-                    + "Focus|Show|ShowDialog)\\b");
+            "\\b(?!System\\b)\\w+\\.(Text|Enabled|Visible|Checked|SelectedIndex|SelectedItem|"
+                    + "SelectedValue|Focus|Show|ShowDialog)\\b");
 
     // ASP.NET intrinsics used as ambient state — the request-pipeline coupling that stops a
     // method running headless. Case-sensitive on the conventional PascalCase so a lowercase
