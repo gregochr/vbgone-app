@@ -63,6 +63,17 @@ public class AssureAssessmentService {
 
     private static final Pattern INHERITS = Pattern.compile("(?im)^[ \\t]*Inherits\\s+([\\w.]+)");
 
+    // A VB line-continuation: whitespace + a trailing underscore ending a line, which splices the
+    // next physical line onto this one. Attribute lines love this — {@code <WebService(…)> _} then
+    // {@code Public Class …}, or {@code <WebMethod()> _} then {@code Public Function …}, is one
+    // logical statement. The class/attribute matchers here are all line-anchored: they expect the
+    // attribute to end right after {@code >} + newline, and {@code Public Class}/{@code Public
+    // Function} to start a line. So we drop the {@code _} continuation but KEEP the newline — the
+    // attribute stays on its own line and the declaration stays anchored (see
+    // {@link #normalizeContinuations}). We deliberately do NOT fold the two lines into one: that
+    // would push the attribute onto the declaration line and defeat those anchors.
+    private static final Pattern LINE_CONTINUATION = Pattern.compile("[ \\t]+_[ \\t]*(\\r?\\n)");
+
     // .NET Framework-only dependencies that can't compile or run on the headless cross-platform SDK
     // the CLR sidecar uses: LINQ-to-SQL (System.Data.Linq — DataContext / Table / EntitySet /
     // EntityRef / DBML mapping attributes) and classic ASMX or WCF-Web services (System.Web.Services,
@@ -156,15 +167,19 @@ public class AssureAssessmentService {
                               List<ClassReadiness> out, List<String> netReadyBlocks,
                               List<RestApiEndpoint> restApis) {
         String src = content == null ? "" : content;
+        // Line-anchored matching (class attrs, method attrs) runs over a continuation-folded copy so
+        // VB `_`-split attributes parse; the raw `block` is what we store/compile, left untouched.
+        String detectSrc = normalizeContinuations(src);
         Matcher cm = CLASS_BLOCK.matcher(src);
         while (cm.find()) {
             String className = cm.group(1);
             String block = cm.group().trim();
-            String body = cm.group(2);
+            String body = normalizeContinuations(cm.group(2));
 
             // Web API controllers / ASMX services are reported as endpoints, not as readiness
             // classes — they're a separate, future Assure target and aren't in the class buckets.
-            List<RestApiEndpoint> endpoints = extractEndpoints(className, file, precedingAttrs(src, className), body);
+            List<RestApiEndpoint> endpoints =
+                    extractEndpoints(className, file, precedingAttrs(detectSrc, className), body);
             if (!endpoints.isEmpty()) {
                 restApis.addAll(endpoints);
                 continue;
@@ -291,6 +306,17 @@ public class AssureAssessmentService {
 
     /** A parsed VB parameter (name + declared type, and whether it's a {@code <FromBody>} DTO). */
     private record Param(String name, String type, boolean fromBody) {}
+
+    /**
+     * Folds VB line-continuations ({@code … _} at end of line) out of {@code src} for the
+     * line-anchored classifier/endpoint matchers: the trailing {@code _} is dropped but the newline
+     * is kept, so a {@code <WebMethod()> _} attribute and its {@code Public Function} stay on
+     * separate, individually-anchored lines. Never applied to source we store or compile — dropping
+     * a mid-expression continuation ({@code Return a > 0 And _}) would leave invalid VB.
+     */
+    private static String normalizeContinuations(String src) {
+        return src == null ? "" : LINE_CONTINUATION.matcher(src).replaceAll("$1");
+    }
 
     /** The attribute lines (if any) immediately preceding {@code Class className} in the source. */
     private String precedingAttrs(String content, String className) {
