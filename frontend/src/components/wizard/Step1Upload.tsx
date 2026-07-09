@@ -11,11 +11,14 @@ import {
   DEMO_ESTATE_BLOCKED,
   DEMO_PROJECT_FILES,
   uploadProject,
+  ingestRepo,
 } from '../../api/migrateApi'
 import type { ProjectAnalysis } from '../../api/migrateApi'
 import { InfoTip } from './InfoTip'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { LANGS } from '../../config/engine'
+import { parseRepo } from '../../config/repoUrl'
+import { deriveAnalysis } from './assure/readiness'
 
 interface Props {
   state: WizardState
@@ -35,6 +38,9 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
   const [zipFiles, setZipFiles] = useState<{ path: string; size: number }[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [repoUrl, setRepoUrl] = useState('')
+  const [repoBusy, setRepoBusy] = useState(false)
+  const [repoError, setRepoError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const zipInputRef = useRef<HTMLInputElement>(null)
 
@@ -123,6 +129,37 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
     onReady()
   }
 
+  // Assure: ingest a public GitHub repo. The URL is validated client-side first (instant, no
+  // network); on a valid slug the server clones + classifies and returns a ReadinessReport, which
+  // we pre-load so Readiness renders the portfolio report directly. A synthetic .zip filename keeps
+  // the portfolio routing; private/no-.vb failures surface inline on the error line.
+  const analyseRepo = async () => {
+    if (repoBusy) return
+    const parsed = parseRepo(repoUrl)
+    if ('error' in parsed) {
+      setRepoError(parsed.error)
+      return
+    }
+    setRepoBusy(true)
+    setRepoError(null)
+    try {
+      const report = await ingestRepo(repoUrl)
+      update({
+        filename: `${parsed.slug.replace('/', '-')}.zip`,
+        content: '',
+        zipFile: null,
+        repoSlug: parsed.slug,
+        readiness: report,
+        analysis: deriveAnalysis(report, true),
+      })
+      onReady()
+    } catch (err) {
+      setRepoError(err instanceof Error ? err.message : 'Could not analyse the repository.')
+    } finally {
+      setRepoBusy(false)
+    }
+  }
+
   const loadDemoProject = async () => {
     setUploading(true)
     setUploadError(null)
@@ -150,6 +187,7 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
   }
 
   const clearFile = () => {
+    setRepoError(null)
     update({
       filename: '',
       content: '',
@@ -161,6 +199,10 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
       implementResult: null,
       greenBuild: null,
       prResult: null,
+      // Also clear a GitHub-repo estate so re-choosing starts from a clean slate.
+      zipFile: null,
+      repoSlug: undefined,
+      readiness: null,
     })
   }
 
@@ -171,6 +213,13 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
   }
 
   const totalZipSize = zipFiles.reduce((sum, f) => sum + f.size, 0)
+
+  const repoTotals = state.readiness?.totals
+  const repoMeta = repoTotals
+    ? `github repo · ${repoTotals.classes} .vb classes · ${repoTotals.methods.toLocaleString('en-US')} methods · non-source skipped`
+    : ''
+
+  const repoDisabled = !repoUrl.trim() || repoBusy
 
   return (
     <div>
@@ -204,6 +253,22 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
         </div>
       )}
 
+      {/* Assure: a public GitHub repo has been ingested — ready to assess at the next step. */}
+      {assure && state.repoSlug && (
+        <div className="zip-summary" style={{ marginTop: 16 }} data-testid="repo-chosen">
+          <div className="zip-header">
+            <div className="zip-icon">{'✅'}</div>
+            <div>
+              <div className="file-name">{state.repoSlug}</div>
+              <div className="zip-meta">{repoMeta}</div>
+            </div>
+            <button className="btn-plex" style={{ marginLeft: 'auto' }} onClick={clearFile}>
+              Choose different file
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Mode toggle */}
       {!state.filename && !zipFile && (
         <div className="upload-mode-toggle">
@@ -223,7 +288,7 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
       )}
 
       {/* Single file mode */}
-      {mode === 'single' && !zipFile && (
+      {mode === 'single' && !zipFile && !state.repoSlug && (
         <>
           <div
             className={`upload-area ${state.filename ? 'has-file' : ''}`}
@@ -255,6 +320,63 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
               </>
             )}
           </div>
+
+          {/* Assure: analyse a public GitHub repo as an alternative to upload. Public-only, no auth. */}
+          {assure && !state.filename && (
+            <>
+              <div className="gh-divider">
+                <div className="gh-divider-rule" />
+                <div className="gh-divider-label">OR ANALYSE A GITHUB REPO</div>
+                <div className="gh-divider-rule" />
+              </div>
+              <div className="gh-row">
+                <div
+                  className={`gh-input-group${repoError ? ' error' : ''}${repoBusy ? ' busy' : ''}`}
+                >
+                  <svg
+                    className="gh-mark"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" />
+                  </svg>
+                  <input
+                    className="gh-input"
+                    type="text"
+                    value={repoUrl}
+                    placeholder="https://github.com/org/legacy-app"
+                    aria-label="GitHub repository URL"
+                    onChange={(e) => {
+                      setRepoUrl(e.target.value)
+                      if (repoError) setRepoError(null)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') analyseRepo()
+                    }}
+                  />
+                </div>
+                <button className="gh-analyse-btn" onClick={analyseRepo} disabled={repoDisabled}>
+                  {repoBusy ? 'Analysing…' : 'Analyse'}
+                </button>
+              </div>
+              {repoError && (
+                <div className="gh-error" role="alert" data-testid="repo-error">
+                  <span className="gh-error-glyph" aria-hidden="true">
+                    {'⚠'}
+                  </span>
+                  <span>{repoError}</span>
+                </div>
+              )}
+              <div className="gh-note">
+                <strong>Public repos only</strong> — no sign-in required. VBGone clones only{' '}
+                <code>.vb</code> sources; binaries, assets, build output and non-VB code are
+                skipped.
+              </div>
+            </>
+          )}
 
           {!state.filename && (
             <div style={{ textAlign: 'center', marginTop: 20 }}>

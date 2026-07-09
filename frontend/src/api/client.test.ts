@@ -91,4 +91,27 @@ describe('realApi', () => {
     expect(h.get).toHaveBeenCalledWith('/mutation-test/job-123')
     expect(result).toEqual({ total: 12, done: 12, status: 'DONE' })
   })
+
+  it('ingestRepo posts the url to /ingest-repo and returns the report', async () => {
+    h.post.mockResolvedValue({ data: { sessionId: 's1', totals: { classes: 3 } } })
+
+    const result = await realApi.ingestRepo('https://github.com/org/legacy-app')
+
+    expect(h.post).toHaveBeenCalledWith('/ingest-repo', {
+      url: 'https://github.com/org/legacy-app',
+    })
+    expect(result).toEqual({ sessionId: 's1', totals: { classes: 3 } })
+  })
+
+  it('ingestRepo surfaces a backend { error } as a rejected Error via the interceptor', async () => {
+    // The interceptor (surfaceErrorBody) turns a 400 { error } body into an Error(message);
+    // here we assert ingestRepo propagates a rejection rather than swallowing it.
+    h.post.mockRejectedValue(
+      new Error('Cloned org/docs — no .vb source files found in this repository.'),
+    )
+
+    await expect(realApi.ingestRepo('org/docs')).rejects.toThrow(
+      'no .vb source files found in this repository',
+    )
+  })
 })

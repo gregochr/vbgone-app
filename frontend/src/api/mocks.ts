@@ -22,6 +22,7 @@ import type {
   CostResult,
 } from './types'
 import { DEMO_COMPLEX_FILENAME } from './demos'
+import { parseRepo } from '../config/repoUrl'
 
 /* ── Mock data ── */
 
@@ -1621,6 +1622,24 @@ public class OrderProcessor : IOrderProcessor
     return file.name.toLowerCase().includes('winforms')
       ? MOCK_READINESS.portfolioBlocked
       : MOCK_READINESS.portfolioMixed
+  },
+
+  async ingestRepo(url: string): Promise<ReadinessReport> {
+    const parsed = parseRepo(url)
+    if ('error' in parsed) throw new Error(parsed.error)
+    const { slug } = parsed
+    await delay(1100) // simulate the server-side clone
+    // Canned outcomes mirroring the design prototype: an unanchored private/internal/secret match,
+    // and a slug that ends in docs/static/website/.github.io has no .vb source.
+    if (/(private|internal|secret)/i.test(slug)) {
+      throw new Error(
+        `Can’t reach ${slug} — it’s private or doesn’t exist. VBGone only reads public repositories (no sign-in).`,
+      )
+    }
+    if (/(docs|static|website|\.github\.io)$/i.test(slug)) {
+      throw new Error(`Cloned ${slug} — no .vb source files found in this repository.`)
+    }
+    return /winforms/i.test(slug) ? MOCK_READINESS.portfolioBlocked : MOCK_READINESS.portfolioMixed
   },
 
   async fetchCost(sessionId: string): Promise<CostResult> {

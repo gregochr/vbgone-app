@@ -14,6 +14,7 @@ import {
   rerunBaselineTests,
   assess,
   assessProject,
+  ingestRepo,
   DEMO_ASSURE_CONTENT,
   DEMO_COMPLEX_CONTENT,
   DEMO_ESTATE_MIXED,
@@ -203,5 +204,37 @@ describe('Assure demo source', () => {
     expect(DEMO_ESTATE_MIXED).toContain('Inherits Form') // has UI-coupled classes too
     expect(classCount(DEMO_ESTATE_BLOCKED)).toBeGreaterThan(1)
     expect(DEMO_ESTATE_BLOCKED).toContain('Handles ') // WinForms event handlers
+  })
+})
+
+describe('ingestRepo (mock)', () => {
+  it('returns a mixed portfolio report for a normal public repo url', async () => {
+    const r = await ingestRepo('https://github.com/org/legacy-app')
+    expect(r.totals.classes).toBeGreaterThan(0)
+    expect(r.totals.netReady).toBeGreaterThan(0)
+  })
+
+  it('returns the nothing-nettable report when the slug looks like a winforms app', async () => {
+    const r = await ingestRepo('https://github.com/acme/winforms-suite')
+    expect(r.totals.netReady).toBe(0)
+  })
+
+  it('rejects a private/internal/secret repo with the no-sign-in message', async () => {
+    await expect(ingestRepo('https://github.com/acme/secret-billing')).rejects.toThrow(
+      /private or doesn.t exist/,
+    )
+  })
+
+  it('rejects a repo whose slug ends in docs/website/.github.io with the no-.vb message', async () => {
+    await expect(ingestRepo('https://github.com/acme/company-docs')).rejects.toThrow(
+      /no \.vb source files found/,
+    )
+    await expect(ingestRepo('acme/acme.github.io')).rejects.toThrow(/no \.vb source files found/)
+  })
+
+  it('rejects a non-github host before any network work', async () => {
+    await expect(ingestRepo('https://gitlab.com/org/repo')).rejects.toThrow(
+      /Only github\.com repositories/,
+    )
   })
 })
