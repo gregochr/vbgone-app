@@ -300,6 +300,14 @@ export const realApi = {
     return data
   },
 
+  async ingestRepo(url: string): Promise<ReadinessReport> {
+    // Public-only, no auth: the server clones the repo, keeps .vb sources, and returns the same
+    // ReadinessReport as an uploaded .zip. Specific failures (private/404, no .vb source) come back
+    // as { error } bodies surfaced by the interceptor as an Error with that message.
+    const { data } = await assureApi.post<ReadinessReport>('/ingest-repo', { url })
+    return data
+  },
+
   async fetchCost(sessionId: string): Promise<CostResult> {
     const { data } = await api.get<CostResult>(`/cost/${sessionId}`)
     return data

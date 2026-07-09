@@ -50,6 +50,9 @@ class AssureControllerTest {
     private com.vbgone.service.ZipExtractorService zipExtractorService;
 
     @MockitoBean
+    private com.vbgone.service.RepoIngestService repoIngestService;
+
+    @MockitoBean
     private AssureArtifactService artifactService;
 
     private static final String SESSION_ID = "s-assure";
@@ -76,6 +79,49 @@ class AssureControllerTest {
                 .andExpect(jsonPath("$.totals.netReady").value(1))
                 .andExpect(jsonPath("$.classes[0].bucket").value("net-ready"))
                 .andExpect(jsonPath("$.classes[0].methods[0].bucket").value("net-ready"));
+    }
+
+    @Test
+    void ingestRepo_returns200WithReadinessReport() throws Exception {
+        ZipManifest manifest = new ZipManifest(SESSION_ID,
+                List.of(new VbSourceFile("Services/OrderService.vb", "OrderService.vb",
+                        "Public Class OrderService")), 1);
+        ReadinessReport report = new ReadinessReport(
+                SESSION_ID,
+                new ReadinessReport.ReadinessTotals(2, 5, 1, 0, 1, 3, 0, 2),
+                "static",
+                List.of(new ClassReadiness("OrderService", "Services/OrderService.vb", Bucket.NET_READY,
+                        "public, no WinForms references",
+                        List.of(new MethodReadiness("CalculateTotal", "public", Bucket.NET_READY,
+                                "params in, value out")))),
+                List.of());
+        when(repoIngestService.ingest(any(IngestRepoRequest.class))).thenReturn(manifest);
+        when(assessmentService.assessProject(manifest)).thenReturn(report);
+
+        mockMvc.perform(post("/api/assure/ingest-repo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new IngestRepoRequest("https://github.com/org/legacy-app"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.confidence").value("static"))
+                .andExpect(jsonPath("$.totals.netReady").value(1))
+                .andExpect(jsonPath("$.classes[0].file").value("Services/OrderService.vb"))
+                .andExpect(jsonPath("$.classes[0].bucket").value("net-ready"));
+    }
+
+    @Test
+    void ingestRepo_invalidUrl_maps400WithErrorBody() throws Exception {
+        when(repoIngestService.ingest(any(IngestRepoRequest.class)))
+                .thenThrow(new IllegalArgumentException(
+                        "Only github.com repositories are supported right now."));
+
+        mockMvc.perform(post("/api/assure/ingest-repo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new IngestRepoRequest("https://gitlab.com/org/legacy-app"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error")
+                        .value("Only github.com repositories are supported right now."));
     }
 
     @Test

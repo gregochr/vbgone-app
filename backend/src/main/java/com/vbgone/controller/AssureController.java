@@ -6,6 +6,7 @@ import com.vbgone.model.BaselineRerunRequest;
 import com.vbgone.model.BaselineResult;
 import com.vbgone.model.BaselineTestsResult;
 import com.vbgone.model.ClassRequest;
+import com.vbgone.model.IngestRepoRequest;
 import com.vbgone.model.QuarantineRequest;
 import com.vbgone.model.ReadinessReport;
 import com.vbgone.model.RepairAttempt;
@@ -14,6 +15,7 @@ import com.vbgone.model.ZipManifest;
 import com.vbgone.service.AssureArtifactService;
 import com.vbgone.service.AssureAssessmentService;
 import com.vbgone.service.AssureService;
+import com.vbgone.service.RepoIngestService;
 import com.vbgone.service.ZipExtractorService;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -43,15 +45,18 @@ public class AssureController {
     private final AssureService assureService;
     private final AssureAssessmentService assessmentService;
     private final ZipExtractorService zipExtractorService;
+    private final RepoIngestService repoIngestService;
     private final AssureArtifactService artifactService;
 
     public AssureController(AssureService assureService,
                              AssureAssessmentService assessmentService,
                              ZipExtractorService zipExtractorService,
+                             RepoIngestService repoIngestService,
                              AssureArtifactService artifactService) {
         this.assureService = assureService;
         this.assessmentService = assessmentService;
         this.zipExtractorService = zipExtractorService;
+        this.repoIngestService = repoIngestService;
         this.artifactService = artifactService;
     }
 
@@ -65,6 +70,17 @@ public class AssureController {
     @PostMapping(value = "/assess-project", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ReadinessReport assessProject(@RequestParam("file") MultipartFile file) {
         ZipManifest manifest = zipExtractorService.extract(file);
+        return assessmentService.assessProject(manifest);
+    }
+
+    /**
+     * Readiness assessment for a <strong>public</strong> GitHub repo URL — an alternative to the
+     * {@code .zip} upload. Clones server-side, keeps only {@code .vb} sources (build output and
+     * non-source files are skipped), and classifies across them. Public repos only; no auth.
+     */
+    @PostMapping("/ingest-repo")
+    public ReadinessReport ingestRepo(@RequestBody IngestRepoRequest request) {
+        ZipManifest manifest = repoIngestService.ingest(request);
         return assessmentService.assessProject(manifest);
     }
 

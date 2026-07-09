@@ -189,6 +189,22 @@ class ZipExtractorServiceTest {
         assertThat(manifest.files().get(0).filename()).isEqualTo("Form1.vb");
     }
 
+    @Test
+    void readVbEntries_appliesPathPredicate_andSkipsNonVb() throws Exception {
+        byte[] zip = createZipMultiple(
+                new String[]{"src/Keep.vb", "Public Class Keep\nEnd Class"},
+                new String[]{"bin/Skip.vb", "Public Class Skip\nEnd Class"},
+                new String[]{"notes.txt", "ignore me"}
+        );
+
+        java.util.List<VbSourceFile> files = service.readVbEntries(
+                new java.io.ByteArrayInputStream(zip), name -> !name.contains("bin/"),
+                ZipExtractorService.MAX_FILES, "Zip");
+
+        // notes.txt is not .vb; bin/Skip.vb is rejected by the predicate; only src/Keep.vb survives.
+        assertThat(files).extracting(VbSourceFile::relativePath).containsExactly("src/Keep.vb");
+    }
+
     // ── Helpers ──
 
     private byte[] createZip(String entryName, String content) throws IOException {

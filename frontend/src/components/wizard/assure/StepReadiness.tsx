@@ -9,6 +9,7 @@ import {
 import type { ClassReadiness, ReadinessReport, RestApiEndpoint } from '../../../api/migrateApi'
 import { BUCKETS } from '../../../config/engine'
 import type { Bucket } from '../../../config/engine'
+import { deriveAnalysis, readinessSubtitle } from './readiness'
 
 interface Props {
   state: WizardState
@@ -44,28 +45,8 @@ export function StepReadiness({ state, update, onReady, onAssureClass }: Props) 
   const netted = state.netted ?? []
   const assuredGreen = state.assuredGreen ?? []
 
-  const subtitleFor = (r: ReadinessReport) => {
-    const t = r.totals
-    return `${t.netReady} of ${t.classes} classes are ready to assure today. ${t.windowsGated} unlock with a Windows runner; ${t.refactorFirst} need refactoring first.`
-  }
-
-  const deriveAnalysis = (r: ReadinessReport): WizardState['analysis'] => {
-    const ready = r.classes.filter((c) => c.bucket === 'net-ready')
-    const target = isPortfolio ? ready : ready.length ? ready : r.classes.slice(0, 1)
-    return {
-      sessionId: r.sessionId,
-      classes: r.classes.map((c) => ({
-        name: c.name,
-        methods: c.methods.map((m) => m.name),
-        dependencies: [],
-        complexity: 'LOW' as const,
-      })),
-      suggestedMigrationOrder: target.map((c) => c.name),
-      summary: isPortfolio ? subtitleFor(r) : (r.classes[0]?.reason ?? ''),
-    }
-  }
-
-  const store = (r: ReadinessReport) => update({ readiness: r, analysis: deriveAnalysis(r) })
+  const store = (r: ReadinessReport) =>
+    update({ readiness: r, analysis: deriveAnalysis(r, isPortfolio) })
 
   // Single-file: auto-scan on mount. Portfolio: wait for an explicit "Assess readiness" click.
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -179,6 +160,11 @@ export function StepReadiness({ state, update, onReady, onAssureClass }: Props) 
       )
     }
     if (scannedEmpty) {
+      // A GitHub-repo estate keeps its source server-side only (no zipFile, empty content), so
+      // re-scanning from here can't recover it — point the user back to Upload instead of offering
+      // a Re-scan that would run against empty content.
+      const fromRepo = !!state.repoSlug
+      const canRescan = !fromRepo && !!(state.zipFile || state.content)
       return (
         <div>
           <div className="step-kicker">{KICKER}</div>
@@ -191,16 +177,20 @@ export function StepReadiness({ state, update, onReady, onAssureClass }: Props) 
               <div className="portfolio-gate-title">Nothing to classify</div>
               <div className="portfolio-gate-body">
                 The scan didn't find any VB.NET classes in{' '}
-                <code className="inline-mono">{state.filename}</code>. Upload a source with at least
-                one class, then re-scan.
+                <code className="inline-mono">{state.repoSlug ?? state.filename}</code>.{' '}
+                {fromRepo
+                  ? 'It may hold only modules or web-API controllers — try a different repository.'
+                  : 'Upload a source with at least one class, then re-scan.'}
               </div>
             </div>
           </div>
-          <div className="net-rerun-row">
-            <button className="btn-plex" onClick={runScan}>
-              Re-scan
-            </button>
-          </div>
+          {canRescan && (
+            <div className="net-rerun-row">
+              <button className="btn-plex" onClick={runScan}>
+                Re-scan
+              </button>
+            </div>
+          )}
         </div>
       )
     }
@@ -343,7 +333,7 @@ function PortfolioReport({
   const pctR = 100 - pctN - pctW
   const seg = (pct: number) => ({ width: `${pct}%`, minWidth: pct > 0 ? 3 : 0 })
 
-  const subtitle = `${t.netReady} of ${t.classes} classes are ready to assure today. ${t.windowsGated} unlock with a Windows runner; ${t.refactorFirst} need refactoring first.`
+  const subtitle = readinessSubtitle(report)
 
   const tiles: { bucket: Bucket; count: number; methods: number }[] = [
     { bucket: 'net-ready', count: t.netReady, methods: t.methodNetReady },

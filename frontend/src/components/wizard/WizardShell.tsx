@@ -302,6 +302,12 @@ export interface WizardState {
   // Assure-mode artifacts:
   /** A real uploaded .zip estate (Assure portfolio scan) — sent to /assess-project. */
   zipFile: File | null
+  /**
+   * Set when the estate came from a public GitHub repo (ingested at Upload). Holds the `owner/repo`
+   * slug for the chosen-source card; the readiness report is pre-loaded, so Readiness renders it
+   * directly instead of re-scanning.
+   */
+  repoSlug?: string
   readiness: ReadinessReport | null
   baselineResult: BaselineResult | null
   baselineTests: BaselineTestsResult | null

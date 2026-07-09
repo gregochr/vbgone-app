@@ -1531,6 +1531,112 @@
   flex-shrink: 0;
 }
 
+/* ── GitHub repo ingestion (Step 1, Assure) ── */
+.gh-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 560px;
+  margin: 26px auto 0;
+}
+.gh-divider-rule {
+  flex: 1;
+  height: 1px;
+  background: #1f2228;
+}
+.gh-divider-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #454b54;
+}
+.gh-row {
+  display: flex;
+  gap: 8px;
+  max-width: 560px;
+  margin: 14px auto 0;
+  text-align: left;
+}
+.gh-input-group {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  background: #0c0e11;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color 0.15s;
+}
+.gh-input-group.error {
+  border-color: rgba(251, 111, 115, 0.5);
+}
+.gh-input-group.busy {
+  border-color: var(--accent-ring);
+}
+.gh-mark {
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+.gh-input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.gh-input::placeholder {
+  color: var(--text-faint);
+}
+.gh-analyse-btn {
+  padding: 0 18px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.gh-analyse-btn:disabled {
+  background: #1a1d22;
+  color: var(--text-faint);
+  cursor: default;
+}
+.gh-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  max-width: 560px;
+  margin: 8px auto 0;
+  font-size: 11.5px;
+  color: var(--red);
+  text-align: left;
+}
+.gh-error-glyph {
+  flex-shrink: 0;
+}
+.gh-note {
+  max-width: 560px;
+  margin: 10px auto 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  text-align: left;
+}
+.gh-note strong {
+  color: #8a909b;
+}
+.gh-note code {
+  color: #8a909b;
+}
+
 /* ── Busy row (spinner + phase text) ── */
 .busy-row {
   display: flex;

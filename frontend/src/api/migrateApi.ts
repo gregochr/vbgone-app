@@ -39,4 +39,5 @@ export const startMutationTest = active.startMutationTest
 export const getMutationJob = active.getMutationJob
 export const assess = active.assess
 export const assessProject = active.assessProject
+export const ingestRepo = active.ingestRepo
 export const fetchCost = active.fetchCost
