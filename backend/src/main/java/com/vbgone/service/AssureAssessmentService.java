@@ -61,6 +61,19 @@ public class AssureAssessmentService {
 
     private static final Pattern INHERITS = Pattern.compile("(?im)^[ \\t]*Inherits\\s+([\\w.]+)");
 
+    // .NET Framework-only dependencies that can't compile or run on the headless cross-platform SDK
+    // the CLR sidecar uses: LINQ-to-SQL (System.Data.Linq — DataContext / Table / EntitySet /
+    // EntityRef / DBML mapping attributes) and classic ASMX or WCF-Web services (System.Web.Services,
+    // <WebMethod>, <WebService>, <WebGet>, ScriptMethod). A class carrying any of these is
+    // Windows/Framework-bound, so it must never enter the net-ready subset — even when its own
+    // methods look pure — or the shared assurable project fails to build (BC30002: type not defined).
+    private static final Pattern FRAMEWORK_BOUND = Pattern.compile(
+            "(?i)\\bSystem\\.Data\\.Linq\\b|\\bEntity(?:Set|Ref)\\b"
+                    + "|<\\s*(?:Table|Column|Association|Database)\\s*\\("
+                    + "|\\bSystem\\.Web\\.Services\\b|<\\s*WebMethod\\b|<\\s*WebService\\b"
+                    + "|\\bScriptMethod\\b|<\\s*WebGet\\b|<\\s*WebInvoke\\b"
+                    + "|<\\s*(?:Service|Operation)Contract\\b");
+
     // ── REST API surface extraction (a separate, future Assure target) ──
 
     /** A public action method, capturing any attribute lines that immediately precede it. */
@@ -165,6 +178,7 @@ public class AssureAssessmentService {
 
     private ClassReadiness classifyClass(String className, String file, String body) {
         boolean uiCoupled = isClassUiCoupled(body);
+        boolean frameworkBound = isFrameworkBound(body);
         Set<String> controlFields = controlFields(body);
 
         List<MethodReadiness> methods = new ArrayList<>();
@@ -175,19 +189,25 @@ public class AssureAssessmentService {
             String visibility = mm.group(1) != null ? mm.group(1).toLowerCase() : "public";
             boolean handler = mm.group(4) != null && mm.group(4).contains("Handles ");
             String methodBody = mm.group(5) == null ? "" : mm.group(5);
-            methods.add(classifyMethod(name, visibility, handler, methodBody, uiCoupled, controlFields));
+            methods.add(classifyMethod(name, visibility, handler, methodBody, uiCoupled, frameworkBound, controlFields));
         }
 
         Bucket bucket = methods.stream()
                 .map(MethodReadiness::bucket)
                 .max((a, b) -> Integer.compare(a.severity(), b.severity()))
-                .orElse(uiCoupled ? Bucket.WINDOWS_GATED : Bucket.NET_READY);
+                .orElse(uiCoupled || frameworkBound ? Bucket.WINDOWS_GATED : Bucket.NET_READY);
 
-        return new ClassReadiness(className, file, bucket, classReason(bucket, uiCoupled, methods), methods);
+        // A class that references .NET Framework-only APIs (LINQ-to-SQL, ASMX/WCF) can't compile on
+        // the headless SDK even when its own methods look pure — keep it out of the net-ready subset.
+        if (frameworkBound && bucket == Bucket.NET_READY) bucket = Bucket.WINDOWS_GATED;
+
+        return new ClassReadiness(className, file, bucket,
+                classReason(bucket, uiCoupled, frameworkBound, methods), methods);
     }
 
     private MethodReadiness classifyMethod(String name, String visibility, boolean handler,
-                                           String methodBody, boolean uiCoupled, Set<String> controlFields) {
+                                           String methodBody, boolean uiCoupled, boolean frameworkBound,
+                                           Set<String> controlFields) {
         boolean touchesControls = touchesControls(methodBody, controlFields);
         boolean touchesWebContext = touchesWebContext(methodBody);
 
@@ -205,6 +225,10 @@ public class AssureAssessmentService {
                     : "pure, but trapped in a WinForms-referencing class";
             return new MethodReadiness(name, visibility, Bucket.WINDOWS_GATED, reason);
         }
+        if (frameworkBound) {
+            return new MethodReadiness(name, visibility, Bucket.WINDOWS_GATED,
+                    "pure, but the class needs .NET Framework (LINQ-to-SQL / ASMX / WCF) — Windows-only");
+        }
         return new MethodReadiness(name, visibility, Bucket.NET_READY, "params in, value out; no control access");
     }
 
@@ -220,6 +244,11 @@ public class AssureAssessmentService {
         return CONTROL_FIELD.matcher(body).find()
                 || Pattern.compile("(?im)Imports\\s+System\\.Windows\\.Forms").matcher(body).find()
                 || Pattern.compile("Handles\\s+\\w+\\.\\w+").matcher(body).find();
+    }
+
+    /** True when the class references .NET Framework-only APIs (LINQ-to-SQL, ASMX/WCF web services). */
+    private boolean isFrameworkBound(String body) {
+        return FRAMEWORK_BOUND.matcher(body).find();
     }
 
     private Set<String> controlFields(String body) {
@@ -243,10 +272,13 @@ public class AssureAssessmentService {
         return WEB_CONTEXT.matcher(methodBody).find();
     }
 
-    private String classReason(Bucket bucket, boolean uiCoupled, List<MethodReadiness> methods) {
+    private String classReason(Bucket bucket, boolean uiCoupled, boolean frameworkBound,
+                               List<MethodReadiness> methods) {
         return switch (bucket) {
             case NET_READY -> "public, no WinForms references";
-            case WINDOWS_GATED -> "pure logic trapped in a WinForms-referencing class";
+            case WINDOWS_GATED -> uiCoupled
+                    ? "pure logic trapped in a WinForms-referencing class"
+                    : "references .NET Framework-only APIs (LINQ-to-SQL / ASMX / WCF) — needs a Windows runner";
             case REFACTOR_FIRST -> uiCoupled
                     ? "reads/writes controls in event handlers"
                     : "logic entangled with the UI";

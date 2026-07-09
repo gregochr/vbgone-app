@@ -423,6 +423,78 @@ class AssureAssessmentServiceTest {
         assertThat(s.getVbContentForClass("OrderService")).contains("Public Class OrderService");
     }
 
+    // ── Framework-bound classes must stay out of the net-ready compile subset ──
+
+    @Test
+    void linqToSqlDataContext_isWindowsGated_notNetReady() {
+        // System.Data.Linq is .NET Framework-only; a DBML-generated data context can't compile on the
+        // headless SDK, so it must not be waved through as net-ready even though its method is pure.
+        String vb = """
+                Public Class DocumentsDataContext
+                    Inherits System.Data.Linq.DataContext
+                    Public Function DocCount() As Integer
+                        Return 0
+                    End Function
+                End Class
+                """;
+
+        ClassReadiness c = classNamed(service.assess("Documents.designer.vb", vb), "DocumentsDataContext");
+        assertThat(c.bucket()).isEqualTo(Bucket.WINDOWS_GATED);
+        assertThat(c.methods().get(0).bucket()).isEqualTo(Bucket.WINDOWS_GATED);
+        assertThat(c.reason()).contains(".NET Framework");
+    }
+
+    @Test
+    void linqToSqlEntityWithNoMethods_isWindowsGated() {
+        // A generated entity class (mapping attributes + EntitySet/EntityRef, no Sub/Function bodies)
+        // has no methods to classify — it must still fall out of net-ready on the class-level signal.
+        String vb = """
+                <Table(Name:="dbo.Documents")> _
+                Partial Public Class Document
+                    Private _children As EntitySet(Of Child)
+                    Private _parent As EntityRef(Of Folder)
+                End Class
+                """;
+
+        ClassReadiness c = classNamed(service.assess("Documents.designer.vb", vb), "Document");
+        assertThat(c.bucket()).isEqualTo(Bucket.WINDOWS_GATED);
+    }
+
+    @Test
+    void frameworkBoundClasses_areExcludedFromTheAssurableSubset() {
+        // A pure class alongside a LINQ-to-SQL data context and an ASMX service whose attributes use
+        // the VB `_` line-continuation (which defeats endpoint extraction — the real-world leak).
+        // Only the pure class is compile-safe, so only it may enter the net-ready subset.
+        String vb = """
+                Public Class Calculator
+                    Public Function Add(a As Integer, b As Integer) As Integer
+                        Return a + b
+                    End Function
+                End Class
+
+                Public Class OrdersDataContext
+                    Inherits System.Data.Linq.DataContext
+                    Private _orders As System.Data.Linq.Table(Of Order)
+                End Class
+
+                <WebService(Namespace:="http://tempuri.org/")> _
+                Public Class RmbService
+                    Inherits System.Web.Services.WebService
+                    <WebMethod()> _
+                    Public Function Ping(name As String) As String
+                        Return name
+                    End Function
+                End Class
+                """;
+
+        ReadinessReport r = service.assess("Estate.zip", vb);
+        String subset = sessionStore.get(r.sessionId()).orElseThrow().getAssurableSource();
+
+        assertThat(subset).contains("Public Class Calculator");
+        assertThat(subset).doesNotContain("System.Data.Linq").doesNotContain("System.Web.Services");
+        assertThat(subset).doesNotContain("OrdersDataContext").doesNotContain("RmbService");
+    }
+
     // ── REST API surface extraction ──
 
     private RestApiEndpoint endpoint(ReadinessReport r, String verb, String route) {
