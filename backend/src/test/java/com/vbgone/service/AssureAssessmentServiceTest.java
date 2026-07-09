@@ -622,6 +622,42 @@ class AssureAssessmentServiceTest {
     }
 
     @Test
+    void asmxService_withUnderscoreContinuedAttributes_extractsWebMethodAsEndpoint() {
+        // Real-world ASMX shape (GlobalTechnology/OpsInABox — App_Code/AgapeRmb.vb): the <WebService>
+        // and <WebMethod> attributes use the VB line-continuation `_`, and the file is a plain
+        // App_Code/*.vb, not *.asmx.vb. The continuation must not defeat endpoint extraction — the
+        // method belongs in restApis, and the class must NOT fall through into the readiness buckets.
+        String vb = """
+                <WebService(Namespace:="http://tempuri.org/")> _
+                <WebServiceBinding(ConformsTo:=WsiProfiles.BasicProfile1_1)> _
+                Public Class AgapeRmb
+                    Inherits System.Web.Services.WebService
+
+                    <WebMethod()> _
+                    Public Function GetVersion(clientId As String) As String
+                        Return "1.0"
+                    End Function
+                End Class
+                """;
+
+        ReadinessReport r = service.assess("App_Code/AgapeRmb.vb", vb);
+
+        // Surfaced as an ASMX endpoint, not classified as a (Windows-gated) readiness class.
+        assertThat(r.classes()).isEmpty();
+        assertThat(r.restApis()).singleElement().satisfies(e -> {
+            assertThat(e.verb()).isEqualTo("GET");
+            assertThat(e.kind()).isEqualTo("ASMX");
+            assertThat(e.route()).isEqualTo("/AgapeRmb/GetVersion");
+            assertThat(e.handler()).isEqualTo("AgapeRmb.GetVersion");
+            assertThat(e.resType()).isEqualTo("String");
+            assertThat(e.params()).singleElement().satisfies(p -> {
+                assertThat(p.name()).isEqualTo("clientId");
+                assertThat(p.in()).isEqualTo("query");
+            });
+        });
+    }
+
+    @Test
     void ordinaryEstate_hasNoRestApis() {
         assertThat(service.assess("LegacyEstate.zip", DEMO_MIXED).restApis()).isEmpty();
     }
