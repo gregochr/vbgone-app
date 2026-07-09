@@ -130,6 +130,28 @@ class AssureAssessmentServiceTest {
     }
 
     @Test
+    void qualifiedSystemText_isNotMistakenForControls_staysNetReady() {
+        // Regression: `System.Text.StringBuilder`/`System.Text.Encoding` are BCL usages, not a
+        // control's `.Text` — the receiver `System` must not trip CONTROL_PROP. Pure back-end code.
+        String vb = """
+                Public Class Serialiser
+                    Public Function Build(name As String) As String
+                        Dim str As New System.Text.StringBuilder
+                        str.Append(name)
+                        Return str.ToString()
+                    End Function
+                    Public Function Encode(payload As String) As Byte()
+                        Return System.Text.Encoding.UTF8.GetBytes(payload)
+                    End Function
+                End Class
+                """;
+
+        ClassReadiness c = classNamed(service.assess("Serialiser.vb", vb), "Serialiser");
+        assertThat(c.bucket()).isEqualTo(Bucket.NET_READY);
+        assertThat(c.methods()).allMatch(m -> m.bucket() == Bucket.NET_READY);
+    }
+
+    @Test
     void aspNetSessionState_isRefactorFirst_asWebHostCoupling() {
         // Session/Application are the request-pipeline coupling that stops a method running headless.
         String vb = """
