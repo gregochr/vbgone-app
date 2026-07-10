@@ -153,9 +153,9 @@ export interface RestApiParam {
 }
 
 /**
- * A web API endpoint the scan spotted in the source (an ASP.NET Web API action or an
- * ASMX web method). Assure can't wrap these yet — they're shown as a separate list, not
- * counted in the readiness buckets.
+ * A web API endpoint the scan spotted in the source (an ASP.NET Web API action, an ASMX
+ * web method, or a WCF-Web WebGet/WebInvoke operation). Assure can't wrap these yet — they're
+ * shown as a separate list, not counted in the readiness buckets.
  */
 export interface RestApiEndpoint {
   verb: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -166,7 +166,7 @@ export interface RestApiEndpoint {
   /** VB.NET file the endpoint was found in. */
   source: string
   /** How it was spotted. */
-  kind: 'Web API' | 'ASMX'
+  kind: 'Web API' | 'ASMX' | 'WCF'
   params: RestApiParam[]
   /** Type name of the request body, or "—" when there isn't one. */
   reqType: string
