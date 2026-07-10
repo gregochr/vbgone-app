@@ -149,6 +149,34 @@ class RepoIngestServiceTest {
                 .isInstanceOf(ProviderUnavailableException.class);
     }
 
+    @Test
+    void ingest_moreThanMaxRepoFiles_throwsFileCountCap() throws Exception {
+        String[] pairs = new String[(RepoIngestService.MAX_REPO_FILES + 1) * 2];
+        for (int i = 0; i <= RepoIngestService.MAX_REPO_FILES; i++) {
+            pairs[2 * i] = "repo-sha/Class" + i + ".vb";
+            pairs[2 * i + 1] = "Public Class C" + i + "\nEnd Class";
+        }
+        server.enqueue(new MockResponse().setResponseCode(200).setBody(new Buffer().write(zip(pairs))));
+
+        assertThatThrownBy(() -> service.ingest(new IngestRepoRequest("org/big")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("more than " + RepoIngestService.MAX_REPO_FILES + " .vb files");
+    }
+
+    @Test
+    void ingest_corruptArchive_reportsProviderUnavailable() throws Exception {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 400; i++) sb.append("Public Class Form").append(i).append(" : End Class\n");
+        byte[] full = zip("repo-sha/Form.vb", sb.toString());
+        // Truncate mid deflate-stream so reading the entry throws IOException, which ingest maps to 422.
+        byte[] truncated = java.util.Arrays.copyOf(full, 60);
+        server.enqueue(new MockResponse().setResponseCode(200).setBody(new Buffer().write(truncated)));
+
+        assertThatThrownBy(() -> service.ingest(new IngestRepoRequest("org/corrupt")))
+                .isInstanceOf(ProviderUnavailableException.class)
+                .hasMessageContaining("may be corrupt");
+    }
+
     // ── helpers ──
 
     private static byte[] zip(String... pathThenContent) throws IOException {

@@ -205,7 +205,109 @@ class ZipExtractorServiceTest {
         assertThat(files).extracting(VbSourceFile::relativePath).containsExactly("src/Keep.vb");
     }
 
+    // ── Caps and hostile input (regression protection for the size/count/bomb guards) ──
+
+    @Test
+    void extract_moreThanMaxFiles_throwsFileCountCap() throws Exception {
+        String[][] entries = new String[ZipExtractorService.MAX_FILES + 1][];
+        for (int i = 0; i < entries.length; i++) {
+            entries[i] = new String[]{"Class" + i + ".vb", "Public Class C" + i + "\nEnd Class"};
+        }
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "many.zip", "application/zip", createZipMultiple(entries));
+
+        assertThatThrownBy(() -> service.extract(file))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("more than " + ZipExtractorService.MAX_FILES + " .vb files");
+    }
+
+    @Test
+    void extract_uploadExceedsMaxZipSize_throws() {
+        byte[] tooBig = new byte[(int) ZipExtractorService.MAX_ZIP_SIZE + 1];
+        MockMultipartFile file = new MockMultipartFile("file", "big.zip", "application/zip", tooBig);
+
+        assertThatThrownBy(() -> service.extract(file))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exceeds maximum size");
+    }
+
+    @Test
+    void extract_garbageBytes_throwsNoVbFiles() {
+        // Non-zip bytes yield no parseable entries -> the "no .vb files" branch, not the IOException wrap.
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "corrupt.zip", "application/zip", "this is not a zip".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> service.extract(file))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Zip file contains no .vb files.");
+    }
+
+    @Test
+    void extract_corruptedEntryData_throwsFailedToRead() throws Exception {
+        // A valid zip whose single .vb entry's deflated data is corrupted -> inflate/CRC IOException,
+        // which the service wraps as RuntimeException("Failed to read zip file: ...").
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 400; i++) sb.append("Public Class Form").append(i).append(" : End Class\n");
+        byte[] zip = createZip("Form1.vb", sb.toString());
+        // Corrupt a stretch of the deflated data, leaving the ~38-byte local header intact.
+        for (int i = 45; i < Math.min(zip.length - 40, 120); i++) zip[i] ^= (byte) 0xFF;
+        MockMultipartFile file = new MockMultipartFile("file", "corrupt.zip", "application/zip", zip);
+
+        assertThatThrownBy(() -> service.extract(file))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Failed to read zip file");
+    }
+
+    @Test
+    void extract_zipBombSingleEntry_rejectedByUncompressedCap() throws Exception {
+        // One .vb entry that deflates from >64 MB of 'A' down to a few KB (well under the 10 MB upload cap).
+        byte[] zip = zipWithLargeVbEntries(1, ZipExtractorService.MAX_TOTAL_UNCOMPRESSED + 8192);
+        assertThat((long) zip.length).isLessThan(ZipExtractorService.MAX_ZIP_SIZE);
+        MockMultipartFile file = new MockMultipartFile("file", "bomb.zip", "application/zip", zip);
+
+        assertThatThrownBy(() -> service.extract(file))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("uncompressed limit");
+    }
+
+    @Test
+    void extract_cumulativeUncompressedAcrossEntries_rejected() throws Exception {
+        // Three ~24 MB entries: each individually under the 64 MB cap, but together they exceed it.
+        // Proves the cross-entry running total, which a per-entry-only cap would miss.
+        byte[] zip = zipWithLargeVbEntries(3, 24L * 1024 * 1024);
+        assertThat((long) zip.length).isLessThan(ZipExtractorService.MAX_ZIP_SIZE);
+        MockMultipartFile file = new MockMultipartFile("file", "bomb.zip", "application/zip", zip);
+
+        assertThatThrownBy(() -> service.extract(file))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("uncompressed limit");
+    }
+
     // ── Helpers ──
+
+    /**
+     * A zip with {@code count} {@code .vb} entries, each {@code bytesEach} bytes of highly
+     * compressible 'A's, written in 8 KB chunks so the test never allocates the full uncompressed
+     * payload (only the tiny deflated output is buffered here).
+     */
+    private byte[] zipWithLargeVbEntries(int count, long bytesEach) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        byte[] chunk = new byte[8192];
+        java.util.Arrays.fill(chunk, (byte) 'A');
+        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+            for (int e = 0; e < count; e++) {
+                zos.putNextEntry(new ZipEntry("Bomb" + e + ".vb"));
+                long written = 0;
+                while (written < bytesEach) {
+                    int n = (int) Math.min(chunk.length, bytesEach - written);
+                    zos.write(chunk, 0, n);
+                    written += n;
+                }
+                zos.closeEntry();
+            }
+        }
+        return baos.toByteArray();
+    }
 
     private byte[] createZip(String entryName, String content) throws IOException {
         return createZipMultiple(new String[]{entryName, content});
