@@ -312,7 +312,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
             AI writes idiomatic {lang.lang}, then <code>{lang.testCmd}</code> runs automatically.
           </div>
           <div className="impl-choice-meta">
-            {implementModel} \u00B7 retries escalate to {escalationModel}
+            {implementModel} · retries escalate to {escalationModel}
           </div>
         </div>
 
@@ -327,7 +327,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
           <div className="impl-choice-desc">
             Download the stub and implement it in {lang.ide}. Recommended for production migrations.
           </div>
-          <div className="impl-choice-meta">no API call \u00B7 you own every line</div>
+          <div className="impl-choice-meta">no API call · you own every line</div>
         </div>
       </div>
     </div>
