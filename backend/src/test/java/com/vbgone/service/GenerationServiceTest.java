@@ -261,6 +261,20 @@ class GenerationServiceTest {
                 eq(16384L));
     }
 
+    @Test
+    void implement_claudeMode_throwsWhenResponseIsNotCode() {
+        MigrationSession session = sessionWithInterface("s1");
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        // Model returns prose/analysis instead of a class — must not be persisted.
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse("I analysed Form1 and here is my reasoning, but no implementation."));
+
+        assertThatThrownBy(() -> service.implement("s1", "Form1", ImplementMode.CLAUDE))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("did not return valid");
+        assertThat(session.getImplementResult()).isNull();
+    }
+
     // ── implement (STUB mode) ──
 
     @Test
@@ -341,6 +355,63 @@ class GenerationServiceTest {
                 argThat(msg -> msg.contains("Failing test source:") && msg.contains("Is.EqualTo(5)")),
                 eq(Model.CLAUDE_SONNET_4_6),
                 eq(16384L));
+    }
+
+    @Test
+    void retryImplement_escalatesToOpusOnFinalAttempt() {
+        MigrationSession session = sessionWithInterface("s1");
+        session.setImplementResult(new ImplementResult(
+                "s1", "Form1", "public class Form1 : IForm1 { /* broken */ }", ImplementMode.CLAUDE));
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse("public class Form1 : IForm1 { public int Add(int a, int b) => a + b; }"));
+
+        // attempt >= 3 escalates from Sonnet (IMPLEMENTATION) to Opus (ESCALATION).
+        service.retryImplement("s1", "Form1", java.util.List.of("Add_ReturnsSum"), 3);
+
+        verify(claudeClient).sendWithCachedSystemPrompt(
+                eq(GenerationService.IMPLEMENT_SYSTEM_PROMPT),
+                anyString(),
+                eq(Model.CLAUDE_OPUS_4_6),
+                eq(16384L));
+    }
+
+    @Test
+    void retryImplement_staysOnSonnetBeforeFinalAttempt() {
+        MigrationSession session = sessionWithInterface("s1");
+        session.setImplementResult(new ImplementResult(
+                "s1", "Form1", "public class Form1 : IForm1 { /* broken */ }", ImplementMode.CLAUDE));
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse("public class Form1 : IForm1 { public int Add(int a, int b) => a + b; }"));
+
+        // Boundary: attempt 2 is still below the escalation threshold, so Sonnet.
+        service.retryImplement("s1", "Form1", java.util.List.of("Add_ReturnsSum"), 2);
+
+        verify(claudeClient).sendWithCachedSystemPrompt(
+                eq(GenerationService.IMPLEMENT_SYSTEM_PROMPT),
+                anyString(),
+                eq(Model.CLAUDE_SONNET_4_6),
+                eq(16384L));
+    }
+
+    @Test
+    void retryImplement_fallsBackToPreviousCodeWhenResponseIsNotCode() {
+        MigrationSession session = sessionWithInterface("s1");
+        ImplementResult previous = new ImplementResult(
+                "s1", "Form1", "public class Form1 : IForm1 { public int Add(int a, int b) => a + b; }",
+                ImplementMode.CLAUDE);
+        session.setImplementResult(previous);
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(claudeResponse("Sorry, I could not fix the tests — here is my analysis instead."));
+
+        ImplementResult result = service.retryImplement("s1", "Form1", java.util.List.of("Add_ReturnsSum"), 1);
+
+        // Unlike implement(), retry does NOT throw on non-code — it keeps the previous code.
+        assertThat(result.code()).isEqualTo(previous.code());
+        assertThat(result.mode()).isEqualTo(ImplementMode.CLAUDE);
+        assertThat(session.getImplementResult().code()).isEqualTo(previous.code());
     }
 
     @Test
