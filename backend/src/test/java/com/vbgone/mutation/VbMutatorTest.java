@@ -14,6 +14,13 @@ class VbMutatorTest {
         return ms.stream().filter(m -> m.operator().equals("relational") && m.before().equals("<=")).toList();
     }
 
+    /** First relational mutant whose original operator is {@code before} (e.g. ">=", "<>", "<"). */
+    private Mutant relational(List<Mutant> ms, String before) {
+        return ms.stream()
+                .filter(m -> m.operator().equals("relational") && m.before().equals(before))
+                .findFirst().orElseThrow();
+    }
+
     @Test
     void emptyForNullOrBlank() {
         assertThat(mutator.generate(null)).isEmpty();
@@ -109,5 +116,52 @@ class VbMutatorTest {
             int expectedLen = src.length() - m.before().length() + m.after().length();
             assertThat(m.mutatedSource()).hasSize(expectedLen);
         }
+    }
+
+    @Test
+    void flipsGreaterEqualAsBoundary() {
+        Mutant m = relational(mutator.generate("If x >= 100 Then\n"), ">=");
+        assertThat(m.after()).isEqualTo(">");
+        assertThat(m.mutatedSource()).isEqualTo("If x > 100 Then\n");
+        assertThat(m.description()).startsWith("boundary ");
+    }
+
+    @Test
+    void flipsNotEqualAsRelational() {
+        Mutant m = relational(mutator.generate("If x <> 0 Then\n"), "<>");
+        assertThat(m.after()).isEqualTo("=");
+        assertThat(m.mutatedSource()).isEqualTo("If x = 0 Then\n");
+        // <> is a plain relational swap, NOT a boundary tweak.
+        assertThat(m.description()).startsWith("relational ");
+    }
+
+    @Test
+    void flipsLessThanAndGreaterThan() {
+        Mutant lt = relational(mutator.generate("If a < b Then\n"), "<");
+        assertThat(lt.after()).isEqualTo(">");
+        assertThat(lt.mutatedSource()).isEqualTo("If a > b Then\n");
+        assertThat(lt.description()).startsWith("relational ");
+
+        Mutant gt = relational(mutator.generate("If a > b Then\n"), ">");
+        assertThat(gt.after()).isEqualTo("<");
+        assertThat(gt.mutatedSource()).isEqualTo("If a < b Then\n");
+        assertThat(gt.description()).startsWith("relational ");
+    }
+
+    @Test
+    void boundaryVsRelationalDescriptions() {
+        // Only <=→< and >=→> are "boundary" (dropping the equal case); the rest are "relational".
+        assertThat(relational(mutator.generate("If x <= 1 Then\n"), "<=").description()).startsWith("boundary ");
+        assertThat(relational(mutator.generate("If x >= 1 Then\n"), ">=").description()).startsWith("boundary ");
+        assertThat(relational(mutator.generate("If x <> 1 Then\n"), "<>").description()).startsWith("relational ");
+        assertThat(relational(mutator.generate("If x < 1 Then\n"), "<").description()).startsWith("relational ");
+        assertThat(relational(mutator.generate("If x > 1 Then\n"), ">").description()).startsWith("relational ");
+    }
+
+    @Test
+    void skipsIntegerLiteralTooBigForLong() {
+        // 20 nines overflows long → Long.parseLong throws → the literal is skipped, not mutated.
+        List<Mutant> ms = mutator.generate("Dim n = 99999999999999999999\n");
+        assertThat(ms).noneMatch(m -> m.operator().equals("boundary-literal"));
     }
 }
