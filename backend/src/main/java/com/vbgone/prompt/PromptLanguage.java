@@ -1,5 +1,6 @@
 package com.vbgone.prompt;
 
+import com.vbgone.common.Keyed;
 import com.vbgone.model.InterfaceResult;
 
 import java.util.List;
@@ -14,10 +15,7 @@ import java.util.List;
  * {@code GenerationService} resolves the right implementation per request from the
  * {@code targetLanguage} and delegates to it, keeping token/cost accounting shared.
  */
-public interface PromptLanguage {
-
-    /** Matches the request {@code targetLanguage}: {@code "csharp"} | {@code "java"}. */
-    String id();
+public interface PromptLanguage extends Keyed {
 
     // ── System prompts ──
 

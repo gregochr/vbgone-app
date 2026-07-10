@@ -1,5 +1,6 @@
 package com.vbgone.build;
 
+import com.vbgone.common.Keyed;
 import com.vbgone.model.BuildResult;
 import com.vbgone.model.InterfaceResult;
 import com.vbgone.model.MigrationSession;
@@ -16,10 +17,7 @@ import java.util.List;
  * NOT mutate the session's green/red build state — that stays in
  * {@code BuildService} so the dispatch layer owns session transitions.
  */
-public interface BuildRuntime {
-
-    /** Matches the request {@code targetLanguage}: {@code "csharp"} | {@code "java"}. */
-    String id();
+public interface BuildRuntime extends Keyed {
 
     BuildResult build(MigrationSession session,
                       InterfaceResult iface,

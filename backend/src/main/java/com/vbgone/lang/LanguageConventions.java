@@ -1,5 +1,7 @@
 package com.vbgone.lang;
 
+import com.vbgone.common.Keyed;
+
 /**
  * Per-target-language identifier and file conventions.
  *
@@ -10,10 +12,7 @@ package com.vbgone.lang;
  * C# prefixes the interface with {@code I} and implements it on the class itself,
  * whereas Java drops the prefix and adds an {@code Impl} class.
  */
-public interface LanguageConventions {
-
-    /** Matches the request {@code targetLanguage}: {@code "csharp"} | {@code "java"}. */
-    String id();
+public interface LanguageConventions extends Keyed {
 
     /** Interface type name. C#: {@code I}+className. Java: className (no prefix). */
     String interfaceName(String className);
