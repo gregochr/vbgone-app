@@ -1,4 +1,5 @@
 import axios from 'axios'
+import type { AxiosInstance, AxiosRequestConfig } from 'axios'
 import type { EngineParams } from '../config/engine'
 import type {
   AnalysisResult,
@@ -74,244 +75,169 @@ export const downloadClassTests = (sessionId: string, className: string): void =
 export const downloadTestsBundle = (sessionId: string): void =>
   triggerDownload(assureTestsBundleUrl(sessionId), 'VBGone-Assure-Tests.zip')
 
+/* Generic request helpers: POST/GET a JSON body and unwrap the axios response to its
+ * data. Every realApi method is one call to these — the named method surface (the
+ * MigrateApi contract) stays intact, so the mock and callers are unaffected. */
+const post = <T>(
+  client: AxiosInstance,
+  path: string,
+  body?: unknown,
+  config?: AxiosRequestConfig,
+): Promise<T> =>
+  // Only forward config when supplied, so plain JSON calls stay two-arg posts.
+  (config ? client.post<T>(path, body, config) : client.post<T>(path, body)).then((r) => r.data)
+
+const get = <T>(client: AxiosInstance, path: string): Promise<T> =>
+  client.get<T>(path).then((r) => r.data)
+
+/** Build a multipart FormData body carrying a single `file` field. */
+const fileUpload = (file: File): { body: FormData; config: AxiosRequestConfig } => {
+  const body = new FormData()
+  body.append('file', file)
+  return { body, config: { headers: { 'Content-Type': 'multipart/form-data' } } }
+}
+
 export const realApi = {
-  async analyse(filename: string, content: string, engine?: EngineParams): Promise<AnalysisResult> {
-    const { data } = await api.post<AnalysisResult>('/analyse', { filename, content, ...engine })
-    return data
-  },
+  analyse: (filename: string, content: string, engine?: EngineParams): Promise<AnalysisResult> =>
+    post(api, '/analyse', { filename, content, ...engine }),
 
-  async generateInterface(
+  generateInterface: (
     sessionId: string,
     className: string,
     engine?: EngineParams,
-  ): Promise<InterfaceResult> {
-    const { data } = await api.post<InterfaceResult>('/interface', {
-      sessionId,
-      className,
-      ...engine,
-    })
-    return data
-  },
+  ): Promise<InterfaceResult> => post(api, '/interface', { sessionId, className, ...engine }),
 
-  async generateTests(
+  generateTests: (
     sessionId: string,
     className: string,
     engine?: EngineParams,
-  ): Promise<TestsResult> {
-    const { data } = await api.post<TestsResult>('/tests', { sessionId, className, ...engine })
-    return data
-  },
+  ): Promise<TestsResult> => post(api, '/tests', { sessionId, className, ...engine }),
 
-  async generateStub(
+  generateStub: (
     sessionId: string,
     className: string,
     engine?: EngineParams,
-  ): Promise<StubResult> {
-    const { data } = await api.post<StubResult>('/stub', { sessionId, className, ...engine })
-    return data
-  },
+  ): Promise<StubResult> => post(api, '/stub', { sessionId, className, ...engine }),
 
-  async build(sessionId: string): Promise<BuildResult> {
-    const { data } = await api.post<BuildResult>('/build', { sessionId })
-    return data
-  },
+  build: (sessionId: string): Promise<BuildResult> => post(api, '/build', { sessionId }),
 
-  async implement(
+  implement: (
     sessionId: string,
     className: string,
     mode: 'STUB' | 'CLAUDE',
     engine?: EngineParams,
-  ): Promise<ImplementResult> {
-    const { data } = await api.post<ImplementResult>('/implement', {
-      sessionId,
-      className,
-      mode,
-      ...engine,
-    })
-    return data
-  },
+  ): Promise<ImplementResult> => post(api, '/implement', { sessionId, className, mode, ...engine }),
 
-  async buildAfterImplement(sessionId: string, mode: 'STUB' | 'CLAUDE'): Promise<BuildResult> {
+  buildAfterImplement: (sessionId: string, mode: 'STUB' | 'CLAUDE'): Promise<BuildResult> => {
     void mode
-    const { data } = await api.post<BuildResult>('/build', { sessionId })
-    return data
+    return post(api, '/build', { sessionId })
   },
 
-  async retryImplement(
+  retryImplement: (
     sessionId: string,
     className: string,
     failingTests: string[],
     attempt?: number,
     engine?: EngineParams,
-  ): Promise<ImplementResult> {
-    const { data } = await api.post<ImplementResult>('/retry-implement', {
+  ): Promise<ImplementResult> =>
+    post(api, '/retry-implement', {
       sessionId,
       className,
       failingTests,
       attempt: attempt ?? 1,
       ...engine,
-    })
-    return data
-  },
+    }),
 
-  async raisePR(
+  raisePR: (
     sessionId: string,
     repoOwner: string,
     repoName: string,
     branchName: string,
-  ): Promise<PullRequestResult> {
-    const { data } = await api.post<PullRequestResult>('/pr', {
-      sessionId,
-      repoOwner,
-      repoName,
-      branchName,
-    })
-    return data
+  ): Promise<PullRequestResult> => post(api, '/pr', { sessionId, repoOwner, repoName, branchName }),
+
+  uploadProject: (file: File): Promise<ProjectAnalysis> => {
+    const { body, config } = fileUpload(file)
+    return post(api, '/upload-project', body, config)
   },
 
-  async uploadProject(file: File): Promise<ProjectAnalysis> {
-    const formData = new FormData()
-    formData.append('file', file)
-    const { data } = await api.post<ProjectAnalysis>('/upload-project', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    return data
-  },
-
-  async generateBaseline(
+  generateBaseline: (
     sessionId: string,
     className: string,
     engine?: EngineParams,
-  ): Promise<BaselineResult> {
-    const { data } = await assureApi.post<BaselineResult>('/baseline', {
-      sessionId,
-      className,
-      ...engine,
-    })
-    return data
-  },
+  ): Promise<BaselineResult> => post(assureApi, '/baseline', { sessionId, className, ...engine }),
 
-  async runBaselineTests(
+  runBaselineTests: (
     sessionId: string,
     className: string,
     engine?: EngineParams,
-  ): Promise<BaselineTestsResult> {
-    const { data } = await assureApi.post<BaselineTestsResult>('/baseline-tests', {
-      sessionId,
-      className,
-      ...engine,
-    })
-    return data
-  },
+  ): Promise<BaselineTestsResult> =>
+    post(assureApi, '/baseline-tests', { sessionId, className, ...engine }),
 
-  async rerunBaselineTests(
+  rerunBaselineTests: (
     sessionId: string,
     className: string,
     code: string,
-  ): Promise<BaselineTestsResult> {
-    const { data } = await assureApi.post<BaselineTestsResult>('/rerun-baseline-tests', {
-      sessionId,
-      className,
-      code,
-    })
-    return data
-  },
+  ): Promise<BaselineTestsResult> =>
+    post(assureApi, '/rerun-baseline-tests', { sessionId, className, code }),
 
-  async augmentBaselineTests(
+  augmentBaselineTests: (
     sessionId: string,
     className: string,
     code: string,
     coveragePercent: number | null,
     engine?: EngineParams,
-  ): Promise<BaselineTestsResult> {
-    const { data } = await assureApi.post<BaselineTestsResult>('/augment-baseline-tests', {
+  ): Promise<BaselineTestsResult> =>
+    post(assureApi, '/augment-baseline-tests', {
       sessionId,
       className,
       code,
       coveragePercent,
       ...engine,
-    })
-    return data
-  },
+    }),
 
-  async quarantineBaseline(
+  quarantineBaseline: (
     sessionId: string,
     className: string,
     code: string,
     tests: string[],
-  ): Promise<BaselineTestsResult> {
-    const { data } = await assureApi.post<BaselineTestsResult>('/quarantine-baseline', {
-      sessionId,
-      className,
-      code,
-      tests,
-    })
-    return data
-  },
+  ): Promise<BaselineTestsResult> =>
+    post(assureApi, '/quarantine-baseline', { sessionId, className, code, tests }),
 
-  async repairBaselineTest(
+  repairBaselineTest: (
     sessionId: string,
     className: string,
     code: string,
     failingTest: string,
     tier: number,
     engine?: EngineParams,
-  ): Promise<RepairAttemptResult> {
-    const { data } = await assureApi.post<RepairAttemptResult>('/repair', {
-      sessionId,
-      className,
-      code,
-      failingTest,
-      tier,
-      ...engine,
-    })
-    return data
-  },
+  ): Promise<RepairAttemptResult> =>
+    post(assureApi, '/repair', { sessionId, className, code, failingTest, tier, ...engine }),
 
-  async startMutationTest(
+  startMutationTest: (
     sessionId: string,
     className: string,
     suiteCode: string,
-  ): Promise<MutationJobStatus> {
-    const { data } = await assureApi.post<MutationJobStatus>('/mutation-test', {
-      sessionId,
-      className,
-      suiteCode,
-    })
-    return data
+  ): Promise<MutationJobStatus> =>
+    post(assureApi, '/mutation-test', { sessionId, className, suiteCode }),
+
+  getMutationJob: (jobId: string): Promise<MutationJobStatus> =>
+    get(assureApi, `/mutation-test/${jobId}`),
+
+  assess: (filename: string, content: string): Promise<ReadinessReport> =>
+    post(assureApi, '/assess', { filename, content }),
+
+  assessProject: (file: File): Promise<ReadinessReport> => {
+    const { body, config } = fileUpload(file)
+    return post(assureApi, '/assess-project', body, config)
   },
 
-  async getMutationJob(jobId: string): Promise<MutationJobStatus> {
-    const { data } = await assureApi.get<MutationJobStatus>(`/mutation-test/${jobId}`)
-    return data
-  },
-
-  async assess(filename: string, content: string): Promise<ReadinessReport> {
-    const { data } = await assureApi.post<ReadinessReport>('/assess', { filename, content })
-    return data
-  },
-
-  async assessProject(file: File): Promise<ReadinessReport> {
-    const formData = new FormData()
-    formData.append('file', file)
-    const { data } = await assureApi.post<ReadinessReport>('/assess-project', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    return data
-  },
-
-  async ingestRepo(url: string): Promise<ReadinessReport> {
+  ingestRepo: (url: string): Promise<ReadinessReport> =>
     // Public-only, no auth: the server clones the repo, keeps .vb sources, and returns the same
     // ReadinessReport as an uploaded .zip. Specific failures (private/404, no .vb source) come back
     // as { error } bodies surfaced by the interceptor as an Error with that message.
-    const { data } = await assureApi.post<ReadinessReport>('/ingest-repo', { url })
-    return data
-  },
+    post(assureApi, '/ingest-repo', { url }),
 
-  async fetchCost(sessionId: string): Promise<CostResult> {
-    const { data } = await api.get<CostResult>(`/cost/${sessionId}`)
-    return data
-  },
+  fetchCost: (sessionId: string): Promise<CostResult> => get(api, `/cost/${sessionId}`),
 }
 
 /** The API contract, derived from the real client so the mock can never drift from it. */
