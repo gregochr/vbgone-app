@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
 import type { ProjectMode } from './WizardShell'
 import { ConfirmDialog } from './ConfirmDialog'
+import { StepStatus } from './StepStatus'
+import { useConfirmedAction } from './useConfirmedAction'
 import { raisePR } from '../../api/migrateApi'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { LANGS } from '../../config/engine'
@@ -51,10 +52,6 @@ function Step6PRSingle({
     ? `Copilot Code Review · ${lang.linter} · ${lang.mutationTool}`
     : `${lang.linter} · ${lang.mutationTool} · CodeQL`
   const isMultiClass = (state.analysis?.suggestedMigrationOrder?.length ?? 1) > 1
-  const [showConfirm, setShowConfirm] = useState(!state.prResult)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
   const sessionId = state.analysis?.sessionId ?? ''
   const totalClasses = state.analysis?.suggestedMigrationOrder?.length ?? 1
   const branchName =
@@ -62,32 +59,36 @@ function Step6PRSingle({
       ? `migrate/${state.analysis?.classes[0]?.name?.toLowerCase().replace(/\s+/g, '-') ?? 'batch'}-batch`
       : `migrate/${(state.analysis?.suggestedMigrationOrder[0] ?? state.analysis?.classes[0]?.name ?? '').toLowerCase().replace(/\s+/g, '-')}`
 
-  const doRaisePR = () => {
-    setShowConfirm(false)
-    setLoading(true)
-    raisePR(sessionId, 'gregochr', 'vbgone-output', branchName)
-      .then((result) => {
-        update({ prResult: result })
-        setLoading(false)
-        onReady()
-      })
-      .catch((err) => {
-        setLoading(false)
-        setError(err instanceof Error ? err.message : 'PR creation failed')
-      })
+  const { confirming, loading, error, requestConfirm, cancel, run } = useConfirmedAction({
+    alreadyDone: !!state.prResult,
+    action: () => raisePR(sessionId, 'gregochr', 'vbgone-output', branchName),
+    onResult: (result) => update({ prResult: result }),
+    onReady,
+    errorMessage: 'PR creation failed',
+  })
+
+  const header = (
+    <>
+      <div className="step-kicker">STEP 06 · PULL REQUEST</div>
+      <h2 className="step-title">Ship it</h2>
+    </>
+  )
+
+  if (loading || error) {
+    return (
+      <StepStatus
+        header={header}
+        loading={loading}
+        loadingText="Committing files and opening the Pull Request…"
+        error={error}
+      />
+    )
   }
 
-  useEffect(() => {
-    if (state.prResult) {
-      onReady()
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (showConfirm) {
+  if (confirming) {
     return (
       <div>
-        <div className="step-kicker">STEP 06 · PULL REQUEST</div>
-        <h2 className="step-title">Ship it</h2>
+        {header}
         <p className="step-subtitle">
           {isMultiClass
             ? `All ${totalClasses} classes migrated successfully. Review the summary below and raise a PR when ready.`
@@ -120,7 +121,7 @@ function Step6PRSingle({
           </div>
         )}
 
-        <ConfirmDialog onConfirm={doRaisePR} onCancel={() => setShowConfirm(false)}>
+        <ConfirmDialog onConfirm={run} onCancel={cancel}>
           <p>
             This will commit {totalClasses} {totalClasses === 1 ? 'interface' : 'interfaces'},{' '}
             {totalClasses} {totalClasses === 1 ? 'implementation' : 'implementations'}, and{' '}
@@ -138,11 +139,10 @@ function Step6PRSingle({
   }
 
   // Cancelled state — confirm dismissed but PR hasn't been raised
-  if (!loading && !error && !state.prResult) {
+  if (!state.prResult) {
     return (
       <div>
-        <div className="step-kicker">STEP 06 · PULL REQUEST</div>
-        <h2 className="step-title">Ship it</h2>
+        {header}
         <p className="step-subtitle">
           Interface, implementation, and tests are committed to a branch and a Pull Request is
           raised against <code>{lang.outputRepo}</code>. The CI pipeline triggers automatically.
@@ -151,7 +151,7 @@ function Step6PRSingle({
           <div className="run-card-model">
             <span className="model-caption">NO AI CALL · GITHUB API</span>
           </div>
-          <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+          <button className="btn-plex" onClick={requestConfirm}>
             Raise Pull Request
           </button>
         </div>
@@ -174,36 +174,12 @@ function Step6PRSingle({
     )
   }
 
-  if (loading) {
-    return (
-      <div>
-        <div className="step-kicker">STEP 06 · PULL REQUEST</div>
-        <h2 className="step-title">Ship it</h2>
-        <div className="busy-row">
-          <span className="spinner" />
-          <span className="loading-text">Committing files and opening the Pull Request…</span>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div>
-        <div className="step-kicker">STEP 06 · PULL REQUEST</div>
-        <h2 className="step-title">Ship it</h2>
-        <div className="build-status build-red">{error}</div>
-      </div>
-    )
-  }
-
   const pr = state.prResult
   if (!pr) return null
 
   return (
     <div>
-      <div className="step-kicker">STEP 06 · PULL REQUEST</div>
-      <h2 className="step-title">Ship it</h2>
+      {header}
       <p className="step-subtitle">
         Migration complete! {totalClasses > 1 ? `All ${totalClasses} classes committed.` : ''} Your
         PR is ready for review.
