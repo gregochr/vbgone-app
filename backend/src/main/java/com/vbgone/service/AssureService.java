@@ -157,10 +157,8 @@ public class AssureService {
                 request.provider(), request.targetLanguage(), request.modelOverrides());
         MigrationSession session = getSession(request.sessionId());
 
-        int tier = request.tier();
-        ModelRole role = tierRole(tier);
-        String tierName = tierName(tier);
-        String modelId = registry.modelFor(options.provider(), role, options.modelOverrides());
+        RepairTier tier = RepairTier.of(request.tier());
+        String modelId = registry.modelFor(options.provider(), tier.role(), options.modelOverrides());
 
         String failingTest = request.failingTest();
         String suiteCode = request.code();
@@ -169,17 +167,16 @@ public class AssureService {
         String observed = session.getFailureMessages().getOrDefault(failingTest, "");
 
         String userMessage = prompts.repairUserMessage(
-                failingTest, currentTest, vbSource, observed, tierGuidance(tier));
-        AiResponse response = call(options, role, CSharpPrompts.REPAIR_SYSTEM_PROMPT,
+                failingTest, currentTest, vbSource, observed, tier.guidance());
+        AiResponse response = call(options, tier.role(), CSharpPrompts.REPAIR_SYSTEM_PROMPT,
                 userMessage, 4096L, "repair", session);
         RepairPlan plan = parseRepair(stripJsonFences(response.text()));
 
-        String terminalNoFix = tier >= 3 ? "nofix" : "escalated";
+        String terminalNoFix = tier.isFinal() ? "nofix" : "escalated";
 
         // No valid single-test edit at this tier — escalate without applying a bad fix.
         if (plan.noEdit() || plan.newTest() == null || plan.newTest().isBlank()) {
-            return new RepairAttempt(tierName, role.name().toLowerCase(), modelId, plan.rationale(),
-                    List.of(), new RepairAttempt.Gate(false,
+            return attempt(tier, modelId, plan, List.of(), new RepairAttempt.Gate(false,
                     plan.noEditNote("No valid single-test edit works at this tier.")),
                     null, terminalNoFix, suiteCode, false);
         }
@@ -189,8 +186,7 @@ public class AssureService {
         RepairAttempt.Gate gate = validityGate(currentTest, newTest);
         if (!gate.ok()) {
             // A produced-but-invalid rewrite (e.g. always-pass) is rejected, not counted as a win.
-            return new RepairAttempt(tierName, role.name().toLowerCase(), modelId, plan.rationale(),
-                    diff, gate, null, terminalNoFix, suiteCode, false);
+            return attempt(tier, modelId, plan, diff, gate, null, terminalNoFix, suiteCode, false);
         }
 
         String newCode = spliceMethod(suiteCode, currentTest, newTest);
@@ -201,23 +197,40 @@ public class AssureService {
             session.putBaselineSuite(request.className(), session.getBaselineSuite());
             RepairAttempt.Rerun rerun = new RepairAttempt.Rerun(true,
                     build.passed() + " / " + build.total() + " passing against your untouched VB.NET.");
-            return new RepairAttempt(tierName, role.name().toLowerCase(), modelId, plan.rationale(),
-                    diff, gate, rerun, "green", newCode, true);
+            return attempt(tier, modelId, plan, diff, gate, rerun, "green", newCode, true);
         }
 
-        // Still red against the untouched original. Re-run once more: if the observed value differs
-        // between identical runs it's nondeterministic (a different answer every run), not fixable.
+        // Still red against the untouched original. Re-run once more: a value that differs between
+        // identical runs is nondeterministic (a different answer every run) and can't be pinned.
         String observed1 = session.getFailureMessages().getOrDefault(failingTest, "");
-        runSuite(session, request.className(), newCode);
-        String observed2 = session.getFailureMessages().getOrDefault(failingTest, "");
+        String observed2 = rerunAndReobserve(session, request.className(), failingTest, newCode);
         boolean flaky = isFlaky(observed1, observed2);
 
         RepairAttempt.Rerun rerun = flaky
                 ? new RepairAttempt.Rerun(false, "Red again — the value changed between runs.")
                 : new RepairAttempt.Rerun(false, "Still red — " + shorten(observed2, observed));
-        String tag = flaky ? "flag" : (tier >= 3 ? "nofix" : "red");
-        return new RepairAttempt(tierName, role.name().toLowerCase(), modelId, plan.rationale(),
-                diff, gate, rerun, tag, newCode, false);
+        String tag = flaky ? "flag" : (tier.isFinal() ? "nofix" : "red");
+        return attempt(tier, modelId, plan, diff, gate, rerun, tag, newCode, false);
+    }
+
+    /** Build a {@link RepairAttempt} card, filling the tier's fixed fields (name, role, model, rationale). */
+    private RepairAttempt attempt(RepairTier tier, String modelId, RepairPlan plan,
+                                  List<RepairAttempt.DiffLine> diff, RepairAttempt.Gate gate,
+                                  RepairAttempt.Rerun rerun, String tag, String code, boolean netFaithful) {
+        return new RepairAttempt(tier.displayName(), tier.role().name().toLowerCase(), modelId,
+                plan.rationale(), diff, gate, rerun, tag, code, netFaithful);
+    }
+
+    /**
+     * Re-run the spliced suite once more against the untouched original and return the failing test's
+     * freshly observed output. The re-run's {@link BuildResult} is deliberately discarded — this is
+     * invoked purely for its side effect of repopulating {@code session.getFailureMessages()}, so the
+     * caller can compare this observation to the previous one and detect a value that changes every run.
+     */
+    private String rerunAndReobserve(MigrationSession session, String className,
+                                     String failingTest, String newCode) {
+        runSuite(session, className, newCode); // side-effect only: refreshes failure messages
+        return session.getFailureMessages().getOrDefault(failingTest, "");
     }
 
     private BuildResult runSuite(MigrationSession session, String className, String code) {
@@ -231,37 +244,6 @@ public class AssureService {
     }
 
     // ── Auto-repair helpers (package-private for unit testing) ──
-
-    static ModelRole tierRole(int tier) {
-        return switch (tier) {
-            case 1 -> ModelRole.MECHANICAL;
-            case 3 -> ModelRole.ESCALATION;
-            default -> ModelRole.REASONING;
-        };
-    }
-
-    static String tierName(int tier) {
-        return switch (tier) {
-            case 1 -> "Mechanical";
-            case 3 -> "Escalation";
-            default -> "Reasoning";
-        };
-    }
-
-    static String tierGuidance(int tier) {
-        return switch (tier) {
-            case 1 -> "Cheap mechanical tier: only a deterministic single-value swap is allowed — "
-                    + "change the expected literal to the observed value and fix a now-misleading "
-                    + "name/comment. If the code THREW where a value was expected, there is nothing "
-                    + "to swap: set noEdit true so a stronger model can restructure the test.";
-            case 3 -> "Final attempt with full context. Tighten to the EXACT runtime exception type "
-                    + "or value from the output. If the value is different on every run, no fixed "
-                    + "test can match it — set noEdit true; never fake a pass.";
-            default -> "Restructure the assertion using the method source and the failure output "
-                    + "(for example, a value assertion becomes Assert.ThrowsException<T> for the "
-                    + "exact exception type actually thrown).";
-        };
-    }
 
     /**
      * Isolate a single {@code [TestMethod] ... }} block by name: walk back to the attribute line,
