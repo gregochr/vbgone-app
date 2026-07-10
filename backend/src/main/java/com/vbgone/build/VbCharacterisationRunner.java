@@ -12,8 +12,6 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -160,8 +158,8 @@ public class VbCharacterisationRunner {
         Path vbDir = assureDir.resolve(className + ".Vb");
         Path baselineDir = assureDir.resolve(className + ".Baseline");
 
-        deleteRecursively(vbDir);
-        deleteRecursively(baselineDir);
+        BuildRuntimeSupport.deleteRecursively(vbDir);
+        BuildRuntimeSupport.deleteRecursively(baselineDir);
         Files.createDirectories(vbDir);
         Files.createDirectories(baselineDir);
 
@@ -173,37 +171,13 @@ public class VbCharacterisationRunner {
         Files.writeString(baselineDir.resolve(suite.testClassName() + ".cs"), suite.code());
     }
 
-    private void deleteRecursively(Path dir) throws IOException {
-        if (!Files.exists(dir)) return;
-        try (var walk = Files.walk(dir)) {
-            walk.sorted(Comparator.reverseOrder()).forEach(p -> {
-                try { Files.deleteIfExists(p); } catch (IOException ignored) {}
-            });
-        }
-    }
-
     private ProcessOutput executeDotnetTest(String sessionId, String className)
             throws IOException, InterruptedException {
         String baselinePath = "/workspace/" + sessionId + "/assure/" + className + ".Baseline";
-        return processRunner.run(List.of(
-                "docker", "exec", containerName,
-                "dotnet", "test", baselinePath,
-                "--logger", "trx;LogFileName=results.trx",
-                // Collect coverage of the legacy VB assembly — without this flag Coverlet never
-                // writes a report, so CoverageParser finds nothing and the badge silently hides.
-                "--collect", "XPlat Code Coverage"
-        ));
+        return processRunner.run(BuildRuntimeSupport.dotnetTestCommand(containerName, baselinePath));
     }
 
     List<String> parseCompilationErrors(String stderr, String stdout) {
-        String combined = ((stderr != null ? stderr : "") + "\n" + (stdout != null ? stdout : "")).trim();
-        if (combined.isBlank()) {
-            return List.of("Build failed with no error output");
-        }
-        List<String> errors = Arrays.stream(combined.split("\n"))
-                .filter(line -> line.contains(": error "))
-                .map(String::trim)
-                .toList();
-        return errors.isEmpty() ? List.of(combined.substring(0, Math.min(combined.length(), 500))) : errors;
+        return BuildRuntimeSupport.parseCompilationErrors(stderr, stdout);
     }
 }
