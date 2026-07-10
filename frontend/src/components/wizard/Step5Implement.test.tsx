@@ -71,6 +71,16 @@ describe('Step5Implement', () => {
     expect(claudeCard).toHaveClass('selected')
   })
 
+  it('renders a real middot glyph in impl-choice-meta, not a raw \\u00B7 escape (regression)', () => {
+    render(<Step5Implement state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    // Both impl-choice-meta lines must render a genuine "·"; a bare · in JSX
+    // text renders as six literal characters. Build the escape at runtime so this
+    // assertion itself contains no escape sequence to normalise.
+    const rawEscape = String.fromCharCode(92) + 'u00B7' // the 6 chars: backslash u 0 0 B 7
+    expect(document.body.textContent).not.toContain(rawEscape)
+    expect(screen.getByText('no API call · you own every line')).toBeInTheDocument()
+  })
+
   it('calls onReady on mount when implementation is already in state', () => {
     const doneState = { ...baseState, implementResult: mockImpl, greenBuild: mockGreenBuild }
     const onReady = vi.fn()
