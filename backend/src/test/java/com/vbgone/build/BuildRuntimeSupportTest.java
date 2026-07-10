@@ -78,4 +78,29 @@ class BuildRuntimeSupportTest {
         String noisy = "some maven-like failure with no compiler diagnostics";
         assertThat(BuildRuntimeSupport.parseCompilationErrors(noisy, "")).containsExactly(noisy);
     }
+
+    @Test
+    void wrapProcessFailure_wrapsIoExceptionWithContextMessage() {
+        Thread.interrupted(); // clear any stray interrupt state on the test thread
+        IOException cause = new IOException("disk gone");
+
+        RuntimeException wrapped = BuildRuntimeSupport.wrapProcessFailure("Build failed", cause);
+
+        assertThat(wrapped).hasMessage("Build failed: disk gone");
+        assertThat(wrapped.getCause()).isSameAs(cause);
+        assertThat(Thread.currentThread().isInterrupted()).isFalse();
+    }
+
+    @Test
+    void wrapProcessFailure_resetsInterruptFlagForInterruptedException() {
+        InterruptedException cause = new InterruptedException("stopped");
+
+        RuntimeException wrapped = BuildRuntimeSupport.wrapProcessFailure("Mutation run failed", cause);
+
+        assertThat(wrapped).hasMessage("Mutation run failed: stopped");
+        assertThat(wrapped.getCause()).isSameAs(cause);
+        // The helper must re-flag the interrupt it swallowed; Thread.interrupted() also clears it
+        // so it can't leak into another test on this thread.
+        assertThat(Thread.interrupted()).isTrue();
+    }
 }

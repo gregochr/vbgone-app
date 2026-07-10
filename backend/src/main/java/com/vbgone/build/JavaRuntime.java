@@ -22,7 +22,7 @@ import java.util.List;
  * parses the resulting Surefire XML reports.
  */
 @Service
-public class JavaRuntime implements BuildRuntime {
+public class JavaRuntime extends AbstractBuildRuntime {
 
     private static final String PACKAGE = "com.vbgone.generated";
 
@@ -62,7 +62,6 @@ public class JavaRuntime implements BuildRuntime {
             """;
 
     private final SessionStore sessionStore;
-    private final Path workspacePath;
     private final String javaRunnerContainer;
     private final ProcessRunner processRunner;
     private final LanguageConventionsRegistry conventions;
@@ -72,8 +71,8 @@ public class JavaRuntime implements BuildRuntime {
                        @Value("${java.runner.container:vbgone-app-jdk-maven-runner-1}") String javaRunnerContainer,
                        ProcessRunner processRunner,
                        LanguageConventionsRegistry conventions) {
+        super(Path.of(workspacePath));
         this.sessionStore = sessionStore;
-        this.workspacePath = Path.of(workspacePath);
         this.javaRunnerContainer = javaRunnerContainer;
         this.processRunner = processRunner;
         this.conventions = conventions;
@@ -85,39 +84,6 @@ public class JavaRuntime implements BuildRuntime {
     }
 
     @Override
-    public BuildResult build(MigrationSession session, InterfaceResult iface, TestsResult tests,
-                             String implementationCode, List<String> dependencies) {
-        String sessionId = session.getSessionId();
-        String className = iface.className();
-        Path sessionDir = workspacePath.resolve(sessionId);
-
-        try {
-            writeProjectFiles(sessionDir, className, iface, tests, implementationCode, dependencies);
-
-            ProcessOutput output = executeMavenTest(sessionId);
-
-            Path reportsDir = sessionDir.resolve("target").resolve("surefire-reports");
-            boolean hasReports = false;
-            if (Files.isDirectory(reportsDir)) {
-                try (var stream = Files.newDirectoryStream(reportsDir, "TEST-*.xml")) {
-                    hasReports = stream.iterator().hasNext();
-                }
-            }
-
-            if (output.exitCode() != 0 && !hasReports) {
-                List<String> errors = parseJavaCompilationErrors(output.stderr(), output.stdout(), sessionId);
-                return new BuildResult(sessionId, BuildStatus.ERROR, 0, 0, 0, errors, List.of());
-            }
-            return parseSurefire(sessionId, reportsDir);
-
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw new RuntimeException("Build failed: " + e.getMessage(), e);
-        }
-    }
-
     void writeProjectFiles(Path sessionDir, String className,
                            InterfaceResult iface, TestsResult tests,
                            String implementationCode, List<String> dependencies) throws IOException {
@@ -156,12 +122,34 @@ public class JavaRuntime implements BuildRuntime {
         }
     }
 
-    private ProcessOutput executeMavenTest(String sessionId)
+    @Override
+    ProcessOutput runTests(String sessionId, String className)
             throws IOException, InterruptedException {
         return processRunner.run(List.of(
                 "docker", "exec", javaRunnerContainer,
                 "mvn", "-q", "-f", "/workspace/" + sessionId + "/pom.xml", "test"
         ));
+    }
+
+    @Override
+    boolean hasResults(Path sessionDir, String className) throws IOException {
+        Path reportsDir = sessionDir.resolve("target").resolve("surefire-reports");
+        if (!Files.isDirectory(reportsDir)) {
+            return false;
+        }
+        try (var stream = Files.newDirectoryStream(reportsDir, "TEST-*.xml")) {
+            return stream.iterator().hasNext();
+        }
+    }
+
+    @Override
+    BuildResult parseResults(String sessionId, Path sessionDir, String className) {
+        return parseSurefire(sessionId, sessionDir.resolve("target").resolve("surefire-reports"));
+    }
+
+    @Override
+    List<String> parseErrors(String sessionId, ProcessOutput output) {
+        return parseJavaCompilationErrors(output.stderr(), output.stdout(), sessionId);
     }
 
     BuildResult parseSurefire(String sessionId, Path reportsDir) {

@@ -19,7 +19,7 @@ import java.util.List;
  * {@code BuildService} build body.
  */
 @Service
-public class DotNetRuntime implements BuildRuntime {
+public class DotNetRuntime extends AbstractBuildRuntime {
 
     static final String MAIN_CSPROJ = """
             <Project Sdk="Microsoft.NET.Sdk">
@@ -53,7 +53,6 @@ public class DotNetRuntime implements BuildRuntime {
             """;
 
     private final SessionStore sessionStore;
-    private final Path workspacePath;
     private final String containerName;
     private final ProcessRunner processRunner;
 
@@ -61,8 +60,8 @@ public class DotNetRuntime implements BuildRuntime {
                          @Value("${vbgone.workspace:/workspace}") String workspacePath,
                          @Value("${dotnet.runner.container:vbgone-app-dotnet-runner-1}") String containerName,
                          ProcessRunner processRunner) {
+        super(Path.of(workspacePath));
         this.sessionStore = sessionStore;
-        this.workspacePath = Path.of(workspacePath);
         this.containerName = containerName;
         this.processRunner = processRunner;
     }
@@ -73,40 +72,6 @@ public class DotNetRuntime implements BuildRuntime {
     }
 
     @Override
-    public BuildResult build(MigrationSession session, InterfaceResult iface, TestsResult tests,
-                             String implementationCode, List<String> dependencies) {
-        String sessionId = session.getSessionId();
-        String className = iface.className();
-        Path sessionDir = workspacePath.resolve(sessionId);
-
-        try {
-            writeProjectFiles(sessionDir, className, iface, tests, implementationCode, dependencies);
-
-            ProcessOutput output = executeDotnetTest(sessionId, className);
-
-            Path trxPath = sessionDir.resolve(className + ".Tests")
-                    .resolve("TestResults").resolve("results.trx");
-
-            if (output.exitCode() != 0 && !Files.exists(trxPath)) {
-                List<String> errors = parseCompilationErrors(output.stderr(), output.stdout());
-                return new BuildResult(sessionId, BuildStatus.ERROR, 0, 0, 0, errors, List.of());
-            } else {
-                String trxContent = Files.readString(trxPath);
-                BuildResult result = parseTrx(sessionId, trxContent);
-                // Coverage of the implementation assembly (named after the class).
-                Path testResults = sessionDir.resolve(className + ".Tests").resolve("TestResults");
-                CoverageParser.Coverage cov = CoverageParser.parse(testResults, className);
-                return result.withCoverage(cov.linePercent(), cov.branchPercent());
-            }
-
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw new RuntimeException("Build failed: " + e.getMessage(), e);
-        }
-    }
-
     void writeProjectFiles(Path sessionDir, String className,
                            InterfaceResult iface, TestsResult tests,
                            String implementationCode, List<String> dependencies) throws IOException {
@@ -165,10 +130,35 @@ public class DotNetRuntime implements BuildRuntime {
                 """;
     }
 
-    private ProcessOutput executeDotnetTest(String sessionId, String className)
+    private static Path trxPath(Path sessionDir, String className) {
+        return sessionDir.resolve(className + ".Tests").resolve("TestResults").resolve("results.trx");
+    }
+
+    @Override
+    ProcessOutput runTests(String sessionId, String className)
             throws IOException, InterruptedException {
         String containerTestPath = "/workspace/" + sessionId + "/" + className + ".Tests";
         return processRunner.run(BuildRuntimeSupport.dotnetTestCommand(containerName, containerTestPath));
+    }
+
+    @Override
+    boolean hasResults(Path sessionDir, String className) {
+        return Files.exists(trxPath(sessionDir, className));
+    }
+
+    @Override
+    BuildResult parseResults(String sessionId, Path sessionDir, String className) throws IOException {
+        String trxContent = Files.readString(trxPath(sessionDir, className));
+        BuildResult result = parseTrx(sessionId, trxContent);
+        // Coverage of the implementation assembly (named after the class).
+        Path testResults = sessionDir.resolve(className + ".Tests").resolve("TestResults");
+        CoverageParser.Coverage cov = CoverageParser.parse(testResults, className);
+        return result.withCoverage(cov.linePercent(), cov.branchPercent());
+    }
+
+    @Override
+    List<String> parseErrors(String sessionId, ProcessOutput output) {
+        return parseCompilationErrors(output.stderr(), output.stdout());
     }
 
     BuildResult parseTrx(String sessionId, String trxContent) {

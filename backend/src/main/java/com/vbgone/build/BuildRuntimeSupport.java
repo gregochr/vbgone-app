@@ -10,14 +10,32 @@ import java.util.List;
 /**
  * Static helpers shared by the C#/dotnet build paths ({@link DotNetRuntime} and
  * {@link VbCharacterisationRunner}): a best-effort recursive delete, the {@code docker exec …
- * dotnet test} command, and compilation-error parsing. These were byte-identical copies in both
- * classes; centralising them follows the same precedent as {@link TrxParser} / {@code CoverageParser}.
- * Composition, not inheritance — {@code VbCharacterisationRunner} is not a {@link BuildRuntime} and
- * {@code JavaRuntime} uses {@code mvn}, so a shared base class would not fit.
+ * dotnet test} command, compilation-error parsing, and the interrupt-aware process-failure wrap.
+ * These were byte-identical copies across those classes; centralising them follows the same
+ * precedent as {@link TrxParser} / {@code CoverageParser}.
+ *
+ * <p>{@link JavaRuntime} and {@link DotNetRuntime} additionally share the {@code build()} skeleton
+ * via {@link AbstractBuildRuntime}. {@code VbCharacterisationRunner} is not a {@link BuildRuntime}
+ * (different entry points and session side effects), so it composes these helpers rather than
+ * extending that base.
  */
 final class BuildRuntimeSupport {
 
     private BuildRuntimeSupport() {
+    }
+
+    /**
+     * Wrap a process-execution failure in a {@link RuntimeException}, re-setting the thread's
+     * interrupt flag first when the cause is an {@link InterruptedException}. Centralises the
+     * interrupt-aware catch that the build runtimes and the characterisation runner all repeat.
+     * Returns (rather than throws) so callers read {@code throw wrapProcessFailure(...)} and the
+     * compiler still sees a definite throw.
+     */
+    static RuntimeException wrapProcessFailure(String context, Exception e) {
+        if (e instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        return new RuntimeException(context + ": " + e.getMessage(), e);
     }
 
     /**
