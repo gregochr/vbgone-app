@@ -658,6 +658,92 @@ class AssureAssessmentServiceTest {
     }
 
     @Test
+    void hybridAsmxWithWebGetAndWebInvoke_extractsWcfEndpointsFromUriTemplate() {
+        // Real-world hybrid shape (GlobalTechnology/OpsInABox — App_Code/casAuth/CASforMobile.vb): an
+        // ASMX WebService whose methods also carry WCF <WebGet>/<WebInvoke> with a UriTemplate, all
+        // via `_`-continued attributes. A plain <WebMethod> stays an ASMX SOAP endpoint; a method with
+        // a UriTemplate is surfaced as a WCF endpoint routed by that template, not by /Service/Method.
+        String vb = """
+                <System.Web.Script.Services.ScriptService()> _
+                <WebService(Namespace:="https://agapeconnect.me/")> _
+                Public Class CASforMobile
+                    Inherits System.Web.Services.WebService
+
+                    <WebMethod()> _
+                    Public Function HelloWorld() As String
+                        Return "Hello World"
+                    End Function
+
+                    <WebMethod()> _
+                    <WebGet(ResponseFormat:=WebMessageFormat.Json, UriTemplate:="key/json/username/{username}/password/{password}")> _
+                    Public Function AuthenticateWithTheKey(ByVal username As String, ByVal password As String) As KeyUserDetails
+                        Return Nothing
+                    End Function
+
+                    <WebInvoke(Method:="POST", UriTemplate:="session/create")> _
+                    Public Function CreateSession(ByVal request As SessionRequest) As SessionResult
+                        Return Nothing
+                    End Function
+                End Class
+                """;
+
+        ReadinessReport r = service.assess("App_Code/casAuth/CASforMobile.vb", vb);
+
+        assertThat(r.classes()).isEmpty();
+        assertThat(r.restApis()).hasSize(3);
+
+        // Plain <WebMethod> with no UriTemplate → ASMX SOAP endpoint at /Service/Method.
+        assertThat(endpoint(r, "GET", "/CASforMobile/HelloWorld").kind()).isEqualTo("ASMX");
+
+        // <WebGet> UriTemplate → GET routed by the template, its {tokens} as path params.
+        RestApiEndpoint auth = endpoint(r, "GET", "/key/json/username/{username}/password/{password}");
+        assertThat(auth.kind()).isEqualTo("WCF");
+        assertThat(auth.handler()).isEqualTo("CASforMobile.AuthenticateWithTheKey");
+        assertThat(auth.resType()).isEqualTo("KeyUserDetails");
+        assertThat(auth.params()).extracting(p -> p.name()).containsExactly("username", "password");
+        assertThat(auth.params()).allMatch(p -> p.in().equals("path"));
+
+        // <WebInvoke Method:="POST"> → POST; the unbound param is the request body.
+        RestApiEndpoint create = endpoint(r, "POST", "/session/create");
+        assertThat(create.kind()).isEqualTo("WCF");
+        assertThat(create.reqType()).isEqualTo("SessionRequest");
+        assertThat(create.resType()).isEqualTo("SessionResult");
+        assertThat(create.resStatus()).isEqualTo("201 Created");
+        assertThat(create.params()).isEmpty();
+    }
+
+    @Test
+    void pureWcfServiceContract_withoutWebMethod_stillYieldsWcfEndpoints() {
+        // A WCF Web service (<ServiceContract> + <WebGet> UriTemplate) that is NOT an ASMX WebService
+        // and doesn't inherit WebService — it must still be recognised and surfaced, not bucketed.
+        String vb = """
+                <ServiceContract()>
+                Public Class GeoService
+                    <OperationContract()>
+                    <WebGet(UriTemplate:="geo/{country}/rate")>
+                    Public Function RateFor(country As String) As Decimal
+                        Return 0.2D
+                    End Function
+                End Class
+                """;
+
+        ReadinessReport r = service.assess("App_Code/GeoService.vb", vb);
+
+        assertThat(r.classes()).isEmpty();
+        assertThat(r.restApis()).singleElement().satisfies(e -> {
+            assertThat(e.kind()).isEqualTo("WCF");
+            assertThat(e.verb()).isEqualTo("GET");
+            assertThat(e.route()).isEqualTo("/geo/{country}/rate");
+            assertThat(e.handler()).isEqualTo("GeoService.RateFor");
+            assertThat(e.resType()).isEqualTo("Decimal");
+            assertThat(e.params()).singleElement().satisfies(p -> {
+                assertThat(p.name()).isEqualTo("country");
+                assertThat(p.in()).isEqualTo("path");
+            });
+        });
+    }
+
+    @Test
     void ordinaryEstate_hasNoRestApis() {
         assertThat(service.assess("LegacyEstate.zip", DEMO_MIXED).restApis()).isEmpty();
     }

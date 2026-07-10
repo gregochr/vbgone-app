@@ -101,6 +101,15 @@ public class AssureAssessmentService {
     /** {@code {token}} placeholders in a route template. */
     private static final Pattern ROUTE_TOKEN = Pattern.compile("\\{(\\w+)");
 
+    /** {@code UriTemplate:="…"} on a WCF {@code <WebGet>}/{@code <WebInvoke>} attribute. */
+    private static final Pattern URI_TEMPLATE = Pattern.compile("(?i)UriTemplate\\s*:=\\s*\"([^\"]*)\"");
+
+    /** {@code Method:="POST"} on a {@code <WebInvoke>} — its HTTP verb (WCF defaults to POST). */
+    private static final Pattern WEBINVOKE_METHOD = Pattern.compile("(?i)\\bMethod\\s*:=\\s*\"(\\w+)\"");
+
+    /** A {@code name={token}} binding in the {@code ?query} tail of a UriTemplate. */
+    private static final Pattern URI_QUERY_PARAM = Pattern.compile("(\\w+)=\\{(\\w+)\\}");
+
     /** One VB parameter: optional attributes, then {@code name As Type}. */
     private static final Pattern PARAM = Pattern.compile(
             "(?i)^\\s*((?:<[^>]*>\\s*)*)(?:ByVal\\s+|ByRef\\s+|Optional\\s+|ParamArray\\s+)*"
@@ -335,25 +344,30 @@ public class AssureAssessmentService {
                                                    String classAttrs, String body) {
         List<RestApiEndpoint> endpoints = new ArrayList<>();
         boolean asmx = isAsmxService(file, classAttrs, body);
-        boolean webApi = !asmx && isWebApiController(className, body);
-        if (!asmx && !webApi) return endpoints;
+        boolean wcf = isWcfService(classAttrs, body);
+        boolean webApi = !asmx && !wcf && isWebApiController(className, body);
+        if (!asmx && !wcf && !webApi) return endpoints;
 
-        String prefix = asmx ? null : routePrefix(classAttrs);
+        String prefix = webApi ? routePrefix(classAttrs) : null;
         Matcher m = ACTION_METHOD.matcher(body);
         while (m.find()) {
             String attrs = m.group(1) == null ? "" : m.group(1);
+            String lower = attrs.toLowerCase();
             boolean isFunction = "Function".equalsIgnoreCase(m.group(2));
             String name = m.group(3);
             String rawParams = m.group(4) == null ? "" : m.group(4).trim();
             String tail = m.group(5) == null ? "" : m.group(5);
             if (SKIP_METHODS.contains(name)) continue;
 
-            if (asmx) {
-                // Only <WebMethod>-decorated methods are actually exposed over the ASMX endpoint.
-                if (!attrs.toLowerCase().contains("<webmethod")) continue;
-                endpoints.add(asmxEndpoint(className, name, file, rawParams, isFunction, tail));
-            } else {
+            // A <WebGet>/<WebInvoke> UriTemplate is the REST face of a WCF-Web (or hybrid ASMX)
+            // method — it wins over the SOAP shape, since the template is the URL clients call.
+            if (lower.contains("<webget") || lower.contains("<webinvoke")) {
+                endpoints.add(wcfEndpoint(className, name, file, attrs, rawParams, isFunction, tail));
+            } else if (webApi) {
                 endpoints.add(webApiEndpoint(className, name, file, attrs, prefix, rawParams, isFunction, tail));
+            } else if (asmx && lower.contains("<webmethod")) {
+                // Only <WebMethod>-decorated methods are actually exposed over the ASMX endpoint.
+                endpoints.add(asmxEndpoint(className, name, file, rawParams, isFunction, tail));
             }
         }
         return endpoints;
@@ -374,6 +388,16 @@ public class AssureAssessmentService {
         if (f.endsWith(".asmx.vb") || f.endsWith(".asmx")) return true;
         String attrs = (classAttrs + body).toLowerCase();
         return attrs.contains("<webservice") || attrs.contains("<webmethod");
+    }
+
+    /**
+     * True when the class exposes WCF-Web endpoints: a {@code <ServiceContract>} service, or any
+     * method decorated with {@code <WebGet>}/{@code <WebInvoke>}. This also fires for hybrid ASMX
+     * services (WebService + WebGet), but that's fine — the per-method attributes decide the shape.
+     */
+    private boolean isWcfService(String classAttrs, String body) {
+        String a = ((classAttrs == null ? "" : classAttrs) + body).toLowerCase();
+        return a.contains("<servicecontract") || a.contains("<webget") || a.contains("<webinvoke");
     }
 
     private String routePrefix(String classAttrs) {
@@ -432,6 +456,78 @@ public class AssureAssessmentService {
         String resType = isFunction ? returnType(tail) : "—";
         return new RestApiEndpoint("GET", route, className + "." + name, file, "ASMX",
                 apiParams, "SOAP request", null, resType, "200 OK", "");
+    }
+
+    /**
+     * A WCF-Web endpoint declared by {@code <WebGet>}/{@code <WebInvoke>}. The route comes from the
+     * attribute's {@code UriTemplate} (its {@code {tokens}} become path params, its {@code ?query}
+     * tail query params); the verb from {@code <WebGet>} (GET) or {@code <WebInvoke>}'s
+     * {@code Method} (defaulting to POST). Body-verb params not bound to the template are the body.
+     */
+    private RestApiEndpoint wcfEndpoint(String className, String name, String file, String attrs,
+                                        String rawParams, boolean isFunction, String tail) {
+        String verb = wcfVerb(attrs);
+        String template = uriTemplate(attrs);
+
+        // Split the UriTemplate into its path (with {tokens}) and an optional ?name={token} tail.
+        String pathTemplate = template;
+        Set<String> queryTokens = new LinkedHashSet<>();
+        if (template != null) {
+            int q = template.indexOf('?');
+            if (q >= 0) {
+                pathTemplate = template.substring(0, q);
+                Matcher qm = URI_QUERY_PARAM.matcher(template.substring(q + 1));
+                while (qm.find()) queryTokens.add(qm.group(2).toLowerCase());
+            }
+        }
+        // No UriTemplate → WCF Web defaults the route to the operation name.
+        String route = "/" + (pathTemplate != null && !pathTemplate.isBlank()
+                ? trimSlashes(pathTemplate) : name);
+        Set<String> pathTokens = routeTokens(route);
+
+        List<Param> params = parseParams(rawParams);
+
+        // A POST/PUT/PATCH's first param not bound to a path or query token is the request body.
+        boolean bodyVerb = verb.equals("POST") || verb.equals("PUT") || verb.equals("PATCH");
+        Param body = null;
+        if (bodyVerb) {
+            for (Param p : params) {
+                String pn = p.name().toLowerCase();
+                if (pathTokens.contains(pn) || queryTokens.contains(pn)) continue;
+                body = p;
+                break;
+            }
+        }
+
+        List<RestApiParam> apiParams = new ArrayList<>();
+        for (Param p : params) {
+            if (p == body) continue;
+            boolean path = pathTokens.contains(p.name().toLowerCase());
+            apiParams.add(new RestApiParam(p.name(), path ? "path" : "query", p.type(),
+                    path ? "part of the URL" : "query-string value"));
+        }
+
+        String reqType = body != null ? body.type() : "—";
+        String resType = isFunction ? returnType(tail) : "—";
+        String resStatus = switch (verb) {
+            case "POST" -> "201 Created";
+            case "DELETE" -> "204 No Content";
+            default -> isFunction ? "200 OK" : "204 No Content";
+        };
+        return new RestApiEndpoint(verb, route, className + "." + name, file, "WCF",
+                apiParams, reqType, null, resType, resStatus, "");
+    }
+
+    /** GET for {@code <WebGet>}; else {@code <WebInvoke>}'s {@code Method} (WCF defaults to POST). */
+    private String wcfVerb(String attrs) {
+        if (attrs.toLowerCase().contains("<webget")) return "GET";
+        Matcher m = WEBINVOKE_METHOD.matcher(attrs);
+        return m.find() ? m.group(1).toUpperCase() : "POST";
+    }
+
+    private String uriTemplate(String attrs) {
+        Matcher m = URI_TEMPLATE.matcher(attrs);
+        return m.find() ? m.group(1) : null;
     }
 
     private String webApiVerb(String attrs, String name) {
