@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useReducer, useEffect, useCallback } from 'react'
 import './WizardShell.css'
 import { Step1Upload } from './Step1Upload'
 import { Step2Analysis } from './Step2Analysis'
@@ -13,87 +13,12 @@ import { WizardStepper } from './WizardStepper'
 import { fetchCost } from '../../api/migrateApi'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { STEP_ROLES, ASSURE_STEP_ROLES } from '../../config/engine'
-import type {
-  AnalysisResult,
-  InterfaceResult,
-  TestsResult,
-  StubResult,
-  BuildResult,
-  ImplementResult,
-  PullRequestResult,
-  BaselineResult,
-  BaselineTestsResult,
-  ReadinessReport,
-} from '../../api/migrateApi'
 import { STEPS, ASSURE_STEPS, NEXT_TITLES, BACK_TITLES } from './wizardStepContent'
+import { initialState, wizardReducer } from './wizardState'
+import type { CompletedClass, WizardState } from './wizardState'
 
-export interface CompletedClass {
-  className: string
-  interfaceResult: InterfaceResult
-  tests: TestsResult
-  stubResult: StubResult
-  implementResult: ImplementResult
-}
-
-export interface WizardState {
-  filename: string
-  content: string
-  analysis: AnalysisResult | null
-  currentClassIndex: number
-  completedClasses: CompletedClass[]
-  interfaceResult: InterfaceResult | null
-  tests: TestsResult | null
-  stubResult: StubResult | null
-  redBuild: BuildResult | null
-  implementResult: ImplementResult | null
-  greenBuild: BuildResult | null
-  prResult: PullRequestResult | null
-  // Assure-mode artifacts:
-  /** A real uploaded .zip estate (Assure portfolio scan) — sent to /assess-project. */
-  zipFile: File | null
-  /**
-   * Set when the estate came from a public GitHub repo (ingested at Upload). Holds the `owner/repo`
-   * slug for the chosen-source card; the readiness report is pre-loaded, so Readiness renders it
-   * directly instead of re-scanning.
-   */
-  repoSlug?: string
-  readiness: ReadinessReport | null
-  baselineResult: BaselineResult | null
-  baselineTests: BaselineTestsResult | null
-  netFaithful: boolean
-  /** Portfolio queue: class names assured so far, and whether we drilled in from the report. */
-  netted: string[]
-  /**
-   * Subset of {@link netted} whose baseline actually went green (initial pass or a successful
-   * repair) — i.e. the classes the backend recorded a downloadable suite for. Gates the
-   * test-suite download touchpoints, since `netted` also holds classes left early or quarantined.
-   */
-  assuredGreen?: string[]
-  fromQueue: boolean
-}
-
-const initialState: WizardState = {
-  filename: '',
-  content: '',
-  analysis: null,
-  currentClassIndex: 0,
-  completedClasses: [],
-  interfaceResult: null,
-  tests: null,
-  stubResult: null,
-  redBuild: null,
-  implementResult: null,
-  greenBuild: null,
-  prResult: null,
-  zipFile: null,
-  readiness: null,
-  baselineResult: null,
-  baselineTests: null,
-  netFaithful: true,
-  netted: [],
-  assuredGreen: [],
-  fromQueue: false,
-}
+// Re-exported so the many `import type { WizardState } from './WizardShell'` sites keep resolving.
+export type { CompletedClass, WizardState } from './wizardState'
 
 export interface ProjectMode {
   sessionId: string
@@ -102,6 +27,23 @@ export interface ProjectMode {
   totalClasses: number
   onComplete: (raised: boolean) => void
   onBackToQueue: () => void
+}
+
+/** Seed state for the reducer: project-mode drills straight into one pre-analysed class. */
+function initWizardState(projectMode?: ProjectMode): WizardState {
+  if (!projectMode) return initialState
+  return {
+    ...initialState,
+    filename: `${projectMode.className}.vb`,
+    analysis: {
+      sessionId: projectMode.sessionId,
+      classes: [
+        { name: projectMode.className, methods: [], dependencies: [], complexity: 'LOW' as const },
+      ],
+      suggestedMigrationOrder: [projectMode.className],
+      summary: `Migrating ${projectMode.className} from project queue`,
+    },
+  }
 }
 
 interface WizardShellProps {
@@ -113,31 +55,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   // In project mode, start at step 2 (Interface) since analysis is already done
   const startStep = projectMode ? 2 : 0
   const [step, setStep] = useState(startStep)
-  const [state, setState] = useState<WizardState>(() => {
-    if (projectMode) {
-      return {
-        ...initialState,
-        currentClassIndex: 0,
-        completedClasses: [],
-        filename: `${projectMode.className}.vb`,
-        content: '',
-        analysis: {
-          sessionId: projectMode.sessionId,
-          classes: [
-            {
-              name: projectMode.className,
-              methods: [],
-              dependencies: [],
-              complexity: 'LOW' as const,
-            },
-          ],
-          suggestedMigrationOrder: [projectMode.className],
-          summary: `Migrating ${projectMode.className} from project queue`,
-        },
-      }
-    }
-    return initialState
-  })
+  const [state, dispatch] = useReducer(wizardReducer, projectMode, initWizardState)
   const [stepReady, setStepReady] = useState(false)
   const { mode, provider, modelOverrides, setSessionCost, setCurrentStep } = useWizardConfig()
 
@@ -147,7 +65,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   const lastIndex = activeSteps.length - 1
 
   const update = (partial: Partial<WizardState>) => {
-    setState((prev) => ({ ...prev, ...partial }))
+    dispatch({ type: 'merge', partial })
   }
 
   // The active session id. When it changes (analysis completes, a mode-switch reset clears it),
@@ -183,7 +101,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
     if (!projectMode) {
       setStep(0)
       setStepReady(false)
-      setState((prev) => ({ ...initialState, filename: prev.filename, content: prev.content }))
+      dispatch({ type: 'reset' })
     }
   }
 
@@ -210,14 +128,16 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   const assureClass = (name: string) => {
     const idx = assureOrder.indexOf(name)
     if (idx < 0) return
-    setState((prev) => ({
-      ...prev,
-      currentClassIndex: idx,
-      fromQueue: true,
-      baselineResult: null,
-      baselineTests: null,
-      netFaithful: true,
-    }))
+    dispatch({
+      type: 'merge',
+      partial: {
+        currentClassIndex: idx,
+        fromQueue: true,
+        baselineResult: null,
+        baselineTests: null,
+        netFaithful: true,
+      },
+    })
     setStepReady(false)
     setStep(2) // Baseline
   }
@@ -225,18 +145,20 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
   const assureNext = () => {
     const done = activeClassName ? [...state.netted, activeClassName] : state.netted
     const next = firstUnassured(done)
-    setState((prev) => ({
-      ...prev,
-      netted: done,
-      ...(next
-        ? {
-            currentClassIndex: assureOrder.indexOf(next),
-            baselineResult: null,
-            baselineTests: null,
-            netFaithful: true,
-          }
-        : {}),
-    }))
+    dispatch({
+      type: 'merge',
+      partial: {
+        netted: done,
+        ...(next
+          ? {
+              currentClassIndex: assureOrder.indexOf(next),
+              baselineResult: null,
+              baselineTests: null,
+              netFaithful: true,
+            }
+          : {}),
+      },
+    })
     setStepReady(false)
     setStep(next ? 2 : 1) // next class' Baseline, else back to Readiness
   }
@@ -246,14 +168,16 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
       activeClassName && !state.netted.includes(activeClassName)
         ? [...state.netted, activeClassName]
         : state.netted
-    setState((prev) => ({
-      ...prev,
-      netted: done,
-      fromQueue: false,
-      baselineResult: null,
-      baselineTests: null,
-      netFaithful: true,
-    }))
+    dispatch({
+      type: 'merge',
+      partial: {
+        netted: done,
+        fromQueue: false,
+        baselineResult: null,
+        baselineTests: null,
+        netFaithful: true,
+      },
+    })
     setStepReady(false)
     setStep(1) // Readiness
   }
@@ -278,30 +202,15 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
         stubResult: state.stubResult!,
         implementResult: state.implementResult!,
       }
-
-      if (state.currentClassIndex < totalClasses - 1) {
-        // More classes — save, reset per-class state, back to Interface
-        setState((prev) => ({
-          ...prev,
-          currentClassIndex: prev.currentClassIndex + 1,
-          completedClasses: [...prev.completedClasses, completed],
-          interfaceResult: null,
-          tests: null,
-          stubResult: null,
-          redBuild: null,
-          implementResult: null,
-          greenBuild: null,
-        }))
+      const hasMore = state.currentClassIndex < totalClasses - 1
+      dispatch({ type: 'advanceClass', completed, hasMore })
+      if (hasMore) {
+        // More classes — advanced + per-class state cleared by the reducer; back to Interface.
         setStepReady(false)
         setStep(2) // Back to Interface (Step 3)
         return
-      } else {
-        // Last class — save before proceeding to PR
-        setState((prev) => ({
-          ...prev,
-          completedClasses: [...prev.completedClasses, completed],
-        }))
       }
+      // Last class — saved; fall through to the PR step.
     }
 
     setStepReady(false)
