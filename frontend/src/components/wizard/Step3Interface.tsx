@@ -63,17 +63,17 @@ export function Step3Interface({ state, update, onReady }: Props) {
             provider.
           </p>
           <p>
-            {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored by Anthropic
-            beyond the request.
+            {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored beyond the
+            request by {prov.vendor}.
           </p>
           <p>
-            {'\uD83D\uDCB0'} Claude Haiku is used here deliberately — interface generation is a
-            mechanical task. Haiku costs 75% less than Sonnet and is more than capable of extracting
-            method signatures and producing clean C# interface boilerplate.
+            {'\uD83D\uDCB0'} The mechanical model ({mechanicalModel}) is used here deliberately —
+            interface generation is a mechanical task, and a cheaper model is more than capable of
+            extracting method signatures and producing clean {lang.lang} interface boilerplate.
           </p>
           <p>
-            {'\u26A1'} Model: claude-haiku-4-5 — fast, cost-efficient, and well-suited to structured
-            code generation tasks.
+            {'\u26A1'} Model: {mechanicalModelId} — fast, cost-efficient, and well-suited to
+            structured code generation tasks.
           </p>
           <p>Proceed?</p>
         </ConfirmDialog>

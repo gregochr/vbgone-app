@@ -4,7 +4,7 @@ import { generateTests, generateStub, build } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CollapsibleCode } from './CollapsibleCode'
 import { useWizardConfig } from '../../config/WizardConfigContext'
-import { LANGS, PROVIDERS, modelLabelFor, providerColor } from '../../config/engine'
+import { LANGS, PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
 
 interface Props {
   state: WizardState
@@ -20,6 +20,8 @@ export function Step4Tests({ state, update, onReady }: Props) {
   const lang = LANGS[targetLanguage]
   const reasoningModel = modelLabelFor(provider, 'reasoning', modelOverrides)
   const mechanicalModel = modelLabelFor(provider, 'mechanical', modelOverrides)
+  const reasoningModelId = modelFor(provider, 'reasoning', modelOverrides)
+  const mechanicalModelId = modelFor(provider, 'mechanical', modelOverrides)
   const [phase, setPhase] = useState<Phase>(state.redBuild ? 'done' : 'tests')
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(!state.redBuild)
@@ -88,18 +90,26 @@ export function Step4Tests({ state, update, onReady }: Props) {
         <ConfirmDialog onConfirm={runPipeline} onCancel={() => setShowConfirm(false)}>
           <p>This will make two API calls via the {prov.vendor} provider:</p>
           <p>
-            1. <strong>Claude Sonnet (claude-sonnet-4-6)</strong> — generates the NUnit test suite.
-            Sonnet is used here because writing good tests requires reasoning about behaviour, edge
-            cases, boundary values, and error conditions — not just mechanical translation.
+            1.{' '}
+            <strong>
+              {reasoningModel} ({reasoningModelId})
+            </strong>{' '}
+            — generates the {lang.testFw} test suite. The reasoning model is used here because
+            writing good tests requires reasoning about behaviour, edge cases, boundary values, and
+            error conditions — not just mechanical translation.
           </p>
           <p>
-            2. <strong>Claude Haiku (claude-haiku-4-5)</strong> — generates the stub implementation.
-            A stub is pure boilerplate — implement the interface with NotImplementedException on
-            every method. No reasoning required, Haiku is the right tool.
+            2.{' '}
+            <strong>
+              {mechanicalModel} ({mechanicalModelId})
+            </strong>{' '}
+            — generates the stub implementation. A stub is pure boilerplate — implement the
+            interface with NotImplementedException on every method. No reasoning required, the
+            mechanical model is the right tool.
           </p>
           <p>
-            {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored by Anthropic
-            beyond the request.
+            {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored beyond the
+            request by {prov.vendor}.
           </p>
           <p>
             {'\uD83D\uDCB0'} Prompt caching is enabled across both calls — system prompts are cached

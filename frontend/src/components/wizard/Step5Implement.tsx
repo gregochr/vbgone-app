@@ -5,7 +5,7 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { CollapsibleCode } from './CollapsibleCode'
 import { CoverageBadge } from './CoverageBadge'
 import { useWizardConfig } from '../../config/WizardConfigContext'
-import { LANGS, PROVIDERS, modelLabelFor, providerColor } from '../../config/engine'
+import { LANGS, PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
 
 interface Props {
   state: WizardState
@@ -21,6 +21,8 @@ export function Step5Implement({ state, update, onReady }: Props) {
   const lang = LANGS[targetLanguage]
   const implementModel = modelLabelFor(provider, 'implementation', modelOverrides)
   const escalationModel = modelLabelFor(provider, 'escalation', modelOverrides)
+  const implementModelId = modelFor(provider, 'implementation', modelOverrides)
+  const escalationModelId = modelFor(provider, 'escalation', modelOverrides)
   const [mode, setMode] = useState<'STUB' | 'CLAUDE' | null>('CLAUDE')
   const [loading, setLoading] = useState(false)
   const [phase, setPhase] = useState('')
@@ -182,18 +184,20 @@ export function Step5Implement({ state, update, onReady }: Props) {
             {attempts + 1 >= MAX_ATTEMPTS ? (
               <p>
                 This is the final attempt. It will escalate to{' '}
-                <strong>Claude Opus (claude-opus-4-6)</strong> — the most capable model — via the
-                Anthropic Java SDK.
+                <strong>
+                  {escalationModel} ({escalationModelId})
+                </strong>{' '}
+                — the most capable model — via the {prov.vendor} provider.
               </p>
             ) : (
               <p>
-                This will make an API call to Claude Sonnet (claude-sonnet-4-6) via the Anthropic
-                Java SDK.
+                This will make an API call to {prov.name} ({implementModelId}) via the {prov.vendor}{' '}
+                provider.
               </p>
             )}
             <p>
-              {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored by Anthropic
-              beyond the request.
+              {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored beyond the
+              request by {prov.vendor}.
             </p>
             <p>
               {'\uD83E\uDDEA'} The {b.failedTests.length} failing{' '}
@@ -233,19 +237,19 @@ export function Step5Implement({ state, update, onReady }: Props) {
           {pendingMode === 'CLAUDE' ? (
             <>
               <p>
-                This will make an API call to Claude Sonnet (claude-sonnet-4-6) via the Anthropic
-                Java SDK.
+                This will make an API call to {prov.name} ({implementModelId}) via the {prov.vendor}{' '}
+                provider.
               </p>
               <p>
-                {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored by
-                Anthropic beyond the request.
+                {'\uD83D\uDD12'} Your code is sent securely over HTTPS and is not stored by{' '}
+                {prov.vendor} beyond the request.
               </p>
               <p>
                 {'\uD83D\uDCB0'} Prompt caching is enabled — the system prompt is cached and reused
                 across calls, reducing input token costs by up to 90% at scale.
               </p>
               <p>
-                {'\u26A1'} Model: claude-sonnet-4-6 — chosen for its ability to write correct,
+                {'\u26A1'} Model: {implementModelId} — chosen for its ability to write correct,
                 idiomatic modern C#. The implementation will use expression-bodied members, pattern
                 matching, and nullable reference types where appropriate.
               </p>
