@@ -2,6 +2,7 @@ package com.vbgone.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vbgone.ai.AiProviderRegistry;
+import com.vbgone.ai.ModelRole;
 import com.vbgone.ai.anthropic.AnthropicProvider;
 import com.vbgone.ai.github.GitHubModelsProvider;
 import com.vbgone.build.VbCharacterisationRunner;
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -139,10 +141,16 @@ class AssureRepairTest {
     }
 
     @Test
-    void tierRole_mapsAttemptsToEscalatingModels() {
-        assertThat(AssureService.tierRole(1).name()).isEqualTo("MECHANICAL");
-        assertThat(AssureService.tierRole(2).name()).isEqualTo("REASONING");
-        assertThat(AssureService.tierRole(3).name()).isEqualTo("ESCALATION");
+    void repairTier_mapsAttemptNumbersToEscalatingModelsAndTerminality() {
+        assertThat(RepairTier.of(1).role()).isEqualTo(ModelRole.MECHANICAL);
+        assertThat(RepairTier.of(2).role()).isEqualTo(ModelRole.REASONING);
+        assertThat(RepairTier.of(3).role()).isEqualTo(ModelRole.ESCALATION);
+        assertThat(RepairTier.of(1).displayName()).isEqualTo("Mechanical");
+        assertThat(RepairTier.of(3).displayName()).isEqualTo("Escalation");
+        // Only the final tier is terminal — this is the old "tier >= 3" magic, now named.
+        assertThat(RepairTier.of(1).isFinal()).isFalse();
+        assertThat(RepairTier.of(2).isFinal()).isFalse();
+        assertThat(RepairTier.of(3).isFinal()).isTrue();
     }
 
     // ── repairAttempt flow ──
@@ -263,5 +271,50 @@ class AssureRepairTest {
         assertThat(attempt.tag()).isEqualTo("flag");
         assertThat(attempt.netFaithful()).isFalse();
         assertThat(attempt.rerun().green()).isFalse();
+    }
+
+    @Test
+    void repairAttempt_stillRedAtLowTierTagsRedAndReRunsTwice() {
+        MigrationSession session = session();
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(ai("""
+                        {"rationale":"Swapping the expected value to the observed one.",
+                         "newTest":"[TestMethod]\\npublic void PlaceOrder_TotalWithFraction_TruncatesToInt()\\n{\\n    var sut = new OrderProcessor();\\n    int result = sut.PlaceOrder(3, 9.9m);\\n    Assert.AreEqual(13, result);\\n}",
+                         "noEdit":false}"""));
+        // Deterministic RED: the mock leaves the failure message unchanged, so both runs observe the
+        // same value -> not flaky -> the ordinary "this tier couldn't fix it, escalate" outcome.
+        when(runner.run(any(), anyString(), any())).thenReturn(build(BuildStatus.RED, 23, 22, 1));
+
+        RepairAttempt attempt = service.repairAttempt(request(1));
+
+        assertThat(attempt.tag()).isEqualTo("red");
+        assertThat(attempt.tier()).isEqualTo("Mechanical");
+        assertThat(attempt.netFaithful()).isFalse();
+        assertThat(attempt.rerun().green()).isFalse();
+        // The suite is deliberately run twice: once to check green, once to detect nondeterminism.
+        verify(runner, times(2)).run(any(), anyString(), any());
+    }
+
+    @Test
+    void repairAttempt_stillRedAtFinalTierTagsNofix() {
+        MigrationSession session = session();
+        when(sessionStore.get("s1")).thenReturn(Optional.of(session));
+        when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(ai("""
+                        {"rationale":"Swapping the expected value to the observed one.",
+                         "newTest":"[TestMethod]\\npublic void PlaceOrder_TotalWithFraction_TruncatesToInt()\\n{\\n    var sut = new OrderProcessor();\\n    int result = sut.PlaceOrder(3, 9.9m);\\n    Assert.AreEqual(13, result);\\n}",
+                         "noEdit":false}"""));
+        when(runner.run(any(), anyString(), any())).thenReturn(build(BuildStatus.RED, 23, 22, 1));
+
+        RepairAttempt attempt = service.repairAttempt(request(3));
+
+        // The still-red terminal path: runner IS called (twice) — distinct from the gate-rejection
+        // nofix path, where the runner is never reached.
+        assertThat(attempt.tag()).isEqualTo("nofix");
+        assertThat(attempt.tier()).isEqualTo("Escalation");
+        assertThat(attempt.netFaithful()).isFalse();
+        assertThat(attempt.rerun().green()).isFalse();
+        verify(runner, times(2)).run(any(), anyString(), any());
     }
 }
