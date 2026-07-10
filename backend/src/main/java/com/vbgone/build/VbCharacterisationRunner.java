@@ -120,10 +120,7 @@ public class VbCharacterisationRunner {
             return parsed.result().withCoverage(cov.linePercent(), cov.branchPercent());
 
         } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw new RuntimeException("Characterisation run failed: " + e.getMessage(), e);
+            throw BuildRuntimeSupport.wrapProcessFailure("Characterisation run failed", e);
         }
     }
 
@@ -146,10 +143,7 @@ public class VbCharacterisationRunner {
             }
             return TrxParser.parse(sessionId, Files.readString(trxPath)).result();
         } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw new RuntimeException("Mutation run failed: " + e.getMessage(), e);
+            throw BuildRuntimeSupport.wrapProcessFailure("Mutation run failed", e);
         }
     }
 
