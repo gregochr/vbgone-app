@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -115,20 +114,8 @@ public class DotNetRuntime implements BuildRuntime {
         Path testDir = sessionDir.resolve(className + ".Tests");
 
         // Clean previous build artifacts for this class to prevent stale files
-        if (Files.exists(mainDir)) {
-            try (var walk = Files.walk(mainDir)) {
-                walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
-                    try { Files.deleteIfExists(p); } catch (IOException ignored) {}
-                });
-            }
-        }
-        if (Files.exists(testDir)) {
-            try (var walk = Files.walk(testDir)) {
-                walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
-                    try { Files.deleteIfExists(p); } catch (IOException ignored) {}
-                });
-            }
-        }
+        BuildRuntimeSupport.deleteRecursively(mainDir);
+        BuildRuntimeSupport.deleteRecursively(testDir);
 
         Files.createDirectories(mainDir);
         Files.createDirectories(testDir);
@@ -181,12 +168,7 @@ public class DotNetRuntime implements BuildRuntime {
     private ProcessOutput executeDotnetTest(String sessionId, String className)
             throws IOException, InterruptedException {
         String containerTestPath = "/workspace/" + sessionId + "/" + className + ".Tests";
-        return processRunner.run(List.of(
-                "docker", "exec", containerName,
-                "dotnet", "test", containerTestPath,
-                "--logger", "trx;LogFileName=results.trx",
-                "--collect", "XPlat Code Coverage"
-        ));
+        return processRunner.run(BuildRuntimeSupport.dotnetTestCommand(containerName, containerTestPath));
     }
 
     BuildResult parseTrx(String sessionId, String trxContent) {
@@ -197,14 +179,6 @@ public class DotNetRuntime implements BuildRuntime {
     }
 
     List<String> parseCompilationErrors(String stderr, String stdout) {
-        String combined = ((stderr != null ? stderr : "") + "\n" + (stdout != null ? stdout : "")).trim();
-        if (combined.isBlank()) {
-            return List.of("Build failed with no error output");
-        }
-        List<String> errors = Arrays.stream(combined.split("\n"))
-                .filter(line -> line.contains(": error "))
-                .map(String::trim)
-                .toList();
-        return errors.isEmpty() ? List.of(combined.substring(0, Math.min(combined.length(), 500))) : errors;
+        return BuildRuntimeSupport.parseCompilationErrors(stderr, stdout);
     }
 }
