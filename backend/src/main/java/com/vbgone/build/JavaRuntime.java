@@ -123,26 +123,25 @@ public class JavaRuntime implements BuildRuntime {
                            String implementationCode, List<String> dependencies) throws IOException {
         LanguageConventions conv = conventions.forLanguage("java");
 
-        // Clean the whole module first to prevent stale files (mirrors the C# path's per-class clean).
-        if (Files.exists(sessionDir)) {
-            try (var walk = Files.walk(sessionDir)) {
-                walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
-                    try { Files.deleteIfExists(p); } catch (IOException ignored) {}
-                });
-            }
-        }
-
         String packageDir = PACKAGE.replace('.', '/');
         Path mainSrc = sessionDir.resolve("src/main/java").resolve(packageDir);
         Path testSrc = sessionDir.resolve("src/test/java").resolve(packageDir);
         Files.createDirectories(mainSrc);
         Files.createDirectories(testSrc);
 
-        Files.writeString(sessionDir.resolve("pom.xml"), POM);
-
         String interfaceName = conv.interfaceName(className);   // == className for Java
         String implName = iface.implName();                     // className + "Impl"
         String testClassName = conv.testClassName(className);   // className + "Test"
+
+        // Clean only THIS class's own previously-generated files, so re-running it can't leave a
+        // stale duplicate — while sibling classes migrated into the same Java module survive. This
+        // mirrors the C# path (DotNetRuntime), which cleans only the class's own dirs; a whole-module
+        // wipe here would erase every other class in a multi-class Java session.
+        Files.deleteIfExists(mainSrc.resolve(interfaceName + ".java"));
+        Files.deleteIfExists(mainSrc.resolve(implName + ".java"));
+        Files.deleteIfExists(testSrc.resolve(testClassName + ".java"));
+
+        Files.writeString(sessionDir.resolve("pom.xml"), POM);
 
         Files.writeString(mainSrc.resolve(interfaceName + ".java"), iface.code());
         Files.writeString(mainSrc.resolve(implName + ".java"), implementationCode);

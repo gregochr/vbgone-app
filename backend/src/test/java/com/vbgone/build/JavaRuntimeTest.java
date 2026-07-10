@@ -149,6 +149,66 @@ class JavaRuntimeTest {
                 .contains("class OrderCalculatorImpl implements OrderCalculator");
     }
 
+    @Test
+    void writeProjectFiles_preservesSiblingClassesInTheSharedModule() throws Exception {
+        Path sessionDir = tempDir.resolve("multi");
+        Path pkg = sessionDir.resolve("src/main/java/com/vbgone/generated");
+        Path testPkg = sessionDir.resolve("src/test/java/com/vbgone/generated");
+
+        // Migrate class Alpha into the session's single Maven module.
+        runtime.writeProjectFiles(sessionDir, "Alpha",
+                new InterfaceResult("s1", "Alpha", "Alpha",
+                        "package com.vbgone.generated;\n\npublic interface Alpha { }", "AlphaImpl"),
+                new TestsResult("s1", "Alpha", "AlphaTest",
+                        "package com.vbgone.generated;\n\nclass AlphaTest { }", 1),
+                "package com.vbgone.generated;\n\npublic class AlphaImpl implements Alpha { }",
+                List.of());
+        assertThat(pkg.resolve("Alpha.java")).exists();
+
+        // Migrating a second class Beta into the SAME session must not erase Alpha (the old
+        // whole-module wipe did exactly that).
+        runtime.writeProjectFiles(sessionDir, "Beta",
+                new InterfaceResult("s1", "Beta", "Beta",
+                        "package com.vbgone.generated;\n\npublic interface Beta { }", "BetaImpl"),
+                new TestsResult("s1", "Beta", "BetaTest",
+                        "package com.vbgone.generated;\n\nclass BetaTest { }", 1),
+                "package com.vbgone.generated;\n\npublic class BetaImpl implements Beta { }",
+                List.of());
+
+        assertThat(pkg.resolve("Beta.java")).exists();
+        assertThat(pkg.resolve("BetaImpl.java")).exists();
+        assertThat(testPkg.resolve("BetaTest.java")).exists();
+        // The regression guard: Alpha's files survive Beta's build.
+        assertThat(pkg.resolve("Alpha.java")).exists();
+        assertThat(pkg.resolve("AlphaImpl.java")).exists();
+        assertThat(testPkg.resolve("AlphaTest.java")).exists();
+    }
+
+    @Test
+    void writeProjectFiles_overwritesOwnStaleFileOnRebuild() throws Exception {
+        Path sessionDir = tempDir.resolve("rebuild");
+        Path pkg = sessionDir.resolve("src/main/java/com/vbgone/generated");
+
+        runtime.writeProjectFiles(sessionDir, "Form1",
+                new InterfaceResult("s1", "Form1", "Form1",
+                        "package com.vbgone.generated;\n\npublic interface Form1 { int v1(); }", "Form1Impl"),
+                new TestsResult("s1", "Form1", "Form1Test",
+                        "package com.vbgone.generated;\n\nclass Form1Test { }", 1),
+                "package com.vbgone.generated;\n\npublic class Form1Impl implements Form1 { }",
+                List.of());
+        assertThat(Files.readString(pkg.resolve("Form1.java"))).contains("int v1()");
+
+        // Re-migrating the same class replaces its own file rather than accumulating stale copies.
+        runtime.writeProjectFiles(sessionDir, "Form1",
+                new InterfaceResult("s1", "Form1", "Form1",
+                        "package com.vbgone.generated;\n\npublic interface Form1 { int v2(); }", "Form1Impl"),
+                new TestsResult("s1", "Form1", "Form1Test",
+                        "package com.vbgone.generated;\n\nclass Form1Test { }", 1),
+                "package com.vbgone.generated;\n\npublic class Form1Impl implements Form1 { }",
+                List.of());
+        assertThat(Files.readString(pkg.resolve("Form1.java"))).contains("int v2()").doesNotContain("int v1()");
+    }
+
     // ── parseSurefire ──
 
     @Test
