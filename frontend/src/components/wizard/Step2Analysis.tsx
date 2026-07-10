@@ -54,15 +54,15 @@ export function Step2Analysis({ state, update, onReady }: Props) {
             provider.
           </p>
           <p>
-            {'🔒'} Your code is sent securely over HTTPS and is not stored by Anthropic beyond the
-            request.
+            {'🔒'} Your code is sent securely over HTTPS and is not stored by {prov.vendor} beyond
+            the request.
           </p>
           <p>
             {'💰'} Prompt caching is enabled — the system prompt is cached and reused across calls,
             reducing input token costs by up to 90% at scale.
           </p>
           <p>
-            {'⚡'} Model: claude-sonnet-4-6 — chosen for its ability to reason about code structure
+            {'⚡'} Model: {reasoningModelId} — chosen for its ability to reason about code structure
             and extract business logic from Windows Forms UI noise.
           </p>
           <p>Proceed?</p>

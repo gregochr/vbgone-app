@@ -291,7 +291,9 @@ describe('Step5Implement', () => {
     await user.click(screen.getByText(/Retry with Claude/))
 
     // Confirm dialog should appear with prompt engineering explanation
-    expect(screen.getByText(/Claude Sonnet/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/This will make an API call to Claude \(claude-sonnet-4-6\)/),
+    ).toBeInTheDocument()
     expect(screen.getByText(/securely over HTTPS/)).toBeInTheDocument()
     expect(screen.getByText(/2 failing/)).toBeInTheDocument()
     expect(screen.getByText(/extracted from the test suite/)).toBeInTheDocument()
