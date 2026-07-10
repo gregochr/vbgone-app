@@ -37,8 +37,7 @@ public class CostService {
     }
 
     public CostResult getCost(String sessionId) {
-        MigrationSession session = sessionStore.get(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+        MigrationSession session = sessionStore.getOrThrow(sessionId);
 
         double totalCost = session.getTokenUsages().stream()
                 .mapToDouble(TokenUsage::cost)

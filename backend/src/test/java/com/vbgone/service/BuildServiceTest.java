@@ -16,6 +16,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -57,6 +59,8 @@ class BuildServiceTest {
         runtime = new RecordingRuntime();
         BuildRuntimeRegistry registry = new BuildRuntimeRegistry(List.of(runtime));
         service = new BuildService(sessionStore, registry);
+        // getOrThrow delegates to the (stubbed) get(); let the real method run over the mock.
+        lenient().when(sessionStore.getOrThrow(anyString())).thenCallRealMethod();
     }
 
     private MigrationSession fullSession(String sessionId) {

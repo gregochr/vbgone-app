@@ -57,6 +57,8 @@ class MutationTestingServiceTest {
     void setUp() {
         jobStore = new MutationJobStore();
         service = new MutationTestingService(sessionStore, runner, new VbMutator(), jobStore, SYNC);
+        // getOrThrow delegates to the (stubbed) get(); let the real method run over the mock.
+        lenient().when(sessionStore.getOrThrow(anyString())).thenCallRealMethod();
 
         MigrationSession session = new MigrationSession("s1");
         session.setVbContent(VB);

@@ -1,11 +1,10 @@
 package com.vbgone.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.vbgone.ai.AiProvider;
-import com.vbgone.ai.AiProviderRegistry;
 import com.vbgone.ai.AiRequestOptions;
 import com.vbgone.ai.AiResponse;
 import com.vbgone.ai.ModelRole;
+import com.vbgone.common.JsonResponses;
 import com.vbgone.model.*;
 import com.vbgone.session.SessionStore;
 import org.springframework.stereotype.Service;
@@ -118,12 +117,12 @@ public class AnalysisService {
             IMPORTANT: suggestedMigrationOrder must contain ONLY class names — no descriptions, \
             no reasons, no dashes. Example: ["Calculator", "Form1"], NOT ["Calculator — simple class"].""";
 
-    private final AiProviderRegistry registry;
+    private final AiCallSupport aiCallSupport;
     private final SessionStore sessionStore;
     private final ObjectMapper objectMapper;
 
-    public AnalysisService(AiProviderRegistry registry, SessionStore sessionStore, ObjectMapper objectMapper) {
-        this.registry = registry;
+    public AnalysisService(AiCallSupport aiCallSupport, SessionStore sessionStore, ObjectMapper objectMapper) {
+        this.aiCallSupport = aiCallSupport;
         this.sessionStore = sessionStore;
         this.objectMapper = objectMapper;
     }
@@ -149,16 +148,12 @@ public class AnalysisService {
         session.setVbContent(content);
         session.setTargetLanguage(options.targetLanguage());
 
-        String modelId = registry.modelFor(options.provider(), ModelRole.REASONING, options.modelOverrides());
-        AiProvider aiProvider = registry.provider(options.provider());
         // Assure uses a forensic persona and emits the richer observedBehaviour array.
         String systemPrompt = assure ? ASSURE_SYSTEM_PROMPT : SYSTEM_PROMPT;
         long maxTokens = assure ? 8192L : 4096L;
-        AiResponse response = aiProvider.generate(modelId, systemPrompt, content, maxTokens);
-        String json = stripMarkdownFences(response.text());
-
-        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
-        session.addTokenUsage(new TokenUsage("analyse", modelId, response.inputTokens(), response.outputTokens(), cost, response.provider()));
+        AiResponse response = aiCallSupport.call(
+                options, ModelRole.REASONING, systemPrompt, content, maxTokens, "analyse", session);
+        String json = JsonResponses.stripFences(response.text());
 
         AnalysisResult result = parseAnalysis(session.getSessionId(), json);
         session.setAnalysisResult(result);
@@ -207,13 +202,9 @@ public class AnalysisService {
 
         session.setVbContent(combinedContent);
 
-        String modelId = registry.modelFor(options.provider(), ModelRole.REASONING, options.modelOverrides());
-        AiProvider aiProvider = registry.provider(options.provider());
-        AiResponse response = aiProvider.generate(modelId, PROJECT_SYSTEM_PROMPT, combinedContent, 8192L);
-        String json = stripMarkdownFences(response.text());
-
-        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
-        session.addTokenUsage(new TokenUsage("analyse-project", modelId, response.inputTokens(), response.outputTokens(), cost, response.provider()));
+        AiResponse response = aiCallSupport.call(options, ModelRole.REASONING,
+                PROJECT_SYSTEM_PROMPT, combinedContent, 8192L, "analyse-project", session);
+        String json = JsonResponses.stripFences(response.text());
 
         ProjectAnalysis result = parseProjectAnalysis(manifest.sessionId(), json);
         session.setAnalysisResult(new AnalysisResult(
@@ -259,13 +250,6 @@ public class AnalysisService {
                 .toList();
     }
 
-    private String stripMarkdownFences(String text) {
-        String trimmed = text.trim();
-        if (trimmed.startsWith("```")) {
-            trimmed = trimmed.replaceAll("^```(?:json)?\\s*", "").replaceAll("\\s*```$", "");
-        }
-        return trimmed;
-    }
 
     private record ClaudeAnalysis(
             List<ClassInfo> classes,

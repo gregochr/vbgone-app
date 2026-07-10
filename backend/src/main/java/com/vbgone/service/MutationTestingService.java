@@ -84,8 +84,7 @@ public class MutationTestingService {
 
     /** Accepts a job and starts it on the worker thread; returns the job id to poll. */
     public String startJob(MutationTestRequest request) {
-        MigrationSession session = sessionStore.get(request.sessionId())
-                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + request.sessionId()));
+        MigrationSession session = sessionStore.getOrThrow(request.sessionId());
         if (request.suiteCode() == null || request.suiteCode().isBlank()) {
             throw new IllegalArgumentException("suiteCode is required — pass the green baseline suite.");
         }

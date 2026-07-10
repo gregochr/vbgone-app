@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -55,7 +56,10 @@ class AssureRepairTest {
         AnthropicProvider anthropic = new AnthropicProvider(claudeClient);
         GitHubModelsProvider copilot = new GitHubModelsProvider("", new ObjectMapper());
         AiProviderRegistry registry = new AiProviderRegistry(List.of(anthropic, copilot));
-        service = new AssureService(registry, sessionStore, new ObjectMapper(), runner);
+        AiCallSupport aiCallSupport = new AiCallSupport(registry);
+        service = new AssureService(registry, sessionStore, new ObjectMapper(), runner, aiCallSupport);
+        // getOrThrow delegates to the (stubbed) get(); let the real method run over the mock.
+        lenient().when(sessionStore.getOrThrow(anyString())).thenCallRealMethod();
     }
 
     private ClaudeClient.ClaudeResponse ai(String text) {

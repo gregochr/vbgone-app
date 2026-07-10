@@ -22,6 +22,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -45,7 +46,10 @@ class AssureServiceTest {
         AnthropicProvider anthropicProvider = new AnthropicProvider(claudeClient);
         GitHubModelsProvider copilotProvider = new GitHubModelsProvider("", new ObjectMapper());
         AiProviderRegistry registry = new AiProviderRegistry(List.of(anthropicProvider, copilotProvider));
-        service = new AssureService(registry, sessionStore, new ObjectMapper(), runner);
+        AiCallSupport aiCallSupport = new AiCallSupport(registry);
+        service = new AssureService(registry, sessionStore, new ObjectMapper(), runner, aiCallSupport);
+        // getOrThrow delegates to the (stubbed) get(); let the real method run over the mock.
+        lenient().when(sessionStore.getOrThrow(anyString())).thenCallRealMethod();
     }
 
     private ClaudeClient.ClaudeResponse claudeResponse(String text) {

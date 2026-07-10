@@ -23,4 +23,14 @@ public class SessionStore {
     public Optional<MigrationSession> get(String sessionId) {
         return Optional.ofNullable(sessions.get(sessionId));
     }
+
+    /**
+     * Returns the session for the given id, or throws {@link IllegalArgumentException}
+     * (surfaced as HTTP 400) when no such session exists. Centralises the lookup + error
+     * message that every service needs.
+     */
+    public MigrationSession getOrThrow(String sessionId) {
+        return get(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+    }
 }

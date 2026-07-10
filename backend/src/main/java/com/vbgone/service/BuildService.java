@@ -26,7 +26,7 @@ public class BuildService {
     }
 
     public BuildResult build(String sessionId) {
-        MigrationSession session = getSession(sessionId);
+        MigrationSession session = sessionStore.getOrThrow(sessionId);
 
         InterfaceResult iface = session.getInterfaceResult();
         if (iface == null) {
@@ -74,10 +74,5 @@ public class BuildService {
                 .stream()
                 .filter(dep -> !dep.contains("."))
                 .toList();
-    }
-
-    private MigrationSession getSession(String sessionId) {
-        return sessionStore.get(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
     }
 }

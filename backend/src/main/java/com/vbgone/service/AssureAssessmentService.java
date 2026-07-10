@@ -157,8 +157,7 @@ public class AssureAssessmentService {
      * headless-compilable {@code assurableSource}.
      */
     public ReadinessReport assessProject(ZipManifest manifest) {
-        MigrationSession session = sessionStore.get(manifest.sessionId())
-                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + manifest.sessionId()));
+        MigrationSession session = sessionStore.getOrThrow(manifest.sessionId());
 
         List<ClassReadiness> classes = new ArrayList<>();
         List<String> netReadyBlocks = new ArrayList<>();

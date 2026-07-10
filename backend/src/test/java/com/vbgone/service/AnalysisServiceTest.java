@@ -56,7 +56,8 @@ class AnalysisServiceTest {
         AnthropicProvider anthropicProvider = new AnthropicProvider(claudeClient);
         GitHubModelsProvider copilotProvider = new GitHubModelsProvider("", objectMapper);
         AiProviderRegistry registry = new AiProviderRegistry(List.of(anthropicProvider, copilotProvider));
-        analysisService = new AnalysisService(registry, sessionStore, objectMapper);
+        AiCallSupport aiCallSupport = new AiCallSupport(registry);
+        analysisService = new AnalysisService(aiCallSupport, sessionStore, objectMapper);
     }
 
     private ClaudeClient.ClaudeResponse claudeResponse(String text) {
