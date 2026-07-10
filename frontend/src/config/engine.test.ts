@@ -22,7 +22,9 @@ describe('modelFor', () => {
   })
 
   it('returns the override when one is set for that role', () => {
-    expect(modelFor('anthropic', 'reasoning', { reasoning: 'claude-opus-4-6' })).toBe('claude-opus-4-6')
+    expect(modelFor('anthropic', 'reasoning', { reasoning: 'claude-opus-4-6' })).toBe(
+      'claude-opus-4-6',
+    )
     expect(modelFor('copilot', 'escalation', { escalation: 'openai/gpt-4.1-mini' })).toBe(
       'openai/gpt-4.1-mini',
     )
