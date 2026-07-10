@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SessionStoreTest {
 
@@ -53,6 +54,24 @@ class SessionStoreTest {
         Optional<MigrationSession> result = store.get("nonexistent-id");
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void getOrThrow_returnsSessionWhenPresent() {
+        MigrationSession created = store.create();
+        created.setFilename("Test.vb");
+
+        MigrationSession retrieved = store.getOrThrow(created.getSessionId());
+
+        assertThat(retrieved.getSessionId()).isEqualTo(created.getSessionId());
+        assertThat(retrieved.getFilename()).isEqualTo("Test.vb");
+    }
+
+    @Test
+    void getOrThrow_throwsForUnknownId() {
+        assertThatThrownBy(() -> store.getOrThrow("nonexistent-id"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Session not found: nonexistent-id");
     }
 
     @Test

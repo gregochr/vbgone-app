@@ -25,6 +25,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,6 +49,8 @@ class GitHubServiceTest {
                 new LanguageConventionsRegistry(List.of(new CSharpConventions(), new JavaConventions()));
         service = new GitHubService(sessionStore, new OkHttpClient(),
                 objectMapper, conventionsRegistry, "ghp_test123", baseUrl);
+        // getOrThrow delegates to the (stubbed) get(); let the real method run over the mock.
+        lenient().when(sessionStore.getOrThrow(anyString())).thenCallRealMethod();
     }
 
     @AfterEach

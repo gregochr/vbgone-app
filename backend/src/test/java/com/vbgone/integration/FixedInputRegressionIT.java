@@ -63,7 +63,8 @@ class FixedInputRegressionIT {
                 new com.vbgone.prompt.CSharpPrompts(), new com.vbgone.prompt.JavaPrompts()));
         var conventionsRegistry = new com.vbgone.lang.LanguageConventionsRegistry(List.of(
                 new com.vbgone.lang.CSharpConventions(), new com.vbgone.lang.JavaConventions()));
-        generationService = new GenerationService(registry, sessionStore, promptRegistry, conventionsRegistry);
+        var aiCallSupport = new com.vbgone.service.AiCallSupport(registry);
+        generationService = new GenerationService(aiCallSupport, sessionStore, promptRegistry, conventionsRegistry);
         DotNetRuntime dotnetRuntime = new DotNetRuntime(sessionStore, workspace, containerName, processRunner);
         BuildRuntimeRegistry runtimeRegistry = new BuildRuntimeRegistry(List.of(dotnetRuntime));
         buildService = new BuildService(sessionStore, runtimeRegistry);

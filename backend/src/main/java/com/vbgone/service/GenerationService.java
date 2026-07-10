@@ -1,7 +1,5 @@
 package com.vbgone.service;
 
-import com.vbgone.ai.AiProvider;
-import com.vbgone.ai.AiProviderRegistry;
 import com.vbgone.ai.AiRequestOptions;
 import com.vbgone.ai.AiResponse;
 import com.vbgone.ai.ModelRole;
@@ -26,16 +24,16 @@ public class GenerationService {
     static final String STUB_SYSTEM_PROMPT = CSharpPrompts.STUB_SYSTEM_PROMPT;
     static final String IMPLEMENT_SYSTEM_PROMPT = CSharpPrompts.IMPLEMENT_SYSTEM_PROMPT;
 
-    private final AiProviderRegistry registry;
+    private final AiCallSupport aiCallSupport;
     private final SessionStore sessionStore;
     private final PromptLanguageRegistry promptRegistry;
     private final LanguageConventionsRegistry conventionsRegistry;
 
-    public GenerationService(AiProviderRegistry registry,
+    public GenerationService(AiCallSupport aiCallSupport,
                              SessionStore sessionStore,
                              PromptLanguageRegistry promptRegistry,
                              LanguageConventionsRegistry conventionsRegistry) {
-        this.registry = registry;
+        this.aiCallSupport = aiCallSupport;
         this.sessionStore = sessionStore;
         this.promptRegistry = promptRegistry;
         this.conventionsRegistry = conventionsRegistry;
@@ -51,13 +49,13 @@ public class GenerationService {
         AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
         PromptLanguage prompts = promptRegistry.forLanguage(options.targetLanguage());
         LanguageConventions conv = conventionsRegistry.forLanguage(options.targetLanguage());
-        MigrationSession session = getSession(sessionId);
+        MigrationSession session = sessionStore.getOrThrow(sessionId);
         session.setTargetLanguage(options.targetLanguage());
         session.clearClassArtifacts();
 
         String userMessage = prompts.interfaceUserMessage(className, session.getVbContentForClass(className));
 
-        AiResponse response = call(options, ModelRole.MECHANICAL, prompts.interfaceSystemPrompt(),
+        AiResponse response = aiCallSupport.call(options, ModelRole.MECHANICAL, prompts.interfaceSystemPrompt(),
                 userMessage, 4096L, "interface", session);
         String code = prompts.stripWrappers(prompts.stripCodeFences(response.text()));
 
@@ -77,7 +75,7 @@ public class GenerationService {
         AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
         PromptLanguage prompts = promptRegistry.forLanguage(options.targetLanguage());
         LanguageConventions conv = conventionsRegistry.forLanguage(options.targetLanguage());
-        MigrationSession session = getSession(sessionId);
+        MigrationSession session = sessionStore.getOrThrow(sessionId);
         session.setTargetLanguage(options.targetLanguage());
         InterfaceResult iface = session.getInterfaceResult();
         String ifaceCode = iface != null ? iface.code() : "";
@@ -85,7 +83,7 @@ public class GenerationService {
         String userMessage = prompts.testsUserMessage(className, ifaceCode,
                 session.getVbContentForClass(className));
 
-        AiResponse response = call(options, ModelRole.REASONING, prompts.testsSystemPrompt(),
+        AiResponse response = aiCallSupport.call(options, ModelRole.REASONING, prompts.testsSystemPrompt(),
                 userMessage, 16384L, "tests", session);
         String code = prompts.repairTruncated(prompts.stripWrappers(prompts.stripCodeFences(response.text())));
 
@@ -105,7 +103,7 @@ public class GenerationService {
                                    Map<String, String> modelOverrides) {
         AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
         PromptLanguage prompts = promptRegistry.forLanguage(options.targetLanguage());
-        MigrationSession session = getSession(sessionId);
+        MigrationSession session = sessionStore.getOrThrow(sessionId);
         session.setTargetLanguage(options.targetLanguage());
         InterfaceResult iface = session.getInterfaceResult();
         if (iface == null) {
@@ -113,7 +111,7 @@ public class GenerationService {
         }
 
         String userMessage = prompts.stubUserMessage(className, iface);
-        AiResponse response = call(options, ModelRole.MECHANICAL, prompts.stubSystemPrompt(),
+        AiResponse response = aiCallSupport.call(options, ModelRole.MECHANICAL, prompts.stubSystemPrompt(),
                 userMessage, 4096L, "stub", session);
         String code = prompts.stripWrappers(prompts.stripCodeFences(response.text()));
 
@@ -131,7 +129,7 @@ public class GenerationService {
                                      Map<String, String> modelOverrides) {
         AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
         PromptLanguage prompts = promptRegistry.forLanguage(options.targetLanguage());
-        MigrationSession session = getSession(sessionId);
+        MigrationSession session = sessionStore.getOrThrow(sessionId);
         session.setTargetLanguage(options.targetLanguage());
 
         if (mode == ImplementMode.STUB) {
@@ -151,7 +149,7 @@ public class GenerationService {
         String userMessage = prompts.implementUserMessage(className, iface,
                 session.getVbContentForClass(className));
 
-        AiResponse response = call(options, ModelRole.IMPLEMENTATION, prompts.implementSystemPrompt(),
+        AiResponse response = aiCallSupport.call(options, ModelRole.IMPLEMENTATION, prompts.implementSystemPrompt(),
                 userMessage, 16384L, "implement", session);
         String code = prompts.fixDeclaration(
                 prompts.stripWrappers(prompts.stripCodeFences(response.text())),
@@ -178,7 +176,7 @@ public class GenerationService {
                                           Map<String, String> modelOverrides) {
         AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
         PromptLanguage prompts = promptRegistry.forLanguage(options.targetLanguage());
-        MigrationSession session = getSession(sessionId);
+        MigrationSession session = sessionStore.getOrThrow(sessionId);
         session.setTargetLanguage(options.targetLanguage());
 
         InterfaceResult iface = session.getInterfaceResult();
@@ -211,7 +209,7 @@ public class GenerationService {
         // Escalate on the final attempt (attempt >= 3) — ESCALATION role, else IMPLEMENTATION.
         ModelRole role = attempt >= 3 ? ModelRole.ESCALATION : ModelRole.IMPLEMENTATION;
 
-        AiResponse response = call(options, role, prompts.implementSystemPrompt(), userMessage, 16384L,
+        AiResponse response = aiCallSupport.call(options, role, prompts.implementSystemPrompt(), userMessage, 16384L,
                 "retry-implement", session);
         String code = prompts.fixDeclaration(
                 prompts.stripWrappers(prompts.stripCodeFences(response.text())),
@@ -225,26 +223,6 @@ public class GenerationService {
         ImplementResult result = new ImplementResult(sessionId, className, code, ImplementMode.CLAUDE);
         session.setImplementResult(result);
         return result;
-    }
-
-    /**
-     * Resolves the model + provider, calls the provider, records token usage,
-     * and returns the raw response.
-     */
-    private AiResponse call(AiRequestOptions options, ModelRole role, String systemPrompt,
-                            String userMessage, long maxTokens, String step, MigrationSession session) {
-        String modelId = registry.modelFor(options.provider(), role, options.modelOverrides());
-        AiProvider aiProvider = registry.provider(options.provider());
-        AiResponse response = aiProvider.generate(modelId, systemPrompt, userMessage, maxTokens);
-        double cost = CostService.calculateCost(modelId, response.inputTokens(), response.outputTokens());
-        session.addTokenUsage(new TokenUsage(step, modelId, response.inputTokens(),
-                response.outputTokens(), cost, response.provider()));
-        return response;
-    }
-
-    private MigrationSession getSession(String sessionId) {
-        return sessionStore.get(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
     }
 
     /** Pulls the test code off the session and delegates extraction to the language strategy. */

@@ -93,7 +93,8 @@ class JavaFixedInputRegressionIT {
                 new com.vbgone.prompt.CSharpPrompts(), new com.vbgone.prompt.JavaPrompts()));
         var conventionsRegistry = new LanguageConventionsRegistry(List.of(
                 new com.vbgone.lang.CSharpConventions(), new com.vbgone.lang.JavaConventions()));
-        generationService = new GenerationService(registry, sessionStore, promptRegistry, conventionsRegistry);
+        var aiCallSupport = new com.vbgone.service.AiCallSupport(registry);
+        generationService = new GenerationService(aiCallSupport, sessionStore, promptRegistry, conventionsRegistry);
 
         JavaRuntime javaRuntime = new JavaRuntime(sessionStore, workspace, CONTAINER_NAME,
                 processRunner, conventionsRegistry);

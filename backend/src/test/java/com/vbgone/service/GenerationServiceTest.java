@@ -43,11 +43,14 @@ class GenerationServiceTest {
         AnthropicProvider anthropicProvider = new AnthropicProvider(claudeClient);
         GitHubModelsProvider copilotProvider = new GitHubModelsProvider("", new ObjectMapper());
         AiProviderRegistry registry = new AiProviderRegistry(List.of(anthropicProvider, copilotProvider));
+        AiCallSupport aiCallSupport = new AiCallSupport(registry);
         PromptLanguageRegistry promptRegistry =
                 new PromptLanguageRegistry(List.of(new CSharpPrompts(), new JavaPrompts()));
         LanguageConventionsRegistry conventionsRegistry =
                 new LanguageConventionsRegistry(List.of(new CSharpConventions(), new JavaConventions()));
-        service = new GenerationService(registry, sessionStore, promptRegistry, conventionsRegistry);
+        service = new GenerationService(aiCallSupport, sessionStore, promptRegistry, conventionsRegistry);
+        // getOrThrow delegates to the (stubbed) get(); let the real method run over the mock.
+        lenient().when(sessionStore.getOrThrow(anyString())).thenCallRealMethod();
     }
 
     private ClaudeClient.ClaudeResponse claudeResponse(String text) {

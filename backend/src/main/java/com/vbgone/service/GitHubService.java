@@ -51,7 +51,7 @@ public class GitHubService {
     }
 
     public PullRequestResult raisePR(String sessionId, String repoOwner, String repoName, String branchName) {
-        MigrationSession session = getSession(sessionId);
+        MigrationSession session = sessionStore.getOrThrow(sessionId);
 
         InterfaceResult iface = session.getInterfaceResult();
         if (iface == null) {
@@ -291,10 +291,5 @@ public class GitHubService {
             }
             return objectMapper.readTree(responseBody);
         }
-    }
-
-    private MigrationSession getSession(String sessionId) {
-        return sessionStore.get(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
     }
 }
