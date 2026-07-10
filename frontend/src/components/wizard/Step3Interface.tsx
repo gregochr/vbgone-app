@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
 import { generateInterface } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CodeBlock } from './CodeBlock'
+import { StepStatus } from './StepStatus'
+import { useConfirmedAction } from './useConfirmedAction'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { LANGS, PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
 
@@ -18,9 +19,6 @@ export function Step3Interface({ state, update, onReady }: Props) {
   const lang = LANGS[targetLanguage]
   const mechanicalModel = modelLabelFor(provider, 'mechanical', modelOverrides)
   const mechanicalModelId = modelFor(provider, 'mechanical', modelOverrides)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState(!state.interfaceResult)
 
   const className =
     state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
@@ -29,33 +27,37 @@ export function Step3Interface({ state, update, onReady }: Props) {
   const sessionId = state.analysis?.sessionId ?? ''
   const currentClassInfo = state.analysis?.classes.find((c) => c.name === className)
 
-  useEffect(() => {
-    if (state.interfaceResult) {
-      onReady()
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const { confirming, loading, error, requestConfirm, cancel, run } = useConfirmedAction({
+    alreadyDone: !!state.interfaceResult,
+    action: () => generateInterface(sessionId, className, engineParams),
+    onResult: (result) => update({ interfaceResult: result }),
+    onReady,
+    errorMessage: 'Interface generation failed',
+  })
 
-  const runGeneration = () => {
-    setShowConfirm(false)
-    setLoading(true)
-    generateInterface(sessionId, className, engineParams)
-      .then((result) => {
-        update({ interfaceResult: result })
-        setLoading(false)
-        onReady()
-      })
-      .catch((err) => {
-        setLoading(false)
-        setError(err instanceof Error ? err.message : 'Interface generation failed')
-      })
+  const header = (
+    <>
+      <div className="step-kicker">STEP 03 · INTERFACE</div>
+      <h2 className="step-title">Define the contract</h2>
+    </>
+  )
+
+  if (loading || error) {
+    return (
+      <StepStatus
+        header={header}
+        loading={loading}
+        loadingText={`Generating the ${lang.lang} interface for ${className}…`}
+        error={error}
+      />
+    )
   }
 
-  if (showConfirm) {
+  if (confirming) {
     return (
       <div>
-        <div className="step-kicker">STEP 03 · INTERFACE</div>
-        <h2 className="step-title">Define the contract</h2>
-        <ConfirmDialog onConfirm={runGeneration} onCancel={() => setShowConfirm(false)}>
+        {header}
+        <ConfirmDialog onConfirm={run} onCancel={cancel}>
           <p>
             This will make an API call to {prov.name} ({mechanicalModelId}) via the {prov.vendor}{' '}
             provider.
@@ -79,37 +81,11 @@ export function Step3Interface({ state, update, onReady }: Props) {
     )
   }
 
-  if (loading) {
-    return (
-      <div>
-        <div className="step-kicker">STEP 03 · INTERFACE</div>
-        <h2 className="step-title">Define the contract</h2>
-        <div className="busy-row">
-          <span className="spinner" />
-          <span className="loading-text">
-            Generating the {lang.lang} interface for {className}…
-          </span>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div>
-        <div className="step-kicker">STEP 03 · INTERFACE</div>
-        <h2 className="step-title">Define the contract</h2>
-        <div className="build-status build-red">{error}</div>
-      </div>
-    )
-  }
-
   const iface = state.interfaceResult
   if (!iface) {
     return (
       <div>
-        <div className="step-kicker">STEP 03 · INTERFACE</div>
-        <h2 className="step-title">Define the contract</h2>
+        {header}
         <p className="step-subtitle">
           A {lang.lang} interface is the seam of the Strangler Fig migration — the contract both the
           legacy and the new code satisfy. UI types are stripped; only business logic remains.
@@ -120,7 +96,7 @@ export function Step3Interface({ state, update, onReady }: Props) {
             <span className="model-name">{mechanicalModel}</span>
             <span className="model-caption">MECHANICAL · {prov.vendor}</span>
           </div>
-          <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+          <button className="btn-plex" onClick={requestConfirm}>
             Generate interface
           </button>
         </div>
@@ -130,8 +106,7 @@ export function Step3Interface({ state, update, onReady }: Props) {
 
   return (
     <div>
-      <div className="step-kicker">STEP 03 · INTERFACE</div>
-      <h2 className="step-title">Define the contract</h2>
+      {header}
       <p className="step-subtitle">
         Generated {lang.lang} interface for {iface.className}. Review and edit if needed before
         proceeding.

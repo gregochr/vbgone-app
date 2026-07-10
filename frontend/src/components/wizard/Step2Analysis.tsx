@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
 import { analyse } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
+import { StepStatus } from './StepStatus'
+import { useConfirmedAction } from './useConfirmedAction'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
 
@@ -16,37 +17,38 @@ export function Step2Analysis({ state, update, onReady }: Props) {
   const prov = PROVIDERS[provider]
   const reasoningModel = modelLabelFor(provider, 'reasoning', modelOverrides)
   const reasoningModelId = modelFor(provider, 'reasoning', modelOverrides)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState(!state.analysis)
 
-  useEffect(() => {
-    if (state.analysis) {
-      onReady()
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const { confirming, loading, error, requestConfirm, cancel, run } = useConfirmedAction({
+    alreadyDone: !!state.analysis,
+    action: () => analyse(state.filename, state.content, engineParams),
+    onResult: (result) => update({ analysis: result }),
+    onReady,
+    errorMessage: 'Analysis failed',
+  })
 
-  const runAnalysis = () => {
-    setShowConfirm(false)
-    setLoading(true)
-    analyse(state.filename, state.content, engineParams)
-      .then((result) => {
-        update({ analysis: result })
-        setLoading(false)
-        onReady()
-      })
-      .catch((err) => {
-        setLoading(false)
-        setError(err instanceof Error ? err.message : 'Analysis failed')
-      })
+  const header = (
+    <>
+      <div className="step-kicker">STEP 02 · ANALYSIS</div>
+      <h2 className="step-title">Analyse the source</h2>
+    </>
+  )
+
+  if (loading || error) {
+    return (
+      <StepStatus
+        header={header}
+        loading={loading}
+        loadingText={`${prov.name} is analysing the source…`}
+        error={error}
+      />
+    )
   }
 
-  if (showConfirm) {
+  if (confirming) {
     return (
       <div>
-        <div className="step-kicker">STEP 02 · ANALYSIS</div>
-        <h2 className="step-title">Analyse the source</h2>
-        <ConfirmDialog onConfirm={runAnalysis} onCancel={() => setShowConfirm(false)}>
+        {header}
+        <ConfirmDialog onConfirm={run} onCancel={cancel}>
           <p>
             This will make an API call to {prov.name} ({reasoningModelId}) via the {prov.vendor}{' '}
             provider.
@@ -69,35 +71,11 @@ export function Step2Analysis({ state, update, onReady }: Props) {
     )
   }
 
-  if (loading) {
-    return (
-      <div>
-        <div className="step-kicker">STEP 02 · ANALYSIS</div>
-        <h2 className="step-title">Analyse the source</h2>
-        <div className="busy-row">
-          <span className="spinner" />
-          <span className="loading-text">{prov.name} is analysing the source…</span>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div>
-        <div className="step-kicker">STEP 02 · ANALYSIS</div>
-        <h2 className="step-title">Analyse the source</h2>
-        <div className="build-status build-red">{error}</div>
-      </div>
-    )
-  }
-
   const analysis = state.analysis
   if (!analysis) {
     return (
       <div>
-        <div className="step-kicker">STEP 02 · ANALYSIS</div>
-        <h2 className="step-title">Analyse the source</h2>
+        {header}
         <p className="step-subtitle">
           {prov.name} reads the VB.NET, looks past the Windows Forms noise, and extracts the pure
           business logic underneath.
@@ -108,7 +86,7 @@ export function Step2Analysis({ state, update, onReady }: Props) {
             <span className="model-name">{reasoningModel}</span>
             <span className="model-caption">REASONING · {prov.vendor}</span>
           </div>
-          <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+          <button className="btn-plex" onClick={requestConfirm}>
             Analyse with {prov.name}
           </button>
         </div>
@@ -118,8 +96,7 @@ export function Step2Analysis({ state, update, onReady }: Props) {
 
   return (
     <div>
-      <div className="step-kicker">STEP 02 · ANALYSIS</div>
-      <h2 className="step-title">Analyse the source</h2>
+      {header}
       <div className="summary-banner">
         <span className="summary-check">✓</span>
         <span>{analysis.summary}</span>

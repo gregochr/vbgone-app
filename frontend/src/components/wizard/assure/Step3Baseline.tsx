@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
 import type { WizardState } from '../WizardShell'
 import { generateBaseline } from '../../../api/migrateApi'
 import { ConfirmDialog } from '../ConfirmDialog'
+import { StepStatus } from '../StepStatus'
+import { useConfirmedAction } from '../useConfirmedAction'
 import { useWizardConfig } from '../../../config/WizardConfigContext'
 import { PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../../config/engine'
 
@@ -35,34 +36,19 @@ export function Step3Baseline({
   const prov = PROVIDERS[provider]
   const mechanicalModel = modelLabelFor(provider, 'mechanical', modelOverrides)
   const mechanicalModelId = modelFor(provider, 'mechanical', modelOverrides)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState(!state.baselineResult)
-
   const className =
     state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
     state.analysis?.classes[0]?.name ??
     ''
   const sessionId = state.analysis?.sessionId ?? ''
 
-  useEffect(() => {
-    if (state.baselineResult) onReady()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const runBaseline = () => {
-    setShowConfirm(false)
-    setLoading(true)
-    generateBaseline(sessionId, className, engineParams)
-      .then((result) => {
-        update({ baselineResult: result })
-        setLoading(false)
-        onReady()
-      })
-      .catch((err) => {
-        setLoading(false)
-        setError(err instanceof Error ? err.message : 'Pinning the baseline failed')
-      })
-  }
+  const { confirming, loading, error, requestConfirm, cancel, run } = useConfirmedAction({
+    alreadyDone: !!state.baselineResult,
+    action: () => generateBaseline(sessionId, className, engineParams),
+    onResult: (result) => update({ baselineResult: result }),
+    onReady,
+    errorMessage: 'Pinning the baseline failed',
+  })
 
   const header = (
     <>
@@ -80,11 +66,22 @@ export function Step3Baseline({
     </>
   )
 
-  if (showConfirm) {
+  if (loading || error) {
+    return (
+      <StepStatus
+        header={header}
+        loading={loading}
+        loadingText={`Capturing the current behaviour of ${className}'s public surface against the live assemblies…`}
+        error={error}
+      />
+    )
+  }
+
+  if (confirming) {
     return (
       <div>
         {header}
-        <ConfirmDialog onConfirm={runBaseline} onCancel={() => setShowConfirm(false)}>
+        <ConfirmDialog onConfirm={run} onCancel={cancel}>
           <p>
             This will make an API call to {prov.name} ({mechanicalModelId}) via the {prov.vendor}{' '}
             provider to capture the current behaviour of <strong>{className}</strong>'s public
@@ -100,30 +97,6 @@ export function Step3Baseline({
           </p>
           <p>Proceed?</p>
         </ConfirmDialog>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div>
-        {header}
-        <div className="busy-row">
-          <span className="spinner" />
-          <span className="loading-text">
-            Capturing the current behaviour of {className}'s public surface against the live
-            assemblies…
-          </span>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div>
-        {header}
-        <div className="build-status build-red">{error}</div>
       </div>
     )
   }
@@ -144,7 +117,7 @@ export function Step3Baseline({
             <span className="model-name">{mechanicalModel}</span>
             <span className="model-caption">MECHANICAL · {prov.vendor}</span>
           </div>
-          <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+          <button className="btn-plex" onClick={requestConfirm}>
             Record the baseline
           </button>
         </div>
