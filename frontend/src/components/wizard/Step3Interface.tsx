@@ -4,6 +4,7 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { CodeBlock } from './CodeBlock'
 import { StepStatus } from './StepStatus'
 import { useConfirmedAction } from './useConfirmedAction'
+import { selectActiveClass } from './wizardState'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { LANGS, PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
 
@@ -20,12 +21,7 @@ export function Step3Interface({ state, update, onReady }: Props) {
   const mechanicalModel = modelLabelFor(provider, 'mechanical', modelOverrides)
   const mechanicalModelId = modelFor(provider, 'mechanical', modelOverrides)
 
-  const className =
-    state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
-    state.analysis?.classes[0]?.name ??
-    ''
-  const sessionId = state.analysis?.sessionId ?? ''
-  const currentClassInfo = state.analysis?.classes.find((c) => c.name === className)
+  const { className, sessionId, classInfo: currentClassInfo } = selectActiveClass(state)
 
   const { confirming, loading, error, requestConfirm, cancel, run } = useConfirmedAction({
     alreadyDone: !!state.interfaceResult,

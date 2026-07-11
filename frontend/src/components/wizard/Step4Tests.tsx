@@ -4,6 +4,7 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { CollapsibleCode } from './CollapsibleCode'
 import { StepStatus } from './StepStatus'
 import { useConfirmedPipeline, pipelineStep } from './useConfirmedPipeline'
+import { selectActiveClass } from './wizardState'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { LANGS, PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
 
@@ -21,11 +22,7 @@ export function Step4Tests({ state, update, onReady }: Props) {
   const mechanicalModel = modelLabelFor(provider, 'mechanical', modelOverrides)
   const reasoningModelId = modelFor(provider, 'reasoning', modelOverrides)
   const mechanicalModelId = modelFor(provider, 'mechanical', modelOverrides)
-  const className =
-    state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
-    state.analysis?.classes[0]?.name ??
-    ''
-  const sessionId = state.analysis?.sessionId ?? ''
+  const { className, sessionId } = selectActiveClass(state)
 
   const { confirming, phase, error, requestConfirm, cancel, run } = useConfirmedPipeline(
     [

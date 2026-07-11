@@ -4,6 +4,7 @@ import { implement, buildAfterImplement, retryImplement, build } from '../../api
 import { ConfirmDialog } from './ConfirmDialog'
 import { CollapsibleCode } from './CollapsibleCode'
 import { CoverageBadge } from './CoverageBadge'
+import { selectActiveClass } from './wizardState'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { LANGS, PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
 
@@ -31,11 +32,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
   const [attempts, setAttempts] = useState(1)
   const [showRetryConfirm, setShowRetryConfirm] = useState(false)
 
-  const className =
-    state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
-    state.analysis?.classes[0]?.name ??
-    ''
-  const sessionId = state.analysis?.sessionId ?? ''
+  const { className, sessionId } = selectActiveClass(state)
 
   // Guards setState/onReady after unmount (or a cancel) for the in-flight implement/build/retry
   // requests, which are bare async/await with no other cancellation.

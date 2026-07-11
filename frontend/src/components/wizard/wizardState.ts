@@ -79,6 +79,27 @@ export const initialState: WizardState = {
   fromQueue: false,
 }
 
+/**
+ * The class a per-class step currently operates on, plus the session it belongs to.
+ *
+ * Centralises the `suggestedMigrationOrder[currentClassIndex] ?? classes[0] ?? ''` fallback and the
+ * `sessionId ?? ''` coercion that every AI step (Migrate steps 3–5, Assure baseline steps) otherwise
+ * re-derives verbatim — a change to selection semantics now lives in one testable place instead of
+ * drifting across six components. Named `selectActiveClass` (not `activeClass`) so it doesn't shadow
+ * the `activeClass` prop the Assure steps already receive.
+ */
+export function selectActiveClass(state: WizardState) {
+  const className =
+    state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
+    state.analysis?.classes[0]?.name ??
+    ''
+  return {
+    className,
+    sessionId: state.analysis?.sessionId ?? '',
+    classInfo: state.analysis?.classes.find((c) => c.name === className),
+  }
+}
+
 export type WizardAction =
   | { type: 'merge'; partial: Partial<WizardState> }
   | { type: 'reset' }
