@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
 import type { WizardState } from './WizardShell'
 import { generateTests, generateStub, build } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CollapsibleCode } from './CollapsibleCode'
+import { StepStatus } from './StepStatus'
+import { useConfirmedPipeline, pipelineStep } from './useConfirmedPipeline'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { LANGS, PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
 
@@ -12,8 +13,6 @@ interface Props {
   onReady: () => void
 }
 
-type Phase = 'tests' | 'stub' | 'build' | 'done'
-
 export function Step4Tests({ state, update, onReady }: Props) {
   const { provider, targetLanguage, modelOverrides, engineParams } = useWizardConfig()
   const prov = PROVIDERS[provider]
@@ -22,72 +21,51 @@ export function Step4Tests({ state, update, onReady }: Props) {
   const mechanicalModel = modelLabelFor(provider, 'mechanical', modelOverrides)
   const reasoningModelId = modelFor(provider, 'reasoning', modelOverrides)
   const mechanicalModelId = modelFor(provider, 'mechanical', modelOverrides)
-  const [phase, setPhase] = useState<Phase>(state.redBuild ? 'done' : 'tests')
-  const [error, setError] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState(!state.redBuild)
-  const [pipelineStarted, setPipelineStarted] = useState(false)
-
   const className =
     state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
     state.analysis?.classes[0]?.name ??
     ''
   const sessionId = state.analysis?.sessionId ?? ''
 
-  useEffect(() => {
-    if (state.redBuild) {
-      onReady()
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const { confirming, phase, error, requestConfirm, cancel, run } = useConfirmedPipeline(
+    [
+      pipelineStep(
+        'tests',
+        () => generateTests(sessionId, className, engineParams),
+        (r) => update({ tests: r }),
+      ),
+      pipelineStep(
+        'stub',
+        () => generateStub(sessionId, className, engineParams),
+        (r) => update({ stubResult: r }),
+      ),
+      pipelineStep(
+        'build',
+        () => build(sessionId),
+        (r) => update({ redBuild: r }),
+      ),
+    ],
+    { alreadyDone: !!state.redBuild, onReady, errorMessage: 'Test generation failed' },
+  )
 
-  const runPipeline = () => {
-    setShowConfirm(false)
-    setPipelineStarted(true)
-    let cancelled = false
+  const header = (
+    <>
+      <div className="step-kicker">STEP 04 · TESTS · RED BUILD</div>
+      <h2 className="step-title">Write the tests first</h2>
+    </>
+  )
 
-    ;(async () => {
-      try {
-        setPhase('tests')
-        const testsResult = await generateTests(sessionId, className, engineParams)
-        if (cancelled) return
-        update({ tests: testsResult })
-
-        setPhase('stub')
-        const stubResult = await generateStub(sessionId, className, engineParams)
-        if (cancelled) return
-        update({ stubResult })
-
-        setPhase('build')
-        const buildResult = await build(sessionId)
-        if (cancelled) return
-        update({ redBuild: buildResult })
-
-        setPhase('done')
-        onReady()
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Test generation failed')
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }
-
-  const phaseMessages: Record<Phase, string> = {
+  const phaseMessages: Record<string, string> = {
     tests: `Generating ${lang.testFw} tests for ${className}…`,
     stub: 'Generating stub implementation…',
     build: `Running ${lang.testCmd}…`,
-    done: '',
   }
 
-  if (showConfirm) {
+  if (confirming) {
     return (
       <div>
-        <div className="step-kicker">STEP 04 · TESTS · RED BUILD</div>
-        <h2 className="step-title">Write the tests first</h2>
-        <ConfirmDialog onConfirm={runPipeline} onCancel={() => setShowConfirm(false)}>
+        {header}
+        <ConfirmDialog onConfirm={run} onCancel={cancel}>
           <p>This will make two API calls via the {prov.vendor} provider:</p>
           <p>
             1.{' '}
@@ -125,12 +103,22 @@ export function Step4Tests({ state, update, onReady }: Props) {
     )
   }
 
-  // Cancelled state — confirm dismissed but pipeline hasn't started
-  if (!showConfirm && !pipelineStarted && !state.tests && !error) {
+  if (phase !== null || error) {
+    return (
+      <StepStatus
+        header={header}
+        loading={phase !== null}
+        loadingText={phase ? phaseMessages[phase] : ''}
+        error={error}
+      />
+    )
+  }
+
+  // Idle — confirm dismissed (or not yet run) and nothing generated yet.
+  if (!state.tests) {
     return (
       <div>
-        <div className="step-kicker">STEP 04 · TESTS · RED BUILD</div>
-        <h2 className="step-title">Write the tests first</h2>
+        {header}
         <p className="step-subtitle">
           {prov.name} generates a {lang.testFw} suite from the original behaviour, then a stub that
           throws {lang.notImpl}. <code>{lang.testCmd}</code> runs — everything fails. That's the{' '}
@@ -143,7 +131,7 @@ export function Step4Tests({ state, update, onReady }: Props) {
             <span className="model-name">{reasoningModel}</span>
             <span className="model-caption">TESTS · stub on {mechanicalModel}</span>
           </div>
-          <button className="btn-plex" onClick={() => setShowConfirm(true)}>
+          <button className="btn-plex" onClick={requestConfirm}>
             Generate tests &amp; run red build
           </button>
         </div>
@@ -151,33 +139,9 @@ export function Step4Tests({ state, update, onReady }: Props) {
     )
   }
 
-  if (error) {
-    return (
-      <div>
-        <div className="step-kicker">STEP 04 · TESTS · RED BUILD</div>
-        <h2 className="step-title">Write the tests first</h2>
-        <div className="build-status build-red">{error}</div>
-      </div>
-    )
-  }
-
-  if (phase !== 'done') {
-    return (
-      <div>
-        <div className="step-kicker">STEP 04 · TESTS · RED BUILD</div>
-        <h2 className="step-title">Write the tests first</h2>
-        <div className="busy-row">
-          <span className="spinner" />
-          <span className="loading-text">{phaseMessages[phase]}</span>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div>
-      <div className="step-kicker">STEP 04 · TESTS · RED BUILD</div>
-      <h2 className="step-title">Write the tests first</h2>
+      {header}
       <p className="step-subtitle">
         {state.tests?.testCount} {lang.testFw} tests generated.
         {state.redBuild?.buildStatus === 'ERROR'
