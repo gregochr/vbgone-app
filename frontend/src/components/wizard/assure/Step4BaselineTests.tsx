@@ -11,6 +11,7 @@ import { ConfirmDialog } from '../ConfirmDialog'
 import { CodeBlock } from '../CodeBlock'
 import { CoverageBadge } from '../CoverageBadge'
 import { MutationPanel } from './MutationPanel'
+import { selectActiveClass } from '../wizardState'
 import { useWizardConfig } from '../../../config/WizardConfigContext'
 import {
   PROVIDERS,
@@ -74,11 +75,7 @@ export function Step4BaselineTests({
   const [realRepairStarted, setRealRepairStarted] = useState(false)
   const [realRepairCode, setRealRepairCode] = useState<string | null>(null)
 
-  const className =
-    state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
-    state.analysis?.classes[0]?.name ??
-    ''
-  const sessionId = state.analysis?.sessionId ?? ''
+  const { className, sessionId } = selectActiveClass(state)
 
   useEffect(() => {
     if (state.baselineTests) onReady()

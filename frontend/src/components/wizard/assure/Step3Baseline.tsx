@@ -3,6 +3,7 @@ import { generateBaseline } from '../../../api/migrateApi'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { StepStatus } from '../StepStatus'
 import { useConfirmedAction } from '../useConfirmedAction'
+import { selectActiveClass } from '../wizardState'
 import { useWizardConfig } from '../../../config/WizardConfigContext'
 import { PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../../config/engine'
 
@@ -36,11 +37,7 @@ export function Step3Baseline({
   const prov = PROVIDERS[provider]
   const mechanicalModel = modelLabelFor(provider, 'mechanical', modelOverrides)
   const mechanicalModelId = modelFor(provider, 'mechanical', modelOverrides)
-  const className =
-    state.analysis?.suggestedMigrationOrder[state.currentClassIndex] ??
-    state.analysis?.classes[0]?.name ??
-    ''
-  const sessionId = state.analysis?.sessionId ?? ''
+  const { className, sessionId } = selectActiveClass(state)
 
   const { confirming, loading, error, requestConfirm, cancel, run } = useConfirmedAction({
     alreadyDone: !!state.baselineResult,

@@ -3,6 +3,7 @@ import type { ProjectMode } from './WizardShell'
 import { ConfirmDialog } from './ConfirmDialog'
 import { StepStatus } from './StepStatus'
 import { useConfirmedAction } from './useConfirmedAction'
+import { selectActiveClass } from './wizardState'
 import { raisePR } from '../../api/migrateApi'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { LANGS } from '../../config/engine'
@@ -52,7 +53,8 @@ function Step6PRSingle({
     ? `Copilot Code Review · ${lang.linter} · ${lang.mutationTool}`
     : `${lang.linter} · ${lang.mutationTool} · CodeQL`
   const isMultiClass = (state.analysis?.suggestedMigrationOrder?.length ?? 1) > 1
-  const sessionId = state.analysis?.sessionId ?? ''
+  // Only the sessionId derivation is shared; Step6's batch-slug branch name is deliberately its own.
+  const { sessionId } = selectActiveClass(state)
   const totalClasses = state.analysis?.suggestedMigrationOrder?.length ?? 1
   const branchName =
     totalClasses > 1
