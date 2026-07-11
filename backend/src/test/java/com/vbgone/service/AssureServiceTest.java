@@ -338,20 +338,20 @@ class AssureServiceTest {
     @Test
     void ensureTestClassAttribute_reattachesWhenMissing() {
         String stripped = "public class OrderProcessorBaselineTests\n{\n    [TestMethod]\n    public void A() {}\n}";
-        String fixed = AssureService.ensureTestClassAttribute(stripped);
+        String fixed = CharacterisationSuiteEditor.ensureTestClassAttribute(stripped);
         assertThat(fixed).contains("[TestClass]\npublic class OrderProcessorBaselineTests");
     }
 
     @Test
     void ensureTestClassAttribute_leavesCodeThatAlreadyHasItUntouched() {
         String already = "[TestClass]\npublic class X\n{\n    [TestMethod]\n    public void A() {}\n}";
-        assertThat(AssureService.ensureTestClassAttribute(already)).isEqualTo(already);
+        assertThat(CharacterisationSuiteEditor.ensureTestClassAttribute(already)).isEqualTo(already);
     }
 
     @Test
     void ensureTestClassAttribute_ignoresCodeWithoutTestMethods() {
         String noTests = "public class Helper\n{\n    public int A() => 1;\n}";
-        assertThat(AssureService.ensureTestClassAttribute(noTests)).isEqualTo(noTests);
+        assertThat(CharacterisationSuiteEditor.ensureTestClassAttribute(noTests)).isEqualTo(noTests);
     }
 
     @Test
