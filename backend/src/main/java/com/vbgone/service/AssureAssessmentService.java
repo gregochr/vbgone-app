@@ -5,6 +5,7 @@ import com.vbgone.session.SessionStore;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -74,18 +75,55 @@ public class AssureAssessmentService {
     // would push the attribute onto the declaration line and defeat those anchors.
     private static final Pattern LINE_CONTINUATION = Pattern.compile("[ \\t]+_[ \\t]*(\\r?\\n)");
 
-    // .NET Framework-only dependencies that can't compile or run on the headless cross-platform SDK
-    // the CLR sidecar uses: LINQ-to-SQL (System.Data.Linq — DataContext / Table / EntitySet /
-    // EntityRef / DBML mapping attributes) and classic ASMX or WCF-Web services (System.Web.Services,
-    // <WebMethod>, <WebService>, <WebGet>, ScriptMethod). A class carrying any of these is
-    // Windows/Framework-bound, so it must never enter the net-ready subset — even when its own
-    // methods look pure — or the shared assurable project fails to build (BC30002: type not defined).
+    // .NET Framework / Windows-only namespaces that can't compile or run on the headless cross-platform
+    // SDK the CLR sidecar uses: LINQ-to-SQL (System.Data.Linq — DataContext / Table / EntitySet /
+    // EntityRef / DBML mapping attributes), classic ASMX or WCF-Web services (System.Web.Services,
+    // <WebMethod>, <WebService>, <WebGet>, ScriptMethod, WCF System.ServiceModel), ASP.NET WebForms
+    // (System.Web.UI — Page, ListItem and friends), GDI+ (System.Drawing) and WinForms
+    // (System.Windows.Forms) referenced by a full namespace. A class carrying any of these is
+    // Windows/Framework-bound, so it must never enter the net-ready subset — even when its own methods
+    // look pure — or the shared assurable project fails to build (BC30002: type not defined). The
+    // check runs over the file-level `Imports` as well as the class body, so a bare `ListItem` reached
+    // through `Imports System.Web.UI.WebControls` is caught even though the body never spells out the
+    // namespace (see {@link #importsOf} and {@link #classifyClass}).
     private static final Pattern FRAMEWORK_BOUND = Pattern.compile(
             "(?i)\\bSystem\\.Data\\.Linq\\b|\\bEntity(?:Set|Ref)\\b"
                     + "|<\\s*(?:Table|Column|Association|Database)\\s*\\("
                     + "|\\bSystem\\.Web\\.Services\\b|<\\s*WebMethod\\b|<\\s*WebService\\b"
                     + "|\\bScriptMethod\\b|<\\s*WebGet\\b|<\\s*WebInvoke\\b"
-                    + "|<\\s*(?:Service|Operation)Contract\\b");
+                    + "|<\\s*(?:Service|Operation)Contract\\b"
+                    + "|\\bSystem\\.Web\\.UI\\b|\\bSystem\\.ServiceModel\\b"
+                    + "|\\bSystem\\.Drawing\\b|\\bSystem\\.Windows\\.Forms\\b");
+
+    // Namespace roots that always resolve on the headless SDK: the BCL, the VB runtime, and VB's
+    // `My`/`Global` prefixes. A namespace-qualified type reference whose root is one of these — or a
+    // namespace / top-level type the uploaded estate itself declares (see {@link #estateSafeRoots}) —
+    // is resolvable; anything else points at an assembly the isolated net-ready build has no reference
+    // to, and would fail the characterisation compile with BC30002 (type not defined).
+    private static final Set<String> BCL_ROOTS = Set.of("system", "microsoft", "my", "global");
+
+    /** A `Namespace Foo.Bar` declaration — captures the declared namespace path. */
+    private static final Pattern NAMESPACE_DECL =
+            Pattern.compile("(?im)^[ \\t]*Namespace\\s+([\\w.]+)");
+
+    /** A top-level type declaration — its simple name can be the qualifier root for a nested type. */
+    private static final Pattern TYPE_DECL = Pattern.compile(
+            "(?im)^[ \\t]*(?:(?:Public|Friend|Private|Protected|Partial|MustInherit|NotInheritable|"
+                    + "Shadows|Shared)\\s+)*(?:Class|Module|Structure|Enum|Interface)\\s+(\\w+)");
+
+    /** File-level `Imports` lines — the framework-bound check sees these, not just the class body. */
+    private static final Pattern IMPORTS_LINE =
+            Pattern.compile("(?im)^[ \\t]*Imports\\s+[\\w.]+.*$");
+
+    // A namespace-qualified type reference sitting in a TYPE POSITION — after As / New / Inherits /
+    // Implements / Of, or inside GetType(...). Only dotted names are captured: a bare `ListItem` is a
+    // simple name handled by FRAMEWORK_BOUND / the estate roots, not here. The type-position anchor is
+    // what keeps false positives low — ordinary `a.b.c()` member access is never preceded by these
+    // keywords, so this fires on declared types (the thing that must resolve at compile time) and not
+    // on method-call chains.
+    private static final Pattern QUALIFIED_TYPE_REF = Pattern.compile(
+            "(?i)(?:\\b(?:As|New|Inherits|Implements|Of)\\s+|\\bGetType\\s*\\(\\s*)"
+                    + "([A-Za-z_]\\w*(?:\\.[A-Za-z_]\\w*)+)");
 
     // ── REST API surface extraction (a separate, future Assure target) ──
 
@@ -144,7 +182,8 @@ public class AssureAssessmentService {
         List<ClassReadiness> classes = new ArrayList<>();
         List<String> netReadyBlocks = new ArrayList<>();
         List<RestApiEndpoint> restApis = new ArrayList<>();
-        classifyInto(content, file, session, classes, netReadyBlocks, restApis);
+        Set<String> safeRoots = estateSafeRoots(List.of(content == null ? "" : content));
+        classifyInto(content, file, session, classes, netReadyBlocks, restApis, safeRoots);
         session.setAssurableSource(String.join("\n\n", netReadyBlocks));
 
         return new ReadinessReport(session.getSessionId(), tally(classes), "static", classes, restApis);
@@ -162,8 +201,14 @@ public class AssureAssessmentService {
         List<ClassReadiness> classes = new ArrayList<>();
         List<String> netReadyBlocks = new ArrayList<>();
         List<RestApiEndpoint> restApis = new ArrayList<>();
+        List<String> allSources = new ArrayList<>();
+        for (VbSourceFile f : manifest.files()) allSources.add(f.content());
+        // Estate-wide roots must be gathered across ALL files first: a class in one file may reference
+        // a namespace/type declared in another, and only the whole-estate view can tell a legitimate
+        // cross-file reference from one pointing at an assembly the isolated build never references.
+        Set<String> safeRoots = estateSafeRoots(allSources);
         for (VbSourceFile f : manifest.files()) {
-            classifyInto(f.content(), f.relativePath(), session, classes, netReadyBlocks, restApis);
+            classifyInto(f.content(), f.relativePath(), session, classes, netReadyBlocks, restApis, safeRoots);
         }
         session.setAssurableSource(String.join("\n\n", netReadyBlocks));
 
@@ -173,11 +218,14 @@ public class AssureAssessmentService {
     /** Parses classes out of one source string, classifies each, and collects net-ready blocks. */
     private void classifyInto(String content, String file, MigrationSession session,
                               List<ClassReadiness> out, List<String> netReadyBlocks,
-                              List<RestApiEndpoint> restApis) {
+                              List<RestApiEndpoint> restApis, Set<String> safeRoots) {
         String src = content == null ? "" : content;
         // Line-anchored matching (class attrs, method attrs) runs over a continuation-folded copy so
         // VB `_`-split attributes parse; the raw `block` is what we store/compile, left untouched.
         String detectSrc = normalizeContinuations(src);
+        // File-level `Imports` sit outside every class body, so the class-level framework-bound check
+        // is blind to them unless we thread them in explicitly.
+        String imports = importsOf(detectSrc);
         Matcher cm = CLASS_BLOCK.matcher(src);
         while (cm.find()) {
             String className = cm.group(1);
@@ -194,16 +242,22 @@ public class AssureAssessmentService {
             }
 
             session.putClassSource(className, block);
-            ClassReadiness cr = classifyClass(className, file, body);
+            ClassReadiness cr = classifyClass(className, file, body, imports, safeRoots);
             out.add(cr);
             // Only net-ready (UI-free) classes go into the headless-compilable subset.
             if (cr.bucket() == Bucket.NET_READY) netReadyBlocks.add(block);
         }
     }
 
-    private ClassReadiness classifyClass(String className, String file, String body) {
+    private ClassReadiness classifyClass(String className, String file, String body,
+                                         String imports, Set<String> safeRoots) {
+        // Framework-bound and unresolved-type detection must see the file's Imports too — a bare
+        // `ListItem` only resolves through `Imports System.Web.UI.WebControls`, which lives above the
+        // class body. UI-coupling stays body-only (Inherits Form / control fields are always in-body).
+        String detect = imports.isEmpty() ? body : imports + "\n" + body;
         boolean uiCoupled = isClassUiCoupled(body);
-        boolean frameworkBound = isFrameworkBound(body);
+        boolean frameworkBound = isFrameworkBound(detect);
+        List<String> unresolved = unresolvedTypeRefs(detect, safeRoots);
         Set<String> controlFields = controlFields(body);
 
         List<MethodReadiness> methods = new ArrayList<>();
@@ -226,8 +280,15 @@ public class AssureAssessmentService {
         // the headless SDK even when its own methods look pure — keep it out of the net-ready subset.
         if (frameworkBound && bucket == Bucket.NET_READY) bucket = Bucket.WINDOWS_GATED;
 
+        // Likewise a class that references types from an assembly the isolated net-ready build has no
+        // reference to — cross-project estate types (GMA.gma_Server, MPD.AP_mpdCalc_Definition) or a
+        // Framework namespace the bare SDK omits — compiles to BC30002 in the characterisation runner.
+        // The static gate does no symbol resolution, so without this it waves such a class through as
+        // "net-ready" and the whole assurable project fails to build. Keep it out of the subset.
+        if (!unresolved.isEmpty() && bucket == Bucket.NET_READY) bucket = Bucket.WINDOWS_GATED;
+
         return new ClassReadiness(className, file, bucket,
-                classReason(bucket, uiCoupled, frameworkBound, methods), methods);
+                classReason(bucket, uiCoupled, frameworkBound, unresolved, methods), methods);
     }
 
     private MethodReadiness classifyMethod(String name, String visibility, boolean handler,
@@ -298,16 +359,65 @@ public class AssureAssessmentService {
     }
 
     private String classReason(Bucket bucket, boolean uiCoupled, boolean frameworkBound,
-                               List<MethodReadiness> methods) {
+                               List<String> unresolved, List<MethodReadiness> methods) {
         return switch (bucket) {
             case NET_READY -> "public, no WinForms references";
             case WINDOWS_GATED -> uiCoupled
                     ? "pure logic trapped in a WinForms-referencing class"
-                    : "references .NET Framework-only APIs (LINQ-to-SQL / ASMX / WCF) — needs a Windows runner";
+                    : frameworkBound
+                        ? "references .NET Framework-only APIs (LINQ-to-SQL / ASMX / WCF / WebForms) — needs a Windows runner"
+                        : "references types outside the net-ready subset (" + String.join(", ", unresolved)
+                            + ") — the isolated build has no reference to them";
             case REFACTOR_FIRST -> uiCoupled
                     ? "reads/writes controls in event handlers"
                     : "logic entangled with the UI";
         };
+    }
+
+    /**
+     * BCL roots plus every namespace and top-level type name the uploaded estate declares. A
+     * namespace-qualified type reference whose root is in here is resolvable against the net-ready
+     * compile; anything else points at an assembly the isolated build never references. Case-folded
+     * to lower — VB type resolution is case-insensitive.
+     */
+    private Set<String> estateSafeRoots(Iterable<String> sources) {
+        Set<String> roots = new HashSet<>(BCL_ROOTS);
+        for (String src : sources) {
+            if (src == null) continue;
+            Matcher ns = NAMESPACE_DECL.matcher(src);
+            while (ns.find()) {
+                String path = ns.group(1);
+                int dot = path.indexOf('.');
+                roots.add((dot < 0 ? path : path.substring(0, dot)).toLowerCase());
+            }
+            Matcher td = TYPE_DECL.matcher(src);
+            while (td.find()) roots.add(td.group(1).toLowerCase());
+        }
+        return roots;
+    }
+
+    /**
+     * Namespace-qualified type references in {@code detect} whose root resolves to none of the
+     * {@code safeRoots}. A non-empty result means the class can't compile in the isolated net-ready
+     * project (BC30002). Preserves first-seen order and de-dupes so the reason reads cleanly.
+     */
+    private List<String> unresolvedTypeRefs(String detect, Set<String> safeRoots) {
+        LinkedHashSet<String> refs = new LinkedHashSet<>();
+        Matcher m = QUALIFIED_TYPE_REF.matcher(detect);
+        while (m.find()) {
+            String qualified = m.group(1);
+            String root = qualified.substring(0, qualified.indexOf('.')).toLowerCase();
+            if (!safeRoots.contains(root)) refs.add(qualified);
+        }
+        return new ArrayList<>(refs);
+    }
+
+    /** The file's `Imports` lines, joined — fed to the class-level framework-bound check. */
+    private String importsOf(String detectSrc) {
+        StringBuilder sb = new StringBuilder();
+        Matcher m = IMPORTS_LINE.matcher(detectSrc);
+        while (m.find()) sb.append(m.group()).append('\n');
+        return sb.toString();
     }
 
     // ── REST API surface extraction ──
