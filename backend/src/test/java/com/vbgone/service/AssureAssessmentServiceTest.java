@@ -517,6 +517,94 @@ class AssureAssessmentServiceTest {
         assertThat(subset).doesNotContain("OrdersDataContext").doesNotContain("RmbService");
     }
 
+    // ── Unresolved / cross-project dependencies must stay out of the net-ready subset ──
+
+    @Test
+    void crossProjectTypeReferences_keepClassOutOfNetReadySubset() {
+        // Reproduction of the real AgapeEncrypt baseline failure (BC30002). A lexically "clean" class —
+        // no WinForms, no ASMX/WCF attributes, methods that look pure — whose signatures reference types
+        // from assemblies the isolated net-ready build never references. Compiled alone these are
+        // "type not defined", so the static gate must NOT wave the class through as net-ready.
+        String vb = """
+                Public Class AgapeEncrypt
+                    Public Function Server() As GMA.gma_Server
+                        Return New GMA.gma_Server()
+                    End Function
+                    Public Function KeyUser(id As String) As CASforMobile.KeyUserDetails
+                        Return Nothing
+                    End Function
+                    Public Function Calc(items As List(Of MPD.AP_mpdCalc_Definition)) As Integer
+                        Return items.Count
+                    End Function
+                End Class
+                """;
+
+        ReadinessReport r = service.assess("App_Code/AgapeEncrypt.vb", vb);
+        ClassReadiness c = classNamed(r, "AgapeEncrypt");
+
+        assertThat(c.bucket()).isEqualTo(Bucket.WINDOWS_GATED);
+        assertThat(c.reason())
+                .contains("outside the net-ready subset")
+                .contains("GMA.gma_Server")
+                .contains("CASforMobile.KeyUserDetails")
+                .contains("MPD.AP_mpdCalc_Definition");
+        String subset = sessionStore.get(r.sessionId()).orElseThrow().getAssurableSource();
+        assertThat(subset).doesNotContain("AgapeEncrypt");
+    }
+
+    @Test
+    void webFormsListItemViaImport_keepsClassOutOfNetReadySubset() {
+        // `ListItem` is System.Web.UI.WebControls.ListItem — a bare simple name resolved only through
+        // the file-level Import. The body never spells out the namespace, so the framework-bound check
+        // must read the Imports to catch it (fix: importsOf threaded into classifyClass).
+        String vb = """
+                Imports System.Web.UI.WebControls
+
+                Public Class OptionBuilder
+                    Public Function Build(name As String, value As String) As ListItem
+                        Return New ListItem(name, value)
+                    End Function
+                End Class
+                """;
+
+        ReadinessReport r = service.assess("App_Code/OptionBuilder.vb", vb);
+        ClassReadiness c = classNamed(r, "OptionBuilder");
+
+        assertThat(c.bucket()).isEqualTo(Bucket.WINDOWS_GATED);
+        assertThat(c.reason()).contains("WebForms");
+        String subset = sessionStore.get(r.sessionId()).orElseThrow().getAssurableSource();
+        assertThat(subset).doesNotContain("OptionBuilder");
+    }
+
+    @Test
+    void qualifiedReferenceToAnEstateDeclaredNamespace_staysNetReady() {
+        // False-positive guard: a namespace-qualified reference must NOT be demoted when the estate
+        // itself declares that namespace in another file — the type resolves inside the net-ready
+        // subset. Only the whole-estate view (assessProject) can tell this from a cross-project leak.
+        MigrationSession session = sessionStore.create();
+        ZipManifest manifest = new ZipManifest(session.getSessionId(), List.of(
+                new VbSourceFile("Billing/Money.vb", "Money.vb", """
+                        Namespace Billing
+                            Public Class Money
+                                Public Function Zero() As Decimal
+                                    Return 0D
+                                End Function
+                            End Class
+                        End Namespace"""),
+                new VbSourceFile("Billing/Invoicer.vb", "Invoicer.vb", """
+                        Public Class Invoicer
+                            Public Function Fresh() As Billing.Money
+                                Return New Billing.Money()
+                            End Function
+                        End Class""")),
+                2);
+
+        ReadinessReport r = service.assessProject(manifest);
+
+        assertThat(classNamed(r, "Invoicer").bucket()).isEqualTo(Bucket.NET_READY);
+        assertThat(classNamed(r, "Money").bucket()).isEqualTo(Bucket.NET_READY);
+    }
+
     // ── REST API surface extraction ──
 
     private RestApiEndpoint endpoint(ReadinessReport r, String verb, String route) {
