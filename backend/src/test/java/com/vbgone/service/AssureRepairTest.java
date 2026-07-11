@@ -88,14 +88,14 @@ class AssureRepairTest {
 
     @Test
     void extractTestMethod_isolatesTheNamedBlock() {
-        String block = AssureService.extractTestMethod(SUITE, "PlaceOrder_TotalWithFraction_TruncatesToInt");
+        String block = CharacterisationSuiteEditor.extractTestMethod(SUITE, "PlaceOrder_TotalWithFraction_TruncatesToInt");
         assertThat(block).contains("[TestMethod]").contains("Assert.AreEqual(12, result);");
         assertThat(block).doesNotContain("public class OrderProcessorBaselineTests");
     }
 
     @Test
     void markTestIgnored_insertsIgnoreAboveTheAttributeBlock() {
-        String out = AssureService.markTestIgnored(
+        String out = CharacterisationSuiteEditor.markTestIgnored(
                 SUITE, "PlaceOrder_TotalWithFraction_TruncatesToInt", "quarantined: flaky");
 
         assertThat(out).contains("[Ignore(\"quarantined: flaky\")]");
@@ -103,44 +103,44 @@ class AssureRepairTest {
         assertThat(out.indexOf("[Ignore(")).isLessThan(out.indexOf("[TestMethod]"));
         assertThat(out).contains("public void PlaceOrder_TotalWithFraction_TruncatesToInt()");
         // Idempotent, and a no-op for an unknown test.
-        assertThat(AssureService.markTestIgnored(out, "PlaceOrder_TotalWithFraction_TruncatesToInt", "x"))
+        assertThat(CharacterisationSuiteEditor.markTestIgnored(out, "PlaceOrder_TotalWithFraction_TruncatesToInt", "x"))
                 .isEqualTo(out);
-        assertThat(AssureService.markTestIgnored(SUITE, "NoSuchTest", "x")).isEqualTo(SUITE);
+        assertThat(CharacterisationSuiteEditor.markTestIgnored(SUITE, "NoSuchTest", "x")).isEqualTo(SUITE);
     }
 
     @Test
     void validityGate_rejectsAnAlwaysPassRewrite() {
         String old = "int result = sut.PlaceOrder(3, 9.9m);\nAssert.AreEqual(12, result);";
-        assertThat(AssureService.validityGate(old, "Assert.IsTrue(true);").ok()).isFalse();
-        assertThat(AssureService.validityGate(old, "int result = sut.PlaceOrder(3, 9.9m);").ok()).isFalse();
+        assertThat(CharacterisationSuiteEditor.validityGate(old, "Assert.IsTrue(true);").ok()).isFalse();
+        assertThat(CharacterisationSuiteEditor.validityGate(old, "int result = sut.PlaceOrder(3, 9.9m);").ok()).isFalse();
     }
 
     @Test
     void validityGate_rejectsDroppingTheMethodUnderTest() {
         String old = "var r = sut.PlaceOrder(3, 9.9m);\nAssert.AreEqual(12, r);";
         String rewrite = "var r = sut.CalculateTotal(3, 9.9m);\nAssert.AreEqual(13, r);";
-        assertThat(AssureService.validityGate(old, rewrite).ok()).isFalse();
+        assertThat(CharacterisationSuiteEditor.validityGate(old, rewrite).ok()).isFalse();
     }
 
     @Test
     void validityGate_acceptsASameMethodRealAssertion() {
         String old = "var r = sut.PlaceOrder(3, 9.9m);\nAssert.AreEqual(12, r);";
         String rewrite = "var r = sut.PlaceOrder(3, 9.9m);\nAssert.AreEqual(13, r);";
-        assertThat(AssureService.validityGate(old, rewrite).ok()).isTrue();
+        assertThat(CharacterisationSuiteEditor.validityGate(old, rewrite).ok()).isTrue();
     }
 
     @Test
     void buildDiff_groupsRemovedThenAdded() {
-        var diff = AssureService.buildDiff(
+        var diff = CharacterisationSuiteEditor.buildDiff(
                 "Assert.AreEqual(12, result);", "Assert.AreEqual(13, result);");
         assertThat(diff).extracting(RepairAttempt.DiffLine::op).containsExactly("-", "+");
     }
 
     @Test
     void isFlaky_trueOnlyWhenObservedValueDiffersAcrossRuns() {
-        assertThat(AssureService.isFlaky("Expected:<1>. Actual:<1043>.", "Expected:<1>. Actual:<1071>."))
+        assertThat(CharacterisationSuiteEditor.isFlaky("Expected:<1>. Actual:<1043>.", "Expected:<1>. Actual:<1071>."))
                 .isTrue();
-        assertThat(AssureService.isFlaky("Expected:<12>. Actual:<13>.", "Expected:<12>. Actual:<13>."))
+        assertThat(CharacterisationSuiteEditor.isFlaky("Expected:<12>. Actual:<13>.", "Expected:<12>. Actual:<13>."))
                 .isFalse();
     }
 
