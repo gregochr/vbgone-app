@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { WizardState } from './WizardShell'
 import { implement, buildAfterImplement, retryImplement, build } from '../../api/migrateApi'
+import type { ImplementResult, BuildResult } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CollapsibleCode } from './CollapsibleCode'
 import { CoverageBadge } from './CoverageBadge'
@@ -50,24 +51,26 @@ export function Step5Implement({ state, update, onReady }: Props) {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const run = async (chosen: 'STUB' | 'CLAUDE') => {
-    setMode(chosen)
-    setPendingMode(null)
+  // Shared two-phase runner: implement/retry → build → onReady on GREEN, with the same unmount
+  // guard on every post-await write. run() and retry() differ only in their two calls, the
+  // implement-phase label, and the error message, so they delegate here rather than each
+  // hand-rolling the machine — the run/retry divergence that swallowed retry errors in #71.
+  const runImplement = async (
+    implementLabel: string,
+    implementCall: () => Promise<ImplementResult>,
+    buildCall: () => Promise<BuildResult>,
+    errorMessage: string,
+  ) => {
     setLoading(true)
     setError(null)
-
     try {
-      setPhase(
-        chosen === 'CLAUDE'
-          ? `${prov.name} is implementing…`
-          : 'Generating stub for manual implementation…',
-      )
-      const implResult = await implement(sessionId, className, chosen, engineParams)
+      setPhase(implementLabel)
+      const implResult = await implementCall()
       if (!mounted.current) return
       update({ implementResult: implResult })
 
       setPhase(`Running ${lang.testCmd}…`)
-      const buildResult = await buildAfterImplement(sessionId, chosen)
+      const buildResult = await buildCall()
       if (!mounted.current) return
       update({ greenBuild: buildResult })
 
@@ -78,47 +81,35 @@ export function Step5Implement({ state, update, onReady }: Props) {
     } catch (err) {
       if (!mounted.current) return
       setLoading(false)
-      setError(err instanceof Error ? err.message : 'Implementation failed')
+      setError(err instanceof Error ? err.message : errorMessage)
     }
   }
 
-  const retry = async () => {
+  const run = (chosen: 'STUB' | 'CLAUDE') => {
+    setMode(chosen)
+    setPendingMode(null)
+    void runImplement(
+      chosen === 'CLAUDE'
+        ? `${prov.name} is implementing…`
+        : 'Generating stub for manual implementation…',
+      () => implement(sessionId, className, chosen, engineParams),
+      () => buildAfterImplement(sessionId, chosen),
+      'Implementation failed',
+    )
+  }
+
+  const retry = () => {
     setShowRetryConfirm(false)
     const failingTests = state.greenBuild?.failedTests ?? []
-    setLoading(true)
-    setError(null)
     const nextAttempt = attempts + 1
     setAttempts(nextAttempt)
-
-    try {
-      const isOpus = nextAttempt >= MAX_ATTEMPTS
-      setPhase(
-        isOpus ? `Escalating to ${escalationModel}…` : `${prov.name} is retrying implementation…`,
-      )
-      const implResult = await retryImplement(
-        sessionId,
-        className,
-        failingTests,
-        nextAttempt,
-        engineParams,
-      )
-      if (!mounted.current) return
-      update({ implementResult: implResult })
-
-      setPhase(`Running ${lang.testCmd}…`)
-      const buildResult = await build(sessionId)
-      if (!mounted.current) return
-      update({ greenBuild: buildResult })
-
-      setLoading(false)
-      if (buildResult.buildStatus === 'GREEN') {
-        onReady()
-      }
-    } catch (err) {
-      if (!mounted.current) return
-      setLoading(false)
-      setError(err instanceof Error ? err.message : 'Retry failed')
-    }
+    const isOpus = nextAttempt >= MAX_ATTEMPTS
+    void runImplement(
+      isOpus ? `Escalating to ${escalationModel}…` : `${prov.name} is retrying implementation…`,
+      () => retryImplement(sessionId, className, failingTests, nextAttempt, engineParams),
+      () => build(sessionId),
+      'Retry failed',
+    )
   }
 
   const handleChoice = (chosen: 'STUB' | 'CLAUDE') => {

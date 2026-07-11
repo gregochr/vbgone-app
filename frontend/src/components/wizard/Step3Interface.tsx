@@ -3,7 +3,7 @@ import { generateInterface } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CodeBlock } from './CodeBlock'
 import { StepStatus } from './StepStatus'
-import { useConfirmedAction } from './useConfirmedAction'
+import { useConfirmedPipeline, pipelineStep } from './useConfirmedPipeline'
 import { selectActiveClass } from './wizardState'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { LANGS, PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
@@ -23,13 +23,17 @@ export function Step3Interface({ state, update, onReady }: Props) {
 
   const { className, sessionId, classInfo: currentClassInfo } = selectActiveClass(state)
 
-  const { confirming, loading, error, requestConfirm, cancel, run } = useConfirmedAction({
-    alreadyDone: !!state.interfaceResult,
-    action: () => generateInterface(sessionId, className, engineParams),
-    onResult: (result) => update({ interfaceResult: result }),
-    onReady,
-    errorMessage: 'Interface generation failed',
-  })
+  const { confirming, phase, error, requestConfirm, cancel, run } = useConfirmedPipeline(
+    [
+      pipelineStep(
+        'interface',
+        () => generateInterface(sessionId, className, engineParams),
+        (result) => update({ interfaceResult: result }),
+      ),
+    ],
+    { alreadyDone: !!state.interfaceResult, onReady, errorMessage: 'Interface generation failed' },
+  )
+  const loading = phase !== null
 
   const header = (
     <>

@@ -2,7 +2,7 @@ import type { WizardState } from './WizardShell'
 import { analyse } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
 import { StepStatus } from './StepStatus'
-import { useConfirmedAction } from './useConfirmedAction'
+import { useConfirmedPipeline, pipelineStep } from './useConfirmedPipeline'
 import { useWizardConfig } from '../../config/WizardConfigContext'
 import { PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../config/engine'
 
@@ -18,13 +18,17 @@ export function Step2Analysis({ state, update, onReady }: Props) {
   const reasoningModel = modelLabelFor(provider, 'reasoning', modelOverrides)
   const reasoningModelId = modelFor(provider, 'reasoning', modelOverrides)
 
-  const { confirming, loading, error, requestConfirm, cancel, run } = useConfirmedAction({
-    alreadyDone: !!state.analysis,
-    action: () => analyse(state.filename, state.content, engineParams),
-    onResult: (result) => update({ analysis: result }),
-    onReady,
-    errorMessage: 'Analysis failed',
-  })
+  const { confirming, phase, error, requestConfirm, cancel, run } = useConfirmedPipeline(
+    [
+      pipelineStep(
+        'analysis',
+        () => analyse(state.filename, state.content, engineParams),
+        (result) => update({ analysis: result }),
+      ),
+    ],
+    { alreadyDone: !!state.analysis, onReady, errorMessage: 'Analysis failed' },
+  )
+  const loading = phase !== null
 
   const header = (
     <>

@@ -2,7 +2,7 @@ import type { WizardState } from '../WizardShell'
 import { generateBaseline } from '../../../api/migrateApi'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { StepStatus } from '../StepStatus'
-import { useConfirmedAction } from '../useConfirmedAction'
+import { useConfirmedPipeline, pipelineStep } from '../useConfirmedPipeline'
 import { selectActiveClass } from '../wizardState'
 import { useWizardConfig } from '../../../config/WizardConfigContext'
 import { PROVIDERS, modelFor, modelLabelFor, providerColor } from '../../../config/engine'
@@ -39,13 +39,17 @@ export function Step3Baseline({
   const mechanicalModelId = modelFor(provider, 'mechanical', modelOverrides)
   const { className, sessionId } = selectActiveClass(state)
 
-  const { confirming, loading, error, requestConfirm, cancel, run } = useConfirmedAction({
-    alreadyDone: !!state.baselineResult,
-    action: () => generateBaseline(sessionId, className, engineParams),
-    onResult: (result) => update({ baselineResult: result }),
-    onReady,
-    errorMessage: 'Pinning the baseline failed',
-  })
+  const { confirming, phase, error, requestConfirm, cancel, run } = useConfirmedPipeline(
+    [
+      pipelineStep(
+        'baseline',
+        () => generateBaseline(sessionId, className, engineParams),
+        (result) => update({ baselineResult: result }),
+      ),
+    ],
+    { alreadyDone: !!state.baselineResult, onReady, errorMessage: 'Pinning the baseline failed' },
+  )
+  const loading = phase !== null
 
   const header = (
     <>

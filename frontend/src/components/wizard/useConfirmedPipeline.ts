@@ -39,8 +39,9 @@ export interface ConfirmedPipeline {
 }
 
 /**
- * The multi-phase generalisation of {@link useConfirmedAction}: a confirm gate in front of an
- * ordered list of async stages. Each stage's result is applied before the next call, one error
+ * A confirm gate in front of an ordered list of async stages — a single-element list covers the
+ * plain single-action steps (analyse, generate interface, record baseline, raise PR), which read
+ * `loading` as `phase !== null`. Each stage's result is applied before the next call, one error
  * string is surfaced on any failure, and `onReady()` fires after the last stage (and on mount if
  * the step is already done). A `mounted` ref guards every post-await write, so an unmount partway
  * through the pipeline can't set state on a dead component.

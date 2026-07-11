@@ -2,7 +2,7 @@ import type { WizardState } from './WizardShell'
 import type { ProjectMode } from './WizardShell'
 import { ConfirmDialog } from './ConfirmDialog'
 import { StepStatus } from './StepStatus'
-import { useConfirmedAction } from './useConfirmedAction'
+import { useConfirmedPipeline, pipelineStep } from './useConfirmedPipeline'
 import { selectActiveClass } from './wizardState'
 import { raisePR } from '../../api/migrateApi'
 import { useWizardConfig } from '../../config/WizardConfigContext'
@@ -61,13 +61,17 @@ function Step6PRSingle({
       ? `migrate/${state.analysis?.classes[0]?.name?.toLowerCase().replace(/\s+/g, '-') ?? 'batch'}-batch`
       : `migrate/${(state.analysis?.suggestedMigrationOrder[0] ?? state.analysis?.classes[0]?.name ?? '').toLowerCase().replace(/\s+/g, '-')}`
 
-  const { confirming, loading, error, requestConfirm, cancel, run } = useConfirmedAction({
-    alreadyDone: !!state.prResult,
-    action: () => raisePR(sessionId, 'gregochr', 'vbgone-output', branchName),
-    onResult: (result) => update({ prResult: result }),
-    onReady,
-    errorMessage: 'PR creation failed',
-  })
+  const { confirming, phase, error, requestConfirm, cancel, run } = useConfirmedPipeline(
+    [
+      pipelineStep(
+        'pr',
+        () => raisePR(sessionId, 'gregochr', 'vbgone-output', branchName),
+        (result) => update({ prResult: result }),
+      ),
+    ],
+    { alreadyDone: !!state.prResult, onReady, errorMessage: 'PR creation failed' },
+  )
+  const loading = phase !== null
 
   const header = (
     <>
