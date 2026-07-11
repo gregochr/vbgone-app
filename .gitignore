@@ -21,3 +21,6 @@ backend/target/
 # Generated presentation decks and their build script (not source of truth)
 outputs_build/
 *.pptx
+
+# Stray root-level tooling caches (real deps live in frontend/ and backend/)
+node_modules/
