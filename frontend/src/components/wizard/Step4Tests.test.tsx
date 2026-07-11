@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Step4Tests } from './Step4Tests'
 import type { WizardState } from './WizardShell'
@@ -181,8 +181,83 @@ describe('Step4Tests', () => {
     await user.click(screen.getByText('Continue'))
     await waitFor(() => {
       expect(update).toHaveBeenCalledWith({ tests: mockTests })
+      expect(update).toHaveBeenCalledWith({
+        stubResult: { sessionId: 'session-1', className: 'Foo', code: 'stub' },
+      })
       expect(update).toHaveBeenCalledWith({ redBuild: mockBuild })
       expect(onReady).toHaveBeenCalled()
     })
+  })
+
+  it('fires onReady on mount when the red build is already in state', () => {
+    const onReady = vi.fn()
+    render(
+      <Step4Tests
+        state={{ ...baseState, tests: mockTests, redBuild: mockBuild }}
+        update={vi.fn()}
+        onReady={onReady}
+      />,
+    )
+    expect(onReady).toHaveBeenCalledTimes(1)
+  })
+
+  it('advances the loading message to the stub phase after tests generate', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.generateTests).mockResolvedValue(mockTests)
+    vi.mocked(api.generateStub).mockReturnValue(new Promise(() => {})) // hold on the stub phase
+    render(<Step4Tests state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Continue'))
+    await waitFor(() =>
+      expect(screen.getByText(/Generating stub implementation/)).toBeInTheDocument(),
+    )
+  })
+
+  it('advances the loading message to the build phase after the stub generates', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.generateTests).mockResolvedValue(mockTests)
+    vi.mocked(api.generateStub).mockResolvedValue({
+      sessionId: 'session-1',
+      className: 'Foo',
+      code: 'stub',
+    })
+    vi.mocked(api.build).mockReturnValue(new Promise(() => {})) // hold on the build phase
+    render(<Step4Tests state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Continue'))
+    await waitFor(() => expect(screen.getByText(/Running dotnet test/)).toBeInTheDocument())
+  })
+
+  it('surfaces an error when a later pipeline stage (stub) rejects', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.generateTests).mockResolvedValue(mockTests)
+    vi.mocked(api.generateStub).mockRejectedValue(new Error('Stub generation failed'))
+    render(<Step4Tests state={baseState} update={vi.fn()} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Continue'))
+    await waitFor(() => expect(screen.getByText('Stub generation failed')).toBeInTheDocument())
+  })
+
+  it('does not update state when unmounted mid-pipeline (mounted-ref guard)', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.generateTests).mockResolvedValue(mockTests)
+    let resolveStub: (v: api.StubResult) => void = () => {}
+    vi.mocked(api.generateStub).mockReturnValue(
+      new Promise<api.StubResult>((res) => {
+        resolveStub = res
+      }),
+    )
+    const update = vi.fn()
+    const { unmount } = render(<Step4Tests state={baseState} update={update} onReady={vi.fn()} />)
+    await user.click(screen.getByText('Continue'))
+    // Wait until the pipeline has applied the tests result and is paused on the stub call.
+    await waitFor(() => expect(update).toHaveBeenCalledWith({ tests: mockTests }))
+    update.mockClear()
+
+    unmount()
+    // Resolve the in-flight stub call after unmount; the guard must skip the onResult write.
+    await act(async () => {
+      resolveStub({ sessionId: 'session-1', className: 'Foo', code: 'stub' })
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(update).not.toHaveBeenCalled()
   })
 })
