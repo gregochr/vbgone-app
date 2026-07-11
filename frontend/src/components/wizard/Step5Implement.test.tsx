@@ -422,4 +422,87 @@ describe('Step5Implement', () => {
       expect(onReady).toHaveBeenCalled()
     })
   })
+
+  it('surfaces the error in the result view when a retry fails (not swallowed)', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.retryImplement).mockRejectedValue(new Error('Retry exploded'))
+    const redState = {
+      ...baseState,
+      implementResult: {
+        sessionId: 'session-1',
+        className: 'Foo',
+        code: 'public class Foo : IFoo { }',
+        mode: 'CLAUDE' as const,
+      },
+      greenBuild: {
+        sessionId: 'session-1',
+        buildStatus: 'RED' as const,
+        total: 10,
+        passed: 8,
+        failed: 2,
+        errors: [],
+        failedTests: ['Add_ReturnsSum'],
+      },
+    }
+    render(<Step5Implement state={redState} update={vi.fn()} onReady={vi.fn()} />)
+
+    await user.click(screen.getByText(/Retry with Claude/))
+    await user.click(screen.getByText('Continue'))
+    // The retry rejects but the (still-red) result view renders, not the error branch —
+    // the message must surface inside the result view or it is swallowed.
+    await waitFor(() => expect(screen.getByText('Retry exploded')).toBeInTheDocument())
+  })
+
+  it('escalates on the final attempt and shows the exhausted state after 3 attempts', async () => {
+    const user = userEvent.setup()
+    const stillRed = {
+      sessionId: 'session-1',
+      buildStatus: 'RED' as const,
+      total: 10,
+      passed: 8,
+      failed: 2,
+      errors: [],
+      failedTests: ['Add_ReturnsSum'],
+    }
+    vi.mocked(api.retryImplement).mockResolvedValue({
+      sessionId: 'session-1',
+      className: 'Foo',
+      code: 'public class Foo : IFoo { }',
+      mode: 'CLAUDE',
+    })
+    vi.mocked(api.build).mockResolvedValue(stillRed) // never goes green
+
+    const redState = {
+      ...baseState,
+      implementResult: {
+        sessionId: 'session-1',
+        className: 'Foo',
+        code: 'public class Foo : IFoo { }',
+        mode: 'CLAUDE' as const,
+      },
+      greenBuild: stillRed,
+    }
+    render(<Step5Implement state={redState} update={vi.fn()} onReady={vi.fn()} />)
+
+    // Attempt 2 (non-final): standard API-call confirm copy.
+    await user.click(screen.getByText(/Retry with Claude/))
+    expect(screen.getByText(/This will make an API call to Claude/)).toBeInTheDocument()
+    await user.click(screen.getByText('Continue'))
+
+    // Back in the result view at attempt 2, still red — retry once more.
+    await waitFor(() => expect(screen.getByText(/attempt 2 of 3/)).toBeInTheDocument())
+    await user.click(screen.getByText(/Retry with Claude/))
+    // The final attempt escalates to the escalation model.
+    expect(screen.getByText(/This is the final attempt/)).toBeInTheDocument()
+    expect(screen.getByText(/escalate to/)).toBeInTheDocument()
+    await user.click(screen.getByText('Continue'))
+
+    // attempts now 3 → exhausted terminal state, no more retry button.
+    await waitFor(() =>
+      expect(
+        screen.getByText(/unable to make all tests pass after 3 attempts/),
+      ).toBeInTheDocument(),
+    )
+    expect(screen.queryByText(/Retry with Claude/)).not.toBeInTheDocument()
+  })
 })

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { WizardState } from './WizardShell'
 import { implement, buildAfterImplement, retryImplement, build } from '../../api/migrateApi'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -37,6 +37,16 @@ export function Step5Implement({ state, update, onReady }: Props) {
     ''
   const sessionId = state.analysis?.sessionId ?? ''
 
+  // Guards setState/onReady after unmount (or a cancel) for the in-flight implement/build/retry
+  // requests, which are bare async/await with no other cancellation.
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
   useEffect(() => {
     if (state.greenBuild && state.implementResult && state.greenBuild.buildStatus === 'GREEN') {
       onReady()
@@ -56,10 +66,12 @@ export function Step5Implement({ state, update, onReady }: Props) {
           : 'Generating stub for manual implementation…',
       )
       const implResult = await implement(sessionId, className, chosen, engineParams)
+      if (!mounted.current) return
       update({ implementResult: implResult })
 
       setPhase(`Running ${lang.testCmd}…`)
       const buildResult = await buildAfterImplement(sessionId, chosen)
+      if (!mounted.current) return
       update({ greenBuild: buildResult })
 
       setLoading(false)
@@ -67,6 +79,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
         onReady()
       }
     } catch (err) {
+      if (!mounted.current) return
       setLoading(false)
       setError(err instanceof Error ? err.message : 'Implementation failed')
     }
@@ -92,10 +105,12 @@ export function Step5Implement({ state, update, onReady }: Props) {
         nextAttempt,
         engineParams,
       )
+      if (!mounted.current) return
       update({ implementResult: implResult })
 
       setPhase(`Running ${lang.testCmd}…`)
       const buildResult = await build(sessionId)
+      if (!mounted.current) return
       update({ greenBuild: buildResult })
 
       setLoading(false)
@@ -103,6 +118,7 @@ export function Step5Implement({ state, update, onReady }: Props) {
         onReady()
       }
     } catch (err) {
+      if (!mounted.current) return
       setLoading(false)
       setError(err instanceof Error ? err.message : 'Retry failed')
     }
@@ -148,6 +164,14 @@ export function Step5Implement({ state, update, onReady }: Props) {
           Mode: {isClaude ? 'AI' : 'Manual'}
           {attempts > 1 && ` (attempt ${attempts} of ${MAX_ATTEMPTS})`}
         </p>
+
+        {/* A retry failure leaves the prior red build in state, so this result view (not the
+            error branch below) renders — surface the error here or it would be swallowed. */}
+        {error && (
+          <div className="build-status build-red" style={{ marginBottom: 16 }}>
+            {error}
+          </div>
+        )}
 
         <div className={`build-status ${isGreen ? 'build-green' : 'build-red'}`}>
           {b.buildStatus === 'ERROR'
