@@ -86,14 +86,12 @@ public class AssureController {
 
     @PostMapping("/baseline")
     public BaselineResult baseline(@RequestBody ClassRequest request) {
-        return assureService.generateBaseline(request.sessionId(), request.className(),
-                request.provider(), request.targetLanguage(), request.modelOverrides());
+        return assureService.generateBaseline(request.sessionId(), request.className(), request.aiOptions());
     }
 
     @PostMapping("/baseline-tests")
     public BaselineTestsResult baselineTests(@RequestBody ClassRequest request) {
-        return assureService.runBaselineTests(request.sessionId(), request.className(),
-                request.provider(), request.targetLanguage(), request.modelOverrides());
+        return assureService.runBaselineTests(request.sessionId(), request.className(), request.aiOptions());
     }
 
     /** Re-run a corrected net (edited assertions) against the original VB — no AI call. */
@@ -108,7 +106,7 @@ public class AssureController {
     public BaselineTestsResult augmentBaselineTests(@RequestBody AugmentBaselineRequest request) {
         return assureService.augmentBaselineTests(
                 request.sessionId(), request.className(), request.code(), request.coveragePercent(),
-                request.provider(), request.targetLanguage(), request.modelOverrides());
+                request.aiOptions());
     }
 
     /**

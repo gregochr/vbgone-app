@@ -3,6 +3,7 @@ package com.vbgone.integration;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vbgone.ai.AiProviderRegistry;
+import com.vbgone.ai.AiRequestOptions;
 import com.vbgone.ai.anthropic.AnthropicProvider;
 import com.vbgone.ai.github.GitHubModelsProvider;
 import com.vbgone.build.BuildRuntimeRegistry;
@@ -125,7 +126,7 @@ class JavaFixedInputRegressionIT {
     @DisplayName("Calculator (java): generate interface → no I-prefix")
     void generateInterface_dropsIPrefix() {
         InterfaceResult iface = generationService.generateInterface(
-                sessionId, "Form1", "anthropic", JAVA, Map.of());
+                sessionId, "Form1", AiRequestOptions.of("anthropic", JAVA, Map.of()));
 
         // Java conventions: interface name == className (no I-prefix), impl == className + "Impl"
         assertThat(iface.interfaceName()).isEqualTo("Form1");
@@ -138,7 +139,7 @@ class JavaFixedInputRegressionIT {
     @DisplayName("Calculator (java): generate tests → testCount > 0")
     void generateTests_producesTests() {
         TestsResult tests = generationService.generateTests(
-                sessionId, "Form1", "anthropic", JAVA, Map.of());
+                sessionId, "Form1", AiRequestOptions.of("anthropic", JAVA, Map.of()));
 
         assertThat(tests.testClassName()).isEqualTo("Form1Test");
         assertThat(tests.testCount()).isGreaterThan(0);
@@ -149,7 +150,7 @@ class JavaFixedInputRegressionIT {
     @DisplayName("Calculator (java): stub → RED (all tests fail)")
     void stubBuild_allTestsFail() {
         StubResult stub = generationService.generateStub(
-                sessionId, "Form1", "anthropic", JAVA, Map.of());
+                sessionId, "Form1", AiRequestOptions.of("anthropic", JAVA, Map.of()));
         assertThat(stub.code()).contains("UnsupportedOperationException");
 
         BuildResult result = buildService.build(sessionId);
@@ -167,7 +168,7 @@ class JavaFixedInputRegressionIT {
     @DisplayName("Calculator (java): Claude implement → GREEN (all tests pass)")
     void claudeImplementation_allTestsPass() {
         ImplementResult impl = generationService.implement(
-                sessionId, "Form1", ImplementMode.CLAUDE, "anthropic", JAVA, Map.of());
+                sessionId, "Form1", ImplementMode.CLAUDE, AiRequestOptions.of("anthropic", JAVA, Map.of()));
         assertThat(impl.code()).contains("class Form1Impl");
         assertThat(impl.code()).contains("implements Form1");
 

@@ -128,19 +128,14 @@ public class AnalysisService {
     }
 
     public AnalysisResult analyse(String filename, String content) {
-        return analyse(filename, content, null, null, null);
+        return analyse(filename, content, AiRequestOptions.defaults(), null);
     }
 
-    public AnalysisResult analyse(String filename, String content,
-                                  String provider, String targetLanguage,
-                                  Map<String, String> modelOverrides) {
-        return analyse(filename, content, provider, targetLanguage, modelOverrides, null);
+    public AnalysisResult analyse(String filename, String content, AiRequestOptions options) {
+        return analyse(filename, content, options, null);
     }
 
-    public AnalysisResult analyse(String filename, String content,
-                                  String provider, String targetLanguage,
-                                  Map<String, String> modelOverrides, String mode) {
-        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
+    public AnalysisResult analyse(String filename, String content, AiRequestOptions options, String mode) {
         boolean assure = "assure".equalsIgnoreCase(mode);
 
         MigrationSession session = sessionStore.create();
@@ -184,14 +179,10 @@ public class AnalysisService {
     }
 
     public ProjectAnalysis analyseProject(ZipManifest manifest) {
-        return analyseProject(manifest, null, null, null);
+        return analyseProject(manifest, AiRequestOptions.defaults());
     }
 
-    public ProjectAnalysis analyseProject(ZipManifest manifest,
-                                          String provider, String targetLanguage,
-                                          Map<String, String> modelOverrides) {
-        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
-
+    public ProjectAnalysis analyseProject(ZipManifest manifest, AiRequestOptions options) {
         MigrationSession session = sessionStore.get(manifest.sessionId())
                 .orElseThrow(() -> new IllegalArgumentException("Session not found: " + manifest.sessionId()));
         session.setTargetLanguage(options.targetLanguage());

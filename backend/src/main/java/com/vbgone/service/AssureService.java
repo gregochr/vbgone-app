@@ -15,6 +15,14 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 
+import static com.vbgone.service.CharacterisationSuiteEditor.buildDiff;
+import static com.vbgone.service.CharacterisationSuiteEditor.ensureTestClassAttribute;
+import static com.vbgone.service.CharacterisationSuiteEditor.extractTestMethod;
+import static com.vbgone.service.CharacterisationSuiteEditor.isFlaky;
+import static com.vbgone.service.CharacterisationSuiteEditor.markTestIgnored;
+import static com.vbgone.service.CharacterisationSuiteEditor.spliceMethod;
+import static com.vbgone.service.CharacterisationSuiteEditor.validityGate;
+
 /**
  * Assure-mode generation + the real characterisation run. Mirrors {@code GenerationService}'s
  * model-call + token-accounting shape, but produces a pinned baseline surface (step 3) and an
@@ -44,10 +52,7 @@ public class AssureService {
     }
 
     /** Step 3 — pin the concrete class's actual public surface (mechanical model). */
-    public BaselineResult generateBaseline(String sessionId, String className,
-                                           String provider, String targetLanguage,
-                                           Map<String, String> modelOverrides) {
-        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
+    public BaselineResult generateBaseline(String sessionId, String className, AiRequestOptions options) {
         MigrationSession session = sessionStore.getOrThrow(sessionId);
 
         String userMessage = prompts.baselineSurfaceUserMessage(
@@ -67,17 +72,14 @@ public class AssureService {
      * original VB and run the suite against it. {@code netFaithful} is true only when every
      * assertion holds against the untouched original.
      */
-    public BaselineTestsResult runBaselineTests(String sessionId, String className,
-                                                String provider, String targetLanguage,
-                                                Map<String, String> modelOverrides) {
-        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
+    public BaselineTestsResult runBaselineTests(String sessionId, String className, AiRequestOptions options) {
         MigrationSession session = sessionStore.getOrThrow(sessionId);
 
         String userMessage = prompts.baselineTestsUserMessage(
                 className, session.getVbContentForClass(className));
         AiResponse response = aiCallSupport.call(options, ModelRole.REASONING,
                 CSharpPrompts.BASELINE_TESTS_SYSTEM_PROMPT, userMessage, 16384L, "baseline-tests", session);
-        String code = prompts.repairTruncated(prompts.stripWrappers(prompts.stripCodeFences(response.text())));
+        String code = prompts.cleanTestSuite(response.text());
 
         return executeSuite(session, className, code);
     }
@@ -99,16 +101,14 @@ public class AssureService {
      * (which stays green if the new tests are faithful, or drops to the repair loop if one drifts).
      */
     public BaselineTestsResult augmentBaselineTests(String sessionId, String className, String currentCode,
-                                                    Double coveragePercent, String provider,
-                                                    String targetLanguage, Map<String, String> modelOverrides) {
-        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
+                                                    Double coveragePercent, AiRequestOptions options) {
         MigrationSession session = sessionStore.getOrThrow(sessionId);
 
         String userMessage = prompts.augmentBaselineTestsUserMessage(
                 className, session.getVbContentForClass(className), currentCode, coveragePercent);
         AiResponse response = aiCallSupport.call(options, ModelRole.REASONING,
                 CSharpPrompts.AUGMENT_BASELINE_TESTS_SYSTEM_PROMPT, userMessage, 16384L, "augment-baseline-tests", session);
-        String code = prompts.repairTruncated(prompts.stripWrappers(prompts.stripCodeFences(response.text())));
+        String code = prompts.cleanTestSuite(response.text());
 
         return executeSuite(session, className, code);
     }
@@ -156,8 +156,7 @@ public class AssureService {
      * clears the gate is a fix; a value that differs across re-runs is flaky (route to quarantine).
      */
     public RepairAttempt repairAttempt(RepairRequest request) {
-        AiRequestOptions options = AiRequestOptions.of(
-                request.provider(), request.targetLanguage(), request.modelOverrides());
+        AiRequestOptions options = request.aiOptions();
         MigrationSession session = sessionStore.getOrThrow(request.sessionId());
 
         RepairTier tier = RepairTier.of(request.tier());
@@ -246,169 +245,6 @@ public class AssureService {
         return build;
     }
 
-    // ── Auto-repair helpers (package-private for unit testing) ──
-
-    /**
-     * Isolate a single {@code [TestMethod] ... }} block by name: walk back to the attribute line,
-     * forward by brace matching to the method's closing brace. Returns "" if not found.
-     */
-    static String extractTestMethod(String code, String testName) {
-        if (code == null || testName == null || testName.isBlank()) return "";
-        String[] lines = code.split("\n", -1);
-        int sig = -1;
-        for (int i = 0; i < lines.length; i++) {
-            if (lines[i].contains(" " + testName + "(") || lines[i].contains(" " + testName + " (")) {
-                sig = i;
-                break;
-            }
-        }
-        if (sig < 0) return "";
-        int start = sig;
-        while (start > 0 && !lines[start - 1].trim().startsWith("[")) start--;
-        if (start > 0 && lines[start - 1].trim().startsWith("[")) start--;
-        int depth = 0;
-        boolean opened = false;
-        int end = sig;
-        for (int j = sig; j < lines.length; j++) {
-            for (char c : lines[j].toCharArray()) {
-                if (c == '{') { depth++; opened = true; }
-                else if (c == '}') depth--;
-            }
-            if (opened && depth <= 0) { end = j; break; }
-        }
-        StringBuilder sb = new StringBuilder();
-        for (int j = start; j <= end && j < lines.length; j++) {
-            sb.append(lines[j]);
-            if (j < end) sb.append("\n");
-        }
-        return sb.toString();
-    }
-
-    /**
-     * Insert {@code [Ignore("<reason>")]} above a test method's attribute block so it is retained in
-     * the suite (visible for review) but skipped by MSTest — keeping the run green. Idempotent, and
-     * a no-op if the named test isn't found. {@code Ignore} lives in the same namespace as
-     * {@code TestMethod}, so no extra {@code using} is needed.
-     */
-    static String markTestIgnored(String code, String testName, String reason) {
-        if (code == null || testName == null || testName.isBlank()) return code;
-        String[] lines = code.split("\n", -1);
-        int sig = -1;
-        for (int i = 0; i < lines.length; i++) {
-            if (lines[i].contains(" " + testName + "(") || lines[i].contains(" " + testName + " (")) {
-                sig = i;
-                break;
-            }
-        }
-        if (sig < 0) return code;
-        // Walk up over the method's contiguous attribute lines ([TestMethod], [DataRow], ...).
-        int attr = sig;
-        while (attr > 0 && lines[attr - 1].trim().startsWith("[")) attr--;
-        for (int i = attr; i <= sig; i++) {
-            if (lines[i].contains("[Ignore(")) return code; // already quarantined
-        }
-        String line = lines[attr];
-        String indent = line.substring(0, line.length() - line.stripLeading().length());
-        String ignore = indent + "[Ignore(\"" + reason.replace("\"", "'") + "\")]";
-        java.util.List<String> out = new java.util.ArrayList<>(java.util.Arrays.asList(lines));
-        out.add(attr, ignore);
-        return String.join("\n", out);
-    }
-
-    static String spliceMethod(String code, String oldBlock, String newBlock) {
-        if (oldBlock == null || oldBlock.isBlank() || !code.contains(oldBlock)) return code;
-        return code.replace(oldBlock, newBlock);
-    }
-
-    private static final java.util.regex.Pattern SUT_CALL =
-            java.util.regex.Pattern.compile("\\.\\s*([A-Za-z_]\\w*)\\s*\\(");
-
-    /**
-     * The gate that stops the loop cheating. A green re-run is not enough — the rewrite must still
-     * call the same method under test and make a real assertion, never a meaningless always-pass
-     * test. Rejects: no assertion, a tautology (Assert.IsTrue(true) / AreEqual(x, x)), or dropping
-     * the method under test.
-     */
-    static RepairAttempt.Gate validityGate(String oldBlock, String newBlock) {
-        String body = newBlock == null ? "" : newBlock;
-        String normalized = body.replaceAll("\\s+", "");
-        if (!body.contains("Assert.")) {
-            return new RepairAttempt.Gate(false,
-                    "The rewrite has no real assertion — a meaningless always-pass test. Rejected.");
-        }
-        if (normalized.contains("Assert.IsTrue(true)") || normalized.contains("Assert.IsFalse(false)")
-                || isTrivialAreEqual(normalized)) {
-            return new RepairAttempt.Gate(false,
-                    "The rewrite is an always-pass test (a tautology). Rejected.");
-        }
-        String method = primaryCall(oldBlock);
-        if (method != null && !body.contains("." + method + "(") && !body.contains("." + method + " (")) {
-            return new RepairAttempt.Gate(false,
-                    "The rewrite no longer calls " + method + " — the method under test changed. Rejected.");
-        }
-        String note = method != null
-                ? "Still calls " + method + " and still checks the return value or thrown exception. "
-                    + "Not a meaningless always-pass test."
-                : "Keeps a real assertion on the same test. Not a meaningless always-pass test.";
-        return new RepairAttempt.Gate(true, note);
-    }
-
-    /** The method under test called on the system-under-test variable (first non-Assert call). */
-    private static String primaryCall(String block) {
-        if (block == null) return null;
-        var m = SUT_CALL.matcher(block);
-        while (m.find()) {
-            String name = m.group(1);
-            if (!name.startsWith("Assert") && !name.equals("ThrowsException") && !name.equals("Equals")) {
-                return name;
-            }
-        }
-        return null;
-    }
-
-    private static boolean isTrivialAreEqual(String normalized) {
-        var m = java.util.regex.Pattern
-                .compile("Assert\\.AreEqual\\(([^,]+),([^)]+)\\)").matcher(normalized);
-        while (m.find()) {
-            if (m.group(1).equals(m.group(2))) return true;
-        }
-        return false;
-    }
-
-    /** A minimal line-level diff: lines only in old are removed, lines only in new are added. */
-    static List<RepairAttempt.DiffLine> buildDiff(String oldBlock, String newBlock) {
-        List<String> oldLines = trimmedLines(oldBlock);
-        List<String> newLines = trimmedLines(newBlock);
-        java.util.Set<String> oldSet = new java.util.HashSet<>(oldLines);
-        java.util.Set<String> newSet = new java.util.HashSet<>(newLines);
-        List<RepairAttempt.DiffLine> diff = new java.util.ArrayList<>();
-        for (String line : oldLines) {
-            if (!newSet.contains(line)) diff.add(new RepairAttempt.DiffLine("-", line));
-        }
-        for (String line : newLines) {
-            if (!oldSet.contains(line)) diff.add(new RepairAttempt.DiffLine("+", line));
-        }
-        return diff;
-    }
-
-    private static List<String> trimmedLines(String block) {
-        if (block == null || block.isBlank()) return List.of();
-        return block.lines().map(String::stripTrailing).filter(l -> !l.isBlank()).toList();
-    }
-
-    /** The observed value differs between two identical runs → nondeterministic (not fixable). */
-    static boolean isFlaky(String message1, String message2) {
-        String a = observedActual(message1);
-        String b = observedActual(message2);
-        return !a.isBlank() && !b.isBlank() && !a.equals(b);
-    }
-
-    private static String observedActual(String message) {
-        if (message == null) return "";
-        var m = java.util.regex.Pattern.compile("Actual:\\s*<?([^>\\n]*)>?").matcher(message);
-        return m.find() ? m.group(1).trim() : "";
-    }
-
     private static String shorten(String message, String fallback) {
         String m = (message == null || message.isBlank()) ? fallback : message;
         if (m == null) return "the assertion still fails.";
@@ -457,27 +293,6 @@ public class AssureService {
         int testCount = build.total() > 0 ? build.total() : generatedCount;
         return new BaselineTestsResult(session.getSessionId(), className, testClassName, code,
                 testCount, netFaithful, build, failures);
-    }
-
-    /**
-     * The baseline prompt (correctly) instructs the model to omit {@code using} lines — the
-     * csproj supplies them as global usings — so the model's output starts with {@code [TestClass]}.
-     * {@code stripCodeFences} then anchors on {@code "public class "} and returns everything from
-     * that point, silently dropping the leading attribute. Without {@code [TestClass]}, MSTest
-     * discovers zero tests: the suite compiles and runs but the .trx reports 0/0, which the UI
-     * reads as "baseline not faithful". Re-attach the attribute if it went missing (idempotent, so
-     * it also guards the user-edited re-run path).
-     */
-    static String ensureTestClassAttribute(String code) {
-        if (code == null || code.isBlank() || code.contains("[TestClass]")) return code;
-        boolean hasTests = code.contains("[TestMethod]") || code.contains("[DataTestMethod]");
-        if (!hasTests) return code;
-        int idx = code.indexOf("public class ");
-        if (idx < 0) idx = code.indexOf("class ");
-        if (idx < 0) return code;
-        int lineStart = code.lastIndexOf('\n', idx) + 1;
-        String indent = code.substring(lineStart, idx);
-        return code.substring(0, lineStart) + indent + "[TestClass]\n" + code.substring(lineStart);
     }
 
     private List<BaselineMember> parseMembers(String json) {

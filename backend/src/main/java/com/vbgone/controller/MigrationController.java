@@ -53,8 +53,7 @@ public class MigrationController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Only .vb and .zip files are supported. Received: " + filename);
         }
-        return analysisService.analyse(filename, request.content(),
-                request.provider(), request.targetLanguage(), request.modelOverrides(), request.mode());
+        return analysisService.analyse(filename, request.content(), request.aiOptions(), request.mode());
     }
 
     @PostMapping(value = "/upload-project", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -65,20 +64,17 @@ public class MigrationController {
 
     @PostMapping("/interface")
     public InterfaceResult generateInterface(@RequestBody ClassRequest request) {
-        return generationService.generateInterface(request.sessionId(), request.className(),
-                request.provider(), request.targetLanguage(), request.modelOverrides());
+        return generationService.generateInterface(request.sessionId(), request.className(), request.aiOptions());
     }
 
     @PostMapping("/tests")
     public TestsResult generateTests(@RequestBody ClassRequest request) {
-        return generationService.generateTests(request.sessionId(), request.className(),
-                request.provider(), request.targetLanguage(), request.modelOverrides());
+        return generationService.generateTests(request.sessionId(), request.className(), request.aiOptions());
     }
 
     @PostMapping("/stub")
     public StubResult generateStub(@RequestBody ClassRequest request) {
-        return generationService.generateStub(request.sessionId(), request.className(),
-                request.provider(), request.targetLanguage(), request.modelOverrides());
+        return generationService.generateStub(request.sessionId(), request.className(), request.aiOptions());
     }
 
     @PostMapping("/build")
@@ -89,14 +85,14 @@ public class MigrationController {
     @PostMapping("/implement")
     public ImplementResult implement(@RequestBody ImplementRequest request) {
         return generationService.implement(request.sessionId(), request.className(), request.mode(),
-                request.provider(), request.targetLanguage(), request.modelOverrides());
+                request.aiOptions());
     }
 
     @PostMapping("/retry-implement")
     public ImplementResult retryImplement(@RequestBody RetryRequest request) {
         return generationService.retryImplement(
                 request.sessionId(), request.className(), request.failingTests(), request.attempt(),
-                request.provider(), request.targetLanguage(), request.modelOverrides());
+                request.aiOptions());
     }
 
     @PostMapping("/pr")
