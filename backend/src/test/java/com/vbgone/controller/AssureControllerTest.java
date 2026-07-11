@@ -126,7 +126,7 @@ class AssureControllerTest {
 
     @Test
     void baseline_returns200WithPinnedSurface() throws Exception {
-        when(assureService.generateBaseline(eq(SESSION_ID), eq("OrderProcessor"), any(), any(), any()))
+        when(assureService.generateBaseline(eq(SESSION_ID), eq("OrderProcessor"), any()))
                 .thenReturn(new BaselineResult(SESSION_ID, "OrderProcessor",
                         "OrderProcessor.dll · public surface",
                         List.of(
@@ -146,7 +146,7 @@ class AssureControllerTest {
     @Test
     void baselineTests_returns200WithNetResult() throws Exception {
         BuildResult build = new BuildResult(SESSION_ID, BuildStatus.GREEN, 43, 43, 0, List.of(), List.of());
-        when(assureService.runBaselineTests(eq(SESSION_ID), eq("OrderProcessor"), any(), any(), any()))
+        when(assureService.runBaselineTests(eq(SESSION_ID), eq("OrderProcessor"), any()))
                 .thenReturn(new BaselineTestsResult(SESSION_ID, "OrderProcessor", "OrderProcessorBaselineTests",
                         "[TestClass] public class OrderProcessorBaselineTests {}", 43, true, build, List.of()));
 
@@ -165,7 +165,7 @@ class AssureControllerTest {
         BuildResult build = new BuildResult(SESSION_ID, BuildStatus.GREEN, 60, 60, 0, List.of(), List.of(),
                 88.0, 90.0);
         when(assureService.augmentBaselineTests(eq(SESSION_ID), eq("OrderProcessor"), anyString(),
-                any(), any(), any(), any()))
+                any(), any()))
                 .thenReturn(new BaselineTestsResult(SESSION_ID, "OrderProcessor", "OrderProcessorBaselineTests",
                         "[TestClass] public class OrderProcessorBaselineTests {}", 60, true, build, List.of()));
 

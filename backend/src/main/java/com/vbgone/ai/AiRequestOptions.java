@@ -27,6 +27,11 @@ public record AiRequestOptions(
         return new AiRequestOptions(provider, targetLanguage, overrides);
     }
 
+    /** The contract defaults (anthropic / csharp / no overrides) — for callers that don't tune the AI. */
+    public static AiRequestOptions defaults() {
+        return new AiRequestOptions(null, null, null);
+    }
+
     public boolean isJavaTarget() {
         return "java".equalsIgnoreCase(targetLanguage);
     }

@@ -1,5 +1,7 @@
 package com.vbgone.model;
 
+import com.vbgone.ai.AiRequestOptions;
+
 import java.util.Map;
 
 /**
@@ -15,4 +17,9 @@ public record AugmentBaselineRequest(
         String provider,
         String targetLanguage,
         Map<String, String> modelOverrides
-) {}
+) {
+    /** Bundles the flat AI-provider fields into the value object the services consume. */
+    public AiRequestOptions aiOptions() {
+        return AiRequestOptions.of(provider, targetLanguage, modelOverrides);
+    }
+}

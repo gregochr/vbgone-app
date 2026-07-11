@@ -44,10 +44,7 @@ public class AssureService {
     }
 
     /** Step 3 — pin the concrete class's actual public surface (mechanical model). */
-    public BaselineResult generateBaseline(String sessionId, String className,
-                                           String provider, String targetLanguage,
-                                           Map<String, String> modelOverrides) {
-        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
+    public BaselineResult generateBaseline(String sessionId, String className, AiRequestOptions options) {
         MigrationSession session = sessionStore.getOrThrow(sessionId);
 
         String userMessage = prompts.baselineSurfaceUserMessage(
@@ -67,10 +64,7 @@ public class AssureService {
      * original VB and run the suite against it. {@code netFaithful} is true only when every
      * assertion holds against the untouched original.
      */
-    public BaselineTestsResult runBaselineTests(String sessionId, String className,
-                                                String provider, String targetLanguage,
-                                                Map<String, String> modelOverrides) {
-        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
+    public BaselineTestsResult runBaselineTests(String sessionId, String className, AiRequestOptions options) {
         MigrationSession session = sessionStore.getOrThrow(sessionId);
 
         String userMessage = prompts.baselineTestsUserMessage(
@@ -99,9 +93,7 @@ public class AssureService {
      * (which stays green if the new tests are faithful, or drops to the repair loop if one drifts).
      */
     public BaselineTestsResult augmentBaselineTests(String sessionId, String className, String currentCode,
-                                                    Double coveragePercent, String provider,
-                                                    String targetLanguage, Map<String, String> modelOverrides) {
-        AiRequestOptions options = AiRequestOptions.of(provider, targetLanguage, modelOverrides);
+                                                    Double coveragePercent, AiRequestOptions options) {
         MigrationSession session = sessionStore.getOrThrow(sessionId);
 
         String userMessage = prompts.augmentBaselineTestsUserMessage(
@@ -156,8 +148,7 @@ public class AssureService {
      * clears the gate is a fix; a value that differs across re-runs is flaky (route to quarantine).
      */
     public RepairAttempt repairAttempt(RepairRequest request) {
-        AiRequestOptions options = AiRequestOptions.of(
-                request.provider(), request.targetLanguage(), request.modelOverrides());
+        AiRequestOptions options = request.aiOptions();
         MigrationSession session = sessionStore.getOrThrow(request.sessionId());
 
         RepairTier tier = RepairTier.of(request.tier());

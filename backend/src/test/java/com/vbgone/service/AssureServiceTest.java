@@ -2,6 +2,7 @@ package com.vbgone.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vbgone.ai.AiProviderRegistry;
+import com.vbgone.ai.AiRequestOptions;
 import com.vbgone.ai.anthropic.AnthropicProvider;
 import com.vbgone.ai.github.GitHubModelsProvider;
 import com.vbgone.build.VbCharacterisationRunner;
@@ -86,7 +87,7 @@ class AssureServiceTest {
                           ]
                         }"""));
 
-        BaselineResult result = service.generateBaseline("s1", "OrderProcessor", null, null, null);
+        BaselineResult result = service.generateBaseline("s1", "OrderProcessor", AiRequestOptions.defaults());
 
         assertThat(result.surfaceFile()).isEqualTo("OrderProcessor.dll · public surface");
         assertThat(result.members()).hasSize(2);
@@ -98,7 +99,7 @@ class AssureServiceTest {
     @Test
     void generateBaseline_throwsOnMissingSession() {
         when(sessionStore.get("bad")).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> service.generateBaseline("bad", "OrderProcessor", null, null, null))
+        assertThatThrownBy(() -> service.generateBaseline("bad", "OrderProcessor", AiRequestOptions.defaults()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Session not found");
     }
@@ -115,7 +116,7 @@ class AssureServiceTest {
         when(runner.run(any(), eq("OrderProcessor"), any()))
                 .thenReturn(build(BuildStatus.GREEN, 43, 43, 0));
 
-        BaselineTestsResult result = service.runBaselineTests("s1", "OrderProcessor", null, null, null);
+        BaselineTestsResult result = service.runBaselineTests("s1", "OrderProcessor", AiRequestOptions.defaults());
 
         assertThat(result.netFaithful()).isTrue();
         assertThat(result.testClassName()).isEqualTo("OrderProcessorBaselineTests");
@@ -142,7 +143,7 @@ class AssureServiceTest {
                     List.of("ApplyDiscount_UnknownCode_ReturnsSubtotalUnchanged"));
         });
 
-        BaselineTestsResult result = service.runBaselineTests("s1", "OrderProcessor", null, null, null);
+        BaselineTestsResult result = service.runBaselineTests("s1", "OrderProcessor", AiRequestOptions.defaults());
 
         assertThat(result.netFaithful()).isFalse();
         assertThat(result.failures()).hasSize(1);
@@ -161,7 +162,7 @@ class AssureServiceTest {
         when(runner.run(any(), eq("OrderProcessor"), any()))
                 .thenReturn(build(BuildStatus.GREEN, 43, 43, 0));
 
-        BaselineTestsResult result = service.runBaselineTests("s1", "OrderProcessor", null, null, null);
+        BaselineTestsResult result = service.runBaselineTests("s1", "OrderProcessor", AiRequestOptions.defaults());
 
         // A faithful run retains the suite keyed by class so it can be downloaded later.
         assertThat(session.getBaselineSuites()).containsKey("OrderProcessor");
@@ -178,7 +179,7 @@ class AssureServiceTest {
         when(runner.run(any(), eq("OrderProcessor"), any()))
                 .thenReturn(build(BuildStatus.RED, 43, 42, 1, List.of("A")));
 
-        service.runBaselineTests("s1", "OrderProcessor", null, null, null);
+        service.runBaselineTests("s1", "OrderProcessor", AiRequestOptions.defaults());
 
         // An unfaithful (red) suite is never offered for download.
         assertThat(session.getBaselineSuites()).doesNotContainKey("OrderProcessor");
@@ -198,7 +199,7 @@ class AssureServiceTest {
 
         String currentSuite = "[TestClass] public class OrderProcessorBaselineTests { [TestMethod] public void A() {} }";
         BaselineTestsResult result = service.augmentBaselineTests(
-                "s1", "OrderProcessor", currentSuite, 45.5, null, null, null);
+                "s1", "OrderProcessor", currentSuite, 45.5, AiRequestOptions.defaults());
 
         assertThat(result.netFaithful()).isTrue();
         assertThat(result.testCount()).isEqualTo(60);
@@ -214,7 +215,7 @@ class AssureServiceTest {
     @Test
     void augmentBaselineTests_throwsOnMissingSession() {
         when(sessionStore.get("bad")).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> service.augmentBaselineTests("bad", "OrderProcessor", "code", null, null, null, null))
+        assertThatThrownBy(() -> service.augmentBaselineTests("bad", "OrderProcessor", "code", null, AiRequestOptions.defaults()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Session not found");
     }
@@ -328,7 +329,7 @@ class AssureServiceTest {
         when(runner.run(any(), eq("OrderProcessor"), any()))
                 .thenReturn(build(BuildStatus.GREEN, 1, 1, 0));
 
-        service.runBaselineTests("s1", "OrderProcessor", null, null, null);
+        service.runBaselineTests("s1", "OrderProcessor", AiRequestOptions.defaults());
 
         // The suite actually handed to the CLR runner must carry [TestClass].
         assertThat(session.getBaselineSuite().code()).contains("[TestClass]");
@@ -363,7 +364,7 @@ class AssureServiceTest {
         when(runner.run(any(), eq("OrderProcessor"), any()))
                 .thenReturn(build(BuildStatus.ERROR, 0, 0, 0));
 
-        BaselineTestsResult result = service.runBaselineTests("s1", "OrderProcessor", null, null, null);
+        BaselineTestsResult result = service.runBaselineTests("s1", "OrderProcessor", AiRequestOptions.defaults());
 
         assertThat(result.netFaithful()).isFalse();
         assertThat(result.build().buildStatus()).isEqualTo(BuildStatus.ERROR);

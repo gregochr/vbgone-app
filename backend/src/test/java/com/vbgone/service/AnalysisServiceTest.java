@@ -3,6 +3,7 @@ package com.vbgone.service;
 import com.anthropic.models.messages.Model;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vbgone.ai.AiProviderRegistry;
+import com.vbgone.ai.AiRequestOptions;
 import com.vbgone.ai.anthropic.AnthropicProvider;
 import com.vbgone.ai.github.GitHubModelsProvider;
 import com.vbgone.model.*;
@@ -111,7 +112,7 @@ class AnalysisServiceTest {
                 .thenReturn(claudeResponse(assureJson));
 
         AnalysisResult result = analysisService.analyse(
-                "OrderProcessor.vb", "Public Class OrderProcessor...", null, null, null, "assure");
+                "OrderProcessor.vb", "Public Class OrderProcessor...", AiRequestOptions.defaults(), "assure");
 
         // The forensic persona is used, not the migrate one.
         verify(claudeClient).sendWithCachedSystemPrompt(

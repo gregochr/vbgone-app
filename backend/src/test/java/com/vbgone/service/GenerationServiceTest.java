@@ -3,6 +3,7 @@ package com.vbgone.service;
 import com.anthropic.models.messages.Model;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vbgone.ai.AiProviderRegistry;
+import com.vbgone.ai.AiRequestOptions;
 import com.vbgone.ai.anthropic.AnthropicProvider;
 import com.vbgone.ai.github.GitHubModelsProvider;
 import com.vbgone.lang.CSharpConventions;
@@ -154,7 +155,7 @@ class GenerationServiceTest {
         when(claudeClient.sendWithCachedSystemPrompt(anyString(), anyString(), any(), anyLong()))
                 .thenReturn(claudeResponse("package com.vbgone.generated;\n\npublic interface Form1 { int add(int a, int b); }"));
 
-        InterfaceResult result = service.generateInterface("s1", "Form1", null, "java", null);
+        InterfaceResult result = service.generateInterface("s1", "Form1", AiRequestOptions.of(null, "java", null));
 
         // Java interface drops the I prefix; impl gains Impl.
         assertThat(result.interfaceName()).isEqualTo("Form1");

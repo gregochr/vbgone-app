@@ -62,7 +62,7 @@ class MigrationControllerTest {
 
     @Test
     void analyse_returns200WithAnalysisResult() throws Exception {
-        when(analysisService.analyse(any(), any(), any(), any(), any(), any()))
+        when(analysisService.analyse(any(), any(), any(), any()))
                 .thenReturn(new AnalysisResult(
                         SESSION_ID,
                         List.of(new ClassInfo("Form1", List.of("Add", "Subtract"), List.of(), Complexity.LOW, null, null, null, null)),
@@ -84,7 +84,7 @@ class MigrationControllerTest {
 
     @Test
     void analyse_passesAssureModeThrough() throws Exception {
-        when(analysisService.analyse(any(), any(), any(), any(), any(), eq("assure")))
+        when(analysisService.analyse(any(), any(), any(), eq("assure")))
                 .thenReturn(new AnalysisResult(
                         SESSION_ID,
                         List.of(new ClassInfo("OrderProcessor", List.of("SplitPerHead"), List.of(),
@@ -103,7 +103,7 @@ class MigrationControllerTest {
 
     @Test
     void generateInterface_returns200WithInterfaceResult() throws Exception {
-        when(generationService.generateInterface(eq(SESSION_ID), eq("Form1"), any(), any(), any()))
+        when(generationService.generateInterface(eq(SESSION_ID), eq("Form1"), any()))
                 .thenReturn(new InterfaceResult(SESSION_ID, "Form1", "IForm1", "public interface IForm1 {}"));
 
         mockMvc.perform(post("/api/migrate/interface")
@@ -118,7 +118,7 @@ class MigrationControllerTest {
 
     @Test
     void generateTests_returns200WithTestsResult() throws Exception {
-        when(generationService.generateTests(eq(SESSION_ID), eq("Form1"), any(), any(), any()))
+        when(generationService.generateTests(eq(SESSION_ID), eq("Form1"), any()))
                 .thenReturn(new TestsResult(SESSION_ID, "Form1", "Form1Tests", "[TestFixture]...", 30));
 
         mockMvc.perform(post("/api/migrate/tests")
@@ -134,7 +134,7 @@ class MigrationControllerTest {
 
     @Test
     void generateStub_returns200WithStubResult() throws Exception {
-        when(generationService.generateStub(eq(SESSION_ID), eq("Form1"), any(), any(), any()))
+        when(generationService.generateStub(eq(SESSION_ID), eq("Form1"), any()))
                 .thenReturn(new StubResult(SESSION_ID, "Form1", "public class Form1 {}"));
 
         mockMvc.perform(post("/api/migrate/stub")
@@ -180,7 +180,7 @@ class MigrationControllerTest {
 
     @Test
     void implement_returns200WithImplementResult() throws Exception {
-        when(generationService.implement(eq(SESSION_ID), eq("Form1"), eq(ImplementMode.CLAUDE), any(), any(), any()))
+        when(generationService.implement(eq(SESSION_ID), eq("Form1"), eq(ImplementMode.CLAUDE), any()))
                 .thenReturn(new ImplementResult(SESSION_ID, "Form1", "public class Form1 { ... }", ImplementMode.CLAUDE));
 
         mockMvc.perform(post("/api/migrate/implement")
@@ -196,7 +196,7 @@ class MigrationControllerTest {
 
     @Test
     void retryImplement_returns200WithImplementResult() throws Exception {
-        when(generationService.retryImplement(eq(SESSION_ID), eq("Form1"), any(), anyInt(), any(), any(), any()))
+        when(generationService.retryImplement(eq(SESSION_ID), eq("Form1"), any(), anyInt(), any()))
                 .thenReturn(new ImplementResult(SESSION_ID, "Form1", "public class Form1 { ... }", ImplementMode.CLAUDE));
 
         mockMvc.perform(post("/api/migrate/retry-implement")
@@ -234,7 +234,8 @@ class MigrationControllerTest {
     @Test
     void generateInterface_acceptsJavaTarget() throws Exception {
         // Java is no longer gated — it flows through to the generation service.
-        when(generationService.generateInterface(eq(SESSION_ID), eq("Form1"), any(), eq("java"), any()))
+        when(generationService.generateInterface(eq(SESSION_ID), eq("Form1"),
+                argThat(o -> "java".equals(o.targetLanguage()))))
                 .thenReturn(new InterfaceResult(SESSION_ID, "Form1", "Form1",
                         "package com.vbgone.generated;\n\npublic interface Form1 {}", "Form1Impl"));
 
@@ -249,7 +250,7 @@ class MigrationControllerTest {
 
     @Test
     void analyse_acceptsJavaTarget() throws Exception {
-        when(analysisService.analyse(any(), any(), any(), eq("java"), any()))
+        when(analysisService.analyse(any(), any(), argThat(o -> "java".equals(o.targetLanguage()))))
                 .thenReturn(new AnalysisResult(SESSION_ID, List.of(), List.of(), "OK"));
 
         mockMvc.perform(post("/api/migrate/analyse")
@@ -285,7 +286,7 @@ class MigrationControllerTest {
 
     @Test
     void analyse_accepts_vbFiles() throws Exception {
-        when(analysisService.analyse(any(), any(), any(), any(), any()))
+        when(analysisService.analyse(any(), any(), any()))
                 .thenReturn(new AnalysisResult(SESSION_ID, List.of(), List.of(), "OK"));
 
         mockMvc.perform(post("/api/migrate/analyse")
@@ -296,7 +297,7 @@ class MigrationControllerTest {
 
     @Test
     void analyse_accepts_zipFiles() throws Exception {
-        when(analysisService.analyse(any(), any(), any(), any(), any()))
+        when(analysisService.analyse(any(), any(), any()))
                 .thenReturn(new AnalysisResult(SESSION_ID, List.of(), List.of(), "OK"));
 
         mockMvc.perform(post("/api/migrate/analyse")

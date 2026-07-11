@@ -1,5 +1,7 @@
 package com.vbgone.model;
 
+import com.vbgone.ai.AiRequestOptions;
+
 import java.util.List;
 import java.util.Map;
 
@@ -15,5 +17,10 @@ public record RetryRequest(
     /** Backwards-compatible constructor without AI-provider fields. */
     public RetryRequest(String sessionId, String className, List<String> failingTests, int attempt) {
         this(sessionId, className, failingTests, attempt, null, null, null);
+    }
+
+    /** Bundles the flat AI-provider fields into the value object the services consume. */
+    public AiRequestOptions aiOptions() {
+        return AiRequestOptions.of(provider, targetLanguage, modelOverrides);
     }
 }
