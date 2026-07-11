@@ -56,6 +56,26 @@ public interface PromptLanguage extends Keyed {
     /** Repairs output truncated mid-token by balancing braces (language-neutral). */
     String repairTruncated(String code);
 
+    // ── Composed cleanup pipelines ──
+    // The fixed-order recipes for raw model output, centralised so the
+    // stripCodeFences -> stripWrappers [-> repair | -> fixDeclaration] ordering can't
+    // drift across the call sites in the two generation services.
+
+    /** Clean a raw code response: strip fences/preamble, then remove language wrappers. */
+    default String cleanCode(String text) {
+        return stripWrappers(stripCodeFences(text));
+    }
+
+    /** Clean a raw test-suite response: {@link #cleanCode} plus mid-token truncation repair. */
+    default String cleanTestSuite(String text) {
+        return repairTruncated(cleanCode(text));
+    }
+
+    /** Clean a raw implementation response: {@link #cleanCode} plus declaration fixing. */
+    default String cleanImplementation(String text, String className, InterfaceResult iface) {
+        return fixDeclaration(cleanCode(text), className, iface);
+    }
+
     /** True when the text actually looks like source code (vs analysis prose). */
     boolean looksLikeCode(String code);
 

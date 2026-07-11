@@ -71,7 +71,7 @@ public class AssureService {
                 className, session.getVbContentForClass(className));
         AiResponse response = aiCallSupport.call(options, ModelRole.REASONING,
                 CSharpPrompts.BASELINE_TESTS_SYSTEM_PROMPT, userMessage, 16384L, "baseline-tests", session);
-        String code = prompts.repairTruncated(prompts.stripWrappers(prompts.stripCodeFences(response.text())));
+        String code = prompts.cleanTestSuite(response.text());
 
         return executeSuite(session, className, code);
     }
@@ -100,7 +100,7 @@ public class AssureService {
                 className, session.getVbContentForClass(className), currentCode, coveragePercent);
         AiResponse response = aiCallSupport.call(options, ModelRole.REASONING,
                 CSharpPrompts.AUGMENT_BASELINE_TESTS_SYSTEM_PROMPT, userMessage, 16384L, "augment-baseline-tests", session);
-        String code = prompts.repairTruncated(prompts.stripWrappers(prompts.stripCodeFences(response.text())));
+        String code = prompts.cleanTestSuite(response.text());
 
         return executeSuite(session, className, code);
     }
