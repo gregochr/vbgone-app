@@ -26,7 +26,7 @@ import java.util.List;
  * {@link BuildStatus#ERROR}.
  */
 @Component
-public class VbCharacterisationRunner {
+public class VbCharacterisationRunner implements CharacterisationRunner {
 
     static final String VBPROJ = """
             <Project Sdk="Microsoft.NET.Sdk">
@@ -83,6 +83,7 @@ public class VbCharacterisationRunner {
      * {@code suite} against it. Returns GREEN when every assertion holds (the net is faithful),
      * RED when assertions fail, ERROR when the VB or suite fails to compile.
      */
+    @Override
     public BuildResult run(MigrationSession session, String className, TestsResult suite) {
         String sessionId = session.getSessionId();
         // Compile the headless-compilable subset (the net-ready classes concatenated), NOT the

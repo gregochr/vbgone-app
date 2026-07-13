@@ -1,0 +1,51 @@
+name: assure-windows-runner
+
+# Production Windows characterisation runner for Assure (Option A).
+#
+# The backend (WindowsCharacterisationRunner) pushes a short-lived `runner/<jobId>` branch containing
+# a generated net48 project under runner-workspace/ — the untouched VB class plus the C# MSTest net —
+# then polls this run and downloads the results.trx artifact. Everything downstream of the .trx
+# (TrxParser, coverage, readiness, UI) is shared with the Linux sidecar path.
+#
+# This handles the WINDOWS_GATED bucket: classes that reference .NET Framework-only APIs
+# (LINQ-to-SQL / ASMX / WCF / WebForms) and therefore cannot build on the Mac/Linux sidecar.
+# Proven end-to-end by the Phase 0 spike (see spikes/assure-windows-runner/README.md).
+
+on:
+  push:
+    branches: ["runner/**"] # one ephemeral branch per characterisation job
+  workflow_dispatch: {}     # manual re-run for debugging
+
+# Never cancel an in-flight characterisation — each branch is its own independent job.
+concurrency:
+  group: assure-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  characterise:
+    runs-on: windows-latest # ships the .NET Framework 4.8 targeting pack + the .NET SDK
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Characterise legacy VB on net48
+        shell: pwsh
+        run: |
+          # The class name varies per job, so discover the generated MSTest project rather than
+          # hard-coding a path. The backend always writes exactly one *.Baseline.csproj.
+          $proj = Get-ChildItem -Recurse runner-workspace -Filter *.Baseline.csproj | Select-Object -First 1
+          if (-not $proj) { throw "No *.Baseline.csproj found under runner-workspace/" }
+          Write-Host "Characterising $($proj.FullName)"
+          dotnet test $proj.FullName `
+            --configuration Release `
+            --logger "trx;LogFileName=results.trx" `
+            --collect:"XPlat Code Coverage" `
+            --results-directory runner-workspace/TestResults
+
+      - name: Upload characterisation results (.trx + coverage)
+        if: always() # upload even on RED so the backend can parse failing runs too
+        uses: actions/upload-artifact@v4
+        with:
+          name: characterisation-results
+          path: runner-workspace/TestResults/**
+          retention-days: 1
