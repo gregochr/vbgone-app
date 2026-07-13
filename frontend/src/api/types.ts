@@ -71,6 +71,14 @@ export interface MutationJobStatus {
   error: string | null
 }
 
+/** Async baseline-tests job (Windows runner path). result set only when state is DONE. */
+export interface BaselineJobStatus {
+  jobId: string
+  state: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED'
+  result: BaselineTestsResult | null
+  error: string | null
+}
+
 export interface TestsResult {
   sessionId: string
   className: string

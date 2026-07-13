@@ -1,11 +1,24 @@
 import { useWizardConfig } from '../config/WizardConfigContext'
 import { LANGS, PROVIDERS, hasOverrides, providerColor } from '../config/engine'
-import type { Mode, TargetLanguage } from '../config/engine'
+import type { Mode, RunnerMode, TargetLanguage } from '../config/engine'
 
 const USD_TO_GBP = 0.79
 
 const JAVA_LOCK_TITLE =
   "Assure runs tests against your original VB.NET on the CLR, so it's C# only. Switch to Migrate for Java."
+
+const RUNNER_LOCK_TITLE =
+  'Migration targets modern, cross-platform .NET — its build always runs on Linux. The Windows runner only matters in Assure, where it characterises the original .NET Framework VB.'
+
+const RUNNER_STEP_LOCK_TITLE =
+  'Pick the runner on step 1, before the run begins — it is fixed once characterisation is under way.'
+
+const RUNNER_TITLES: Record<RunnerMode, string> = {
+  linux:
+    'Linux · net8.0 sidecar. Characterises net-ready classes; framework-gated classes stay blocked.',
+  windows:
+    'Windows · net48 runner. Also characterises the framework-gated classes the Linux sidecar cannot build.',
+}
 
 const ENGINE_LOCK_TITLE =
   'Set the engine on step 1, before you start. In Assure the provider is fixed once the run begins.'
@@ -16,9 +29,11 @@ export function AppHeader() {
     targetLanguage,
     provider,
     modelOverrides,
+    runner,
     currentStep,
     setMode,
     setTargetLanguage,
+    setRunner,
     openEngine,
     sessionCost,
   } = useWizardConfig()
@@ -30,6 +45,10 @@ export function AppHeader() {
   // Assure fixes the provider once the run is under way — the engine is only
   // changeable on step 1 (Upload). Migrate leaves it changeable throughout.
   const engineLocked = assure && currentStep > 0
+  // The runner only means something in Assure. In Migrate it is forced to Linux
+  // (modern .NET output); in Assure it is fixed once the run is under way.
+  const effectiveRunner: RunnerMode = assure ? runner : 'linux'
+  const runnerRunLocked = assure && currentStep > 0
 
   const modeSegment = (value: Mode, label: string) => (
     <button
@@ -53,6 +72,29 @@ export function AppHeader() {
         aria-pressed={targetLanguage === value}
         aria-disabled={locked || undefined}
         title={locked ? JAVA_LOCK_TITLE : undefined}
+      >
+        {label}
+      </button>
+    )
+  }
+
+  const runnerSegment = (value: RunnerMode, label: string) => {
+    // Windows is meaningless in Migrate (modern .NET output) — lock it there with an explainer.
+    const migrateWindowsLock = !assure && value === 'windows'
+    const locked = migrateWindowsLock || runnerRunLocked
+    const title = migrateWindowsLock
+      ? RUNNER_LOCK_TITLE
+      : runnerRunLocked
+        ? RUNNER_STEP_LOCK_TITLE
+        : RUNNER_TITLES[value]
+    return (
+      <button
+        type="button"
+        className={`target-seg ${effectiveRunner === value ? 'active' : ''}${locked ? ' locked' : ''}`}
+        onClick={locked ? undefined : () => setRunner(value)}
+        aria-pressed={effectiveRunner === value}
+        aria-disabled={locked || undefined}
+        title={title}
       >
         {label}
       </button>
@@ -106,6 +148,16 @@ export function AppHeader() {
           <div className="target-toggle" role="group" aria-label="Target language">
             {segment('csharp', 'C#')}
             {segment('java', 'Java')}
+          </div>
+        </div>
+
+        <div className="header-divider" />
+
+        <div className="control-group">
+          <span className="micro-label">RUNNER</span>
+          <div className="target-toggle" role="group" aria-label="Characterisation runner">
+            {runnerSegment('linux', 'Linux')}
+            {runnerSegment('windows', 'Windows')}
           </div>
         </div>
 

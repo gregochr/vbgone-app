@@ -1,13 +1,23 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { DEFAULTS } from './engine'
-import type { EngineParams, Mode, ModelOverrides, ProviderId, Role, TargetLanguage } from './engine'
+import type {
+  EngineParams,
+  Mode,
+  ModelOverrides,
+  ProviderId,
+  Role,
+  RunnerMode,
+  TargetLanguage,
+} from './engine'
 
 export interface WizardConfig {
   mode: Mode
   targetLanguage: TargetLanguage
   provider: ProviderId
   modelOverrides: ModelOverrides
+  /** Assure characterisation runner (Linux net8.0 vs Windows net48). Ignored in Migrate. */
+  runner: RunnerMode
   engineOpen: boolean
 
   /**
@@ -21,6 +31,7 @@ export interface WizardConfig {
   /** Switching mode forces C# in Assure; WizardShell resets its step state. */
   setMode: (mode: Mode) => void
   setTargetLanguage: (lang: TargetLanguage) => void
+  setRunner: (runner: RunnerMode) => void
   /** Switching provider resets all per-step overrides to that provider's defaults. */
   setProvider: (provider: ProviderId) => void
   /** Setting an override equal to the provider default clears it. */
@@ -51,11 +62,13 @@ const DEFAULT_CONFIG: WizardConfig = {
   targetLanguage: 'csharp',
   provider: 'anthropic',
   modelOverrides: EMPTY_OVERRIDES,
+  runner: 'linux',
   engineOpen: false,
   currentStep: 0,
   setCurrentStep: noop,
   setMode: noop,
   setTargetLanguage: noop,
+  setRunner: noop,
   setProvider: noop,
   setOverride: noop,
   resetOverrides: noop,
@@ -68,6 +81,7 @@ const DEFAULT_CONFIG: WizardConfig = {
     targetLanguage: 'csharp',
     modelOverrides: EMPTY_OVERRIDES,
     mode: 'migrate',
+    runner: 'linux',
   },
 }
 
@@ -78,6 +92,7 @@ export function WizardConfigProvider({ children }: { children: ReactNode }) {
   const [targetLanguage, setTargetLanguageState] = useState<TargetLanguage>('csharp')
   const [provider, setProviderState] = useState<ProviderId>('anthropic')
   const [modelOverrides, setModelOverrides] = useState<ModelOverrides>(EMPTY_OVERRIDES)
+  const [runner, setRunnerState] = useState<RunnerMode>('linux')
   const [engineOpen, setEngineOpen] = useState(false)
   const [sessionCost, setSessionCost] = useState(0)
   const [currentStep, setCurrentStep] = useState(0)
@@ -95,6 +110,10 @@ export function WizardConfigProvider({ children }: { children: ReactNode }) {
 
   const setTargetLanguage = useCallback((lang: TargetLanguage) => {
     setTargetLanguageState(lang)
+  }, [])
+
+  const setRunner = useCallback((next: RunnerMode) => {
+    setRunnerState(next)
   }, [])
 
   const setProvider = useCallback((next: ProviderId) => {
@@ -123,8 +142,8 @@ export function WizardConfigProvider({ children }: { children: ReactNode }) {
   const closeEngine = useCallback(() => setEngineOpen(false), [])
 
   const engineParams = useMemo<EngineParams>(
-    () => ({ provider, targetLanguage, modelOverrides, mode }),
-    [provider, targetLanguage, modelOverrides, mode],
+    () => ({ provider, targetLanguage, modelOverrides, mode, runner }),
+    [provider, targetLanguage, modelOverrides, mode, runner],
   )
 
   const value = useMemo<WizardConfig>(
@@ -133,11 +152,13 @@ export function WizardConfigProvider({ children }: { children: ReactNode }) {
       targetLanguage,
       provider,
       modelOverrides,
+      runner,
       engineOpen,
       currentStep,
       setCurrentStep,
       setMode,
       setTargetLanguage,
+      setRunner,
       setProvider,
       setOverride,
       resetOverrides,
@@ -152,10 +173,12 @@ export function WizardConfigProvider({ children }: { children: ReactNode }) {
       targetLanguage,
       provider,
       modelOverrides,
+      runner,
       engineOpen,
       currentStep,
       setMode,
       setTargetLanguage,
+      setRunner,
       setProvider,
       setOverride,
       resetOverrides,

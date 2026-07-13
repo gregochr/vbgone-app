@@ -10,9 +10,11 @@ const mocks = vi.hoisted(() => ({
     targetLanguage: 'csharp',
     provider: 'copilot',
     modelOverrides: {} as Record<string, string>,
+    runner: 'linux' as 'linux' | 'windows',
     currentStep: 0,
     setMode: vi.fn(),
     setTargetLanguage: vi.fn(),
+    setRunner: vi.fn(),
     openEngine: vi.fn(),
     sessionCost: 0,
   },
@@ -27,11 +29,15 @@ beforeEach(() => {
     mode: 'assure',
     provider: 'copilot',
     modelOverrides: {},
+    runner: 'linux',
     currentStep: 0,
     sessionCost: 0,
   })
   vi.clearAllMocks()
 })
+
+const runnerSeg = (label: 'Linux' | 'Windows') =>
+  screen.getByText(label).closest('button') as HTMLButtonElement
 
 const engineButton = () => screen.getByText('Copilot').closest('button') as HTMLButtonElement
 
@@ -81,5 +87,41 @@ describe('AppHeader — Assure engine lock', () => {
     expect(btn).not.toHaveAttribute('aria-disabled')
     fireEvent.click(btn)
     expect(mocks.config.openEngine).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('AppHeader — RUNNER toggle', () => {
+  it('lets you pick Windows in Assure on step 1 (Upload)', () => {
+    mocks.config.mode = 'assure'
+    mocks.config.currentStep = 0
+    render(<AppHeader />)
+    expect(runnerSeg('Linux').className).toContain('active')
+    const win = runnerSeg('Windows')
+    expect(win).not.toHaveAttribute('aria-disabled')
+    fireEvent.click(win)
+    expect(mocks.config.setRunner).toHaveBeenCalledWith('windows')
+  })
+
+  it('fixes the runner once the Assure run is under way (Readiness, index 1)', () => {
+    mocks.config.mode = 'assure'
+    mocks.config.currentStep = 1
+    render(<AppHeader />)
+    const win = runnerSeg('Windows')
+    expect(win).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(win)
+    expect(mocks.config.setRunner).not.toHaveBeenCalled()
+  })
+
+  it('locks Windows in Migrate mode and shows Linux as the runner', () => {
+    mocks.config.mode = 'migrate'
+    mocks.config.runner = 'windows' // even if a prior Assure run chose Windows
+    mocks.config.currentStep = 0
+    render(<AppHeader />)
+    expect(runnerSeg('Linux').className).toContain('active')
+    const win = runnerSeg('Windows')
+    expect(win).toHaveAttribute('aria-disabled', 'true')
+    expect(win).toHaveAttribute('title')
+    fireEvent.click(win)
+    expect(mocks.config.setRunner).not.toHaveBeenCalled()
   })
 })

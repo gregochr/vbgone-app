@@ -5,9 +5,11 @@ import com.vbgone.session.SessionStore;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -185,6 +187,7 @@ public class AssureAssessmentService {
         Set<String> safeRoots = estateSafeRoots(List.of(content == null ? "" : content));
         classifyInto(content, file, session, classes, netReadyBlocks, restApis, safeRoots);
         session.setAssurableSource(String.join("\n\n", netReadyBlocks));
+        session.setClassBuckets(bucketsOf(classes));
 
         return new ReadinessReport(session.getSessionId(), tally(classes), "static", classes, restApis);
     }
@@ -211,8 +214,16 @@ public class AssureAssessmentService {
             classifyInto(f.content(), f.relativePath(), session, classes, netReadyBlocks, restApis, safeRoots);
         }
         session.setAssurableSource(String.join("\n\n", netReadyBlocks));
+        session.setClassBuckets(bucketsOf(classes));
 
         return new ReadinessReport(session.getSessionId(), tally(classes), "static", classes, restApis);
+    }
+
+    /** Class name → rolled-up bucket, so the characterisation router can pick Linux vs Windows. */
+    private static Map<String, Bucket> bucketsOf(List<ClassReadiness> classes) {
+        Map<String, Bucket> buckets = new HashMap<>();
+        for (ClassReadiness cr : classes) buckets.put(cr.name(), cr.bucket());
+        return buckets;
     }
 
     /** Parses classes out of one source string, classifies each, and collects net-ready blocks. */

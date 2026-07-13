@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import type { WizardState } from '../WizardShell'
 import {
   runBaselineTests,
+  startBaselineTestsJob,
+  getBaselineJob,
   rerunBaselineTests,
   augmentBaselineTests,
   quarantineBaseline,
@@ -68,6 +70,8 @@ export function Step4BaselineTests({
   const [augmenting, setAugmenting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(!state.baselineTests)
+  // Set while a Windows-runner job is in flight, so the run can be polled (it takes minutes).
+  const [windowsJobId, setWindowsJobId] = useState<string | null>(null)
 
   // ── Auto-repair loop state (a genuine red run drives the backend loop) ──
   const [repairLog, setRepairLog] = useState<LoggedAttempt[]>([])
@@ -106,8 +110,42 @@ export function Step4BaselineTests({
   const runSuite = () => {
     setShowConfirm(false)
     setLoading(true)
+    setError(null)
+    // Windows runner: the net48 characterisation runs on a GitHub windows-latest runner and takes
+    // minutes, so start a job and poll it rather than block. Linux stays on the fast sync endpoint.
+    if (engineParams.runner === 'windows') {
+      startBaselineTestsJob(sessionId, className, engineParams)
+        .then((job) => {
+          if (job.state === 'DONE' && job.result) applyResult(job.result)
+          else if (job.state === 'FAILED') onError(new Error(job.error ?? 'Windows runner failed'))
+          else setWindowsJobId(job.jobId)
+        })
+        .catch(onError)
+      return
+    }
     runBaselineTests(sessionId, className, engineParams).then(applyResult).catch(onError)
   }
+
+  // Poll the Windows runner job to completion (or failure). Cleared on unmount or when it settles.
+  useEffect(() => {
+    if (!windowsJobId) return
+    const timer = setInterval(async () => {
+      try {
+        const job = await getBaselineJob(windowsJobId)
+        if (job.state === 'DONE' && job.result) {
+          setWindowsJobId(null)
+          applyResult(job.result)
+        } else if (job.state === 'FAILED') {
+          setWindowsJobId(null)
+          onError(new Error(job.error ?? 'Windows runner failed'))
+        }
+      } catch (err) {
+        setWindowsJobId(null)
+        onError(err)
+      }
+    }, 2500)
+    return () => clearInterval(timer)
+  }, [windowsJobId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-running the same suite against unchanged VB yields the same red — the fix is editing
   // the tests. The (possibly edited) suite is sent to the run-only endpoint (no AI call).
@@ -286,8 +324,9 @@ export function Step4BaselineTests({
         <div className="busy-row">
           <span className="spinner" />
           <span className="loading-text">
-            Capturing your app's current behaviour as tests and running them against your original
-            VB.NET…
+            {windowsJobId
+              ? 'Running the characterisation on the Windows runner (net48) — this can take a few minutes…'
+              : "Capturing your app's current behaviour as tests and running them against your original VB.NET…"}
           </span>
         </div>
       </div>

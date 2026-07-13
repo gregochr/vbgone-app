@@ -5,7 +5,7 @@ import com.vbgone.ai.AiProviderRegistry;
 import com.vbgone.ai.AiRequestOptions;
 import com.vbgone.ai.AiResponse;
 import com.vbgone.ai.ModelRole;
-import com.vbgone.build.VbCharacterisationRunner;
+import com.vbgone.build.CharacterisationRunner;
 import com.vbgone.common.JsonResponses;
 import com.vbgone.model.*;
 import com.vbgone.prompt.CSharpPrompts;
@@ -37,12 +37,12 @@ public class AssureService {
     private final AiProviderRegistry registry;
     private final SessionStore sessionStore;
     private final ObjectMapper objectMapper;
-    private final VbCharacterisationRunner runner;
+    private final CharacterisationRunner runner;
     private final AiCallSupport aiCallSupport;
     private final CSharpPrompts prompts = new CSharpPrompts();
 
     public AssureService(AiProviderRegistry registry, SessionStore sessionStore,
-                          ObjectMapper objectMapper, VbCharacterisationRunner runner,
+                          ObjectMapper objectMapper, CharacterisationRunner runner,
                           AiCallSupport aiCallSupport) {
         this.registry = registry;
         this.sessionStore = sessionStore;
@@ -73,7 +73,19 @@ public class AssureService {
      * assertion holds against the untouched original.
      */
     public BaselineTestsResult runBaselineTests(String sessionId, String className, AiRequestOptions options) {
+        return runBaselineTests(sessionId, className, options, "linux");
+    }
+
+    /**
+     * As above, but pins the characterisation runner chosen in the UI ({@code "linux"} or
+     * {@code "windows"}) onto the session so the {@code CharacterisationRouter} sends framework-gated
+     * classes to the Windows runner. Set here, at the first net execution, and reused by every later
+     * run (rerun/augment/quarantine/repair) for the class.
+     */
+    public BaselineTestsResult runBaselineTests(String sessionId, String className,
+                                                AiRequestOptions options, String runnerMode) {
         MigrationSession session = sessionStore.getOrThrow(sessionId);
+        session.setRunnerMode(runnerMode);
 
         String userMessage = prompts.baselineTestsUserMessage(
                 className, session.getVbContentForClass(className));

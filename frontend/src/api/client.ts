@@ -5,6 +5,7 @@ import type {
   AnalysisResult,
   InterfaceResult,
   MutationJobStatus,
+  BaselineJobStatus,
   TestsResult,
   StubResult,
   BuildResult,
@@ -172,6 +173,18 @@ export const realApi = {
     engine?: EngineParams,
   ): Promise<BaselineTestsResult> =>
     post(assureApi, '/baseline-tests', { sessionId, className, ...engine }),
+
+  // Windows runner path: a net48 characterisation runs on a GitHub windows-latest runner and takes
+  // minutes, so start a job and poll it rather than holding the request open.
+  startBaselineTestsJob: (
+    sessionId: string,
+    className: string,
+    engine?: EngineParams,
+  ): Promise<BaselineJobStatus> =>
+    post(assureApi, '/baseline-tests-async', { sessionId, className, ...engine }),
+
+  getBaselineJob: (jobId: string): Promise<BaselineJobStatus> =>
+    get(assureApi, `/baseline-tests-async/${jobId}`),
 
   rerunBaselineTests: (
     sessionId: string,

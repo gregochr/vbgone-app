@@ -6,6 +6,7 @@ import type {
   InterfaceResult,
   MutationResult,
   MutationJobStatus,
+  BaselineJobStatus,
   TestsResult,
   StubResult,
   BuildResult,
@@ -1475,6 +1476,32 @@ public class OrderProcessor : IOrderProcessor
     void engine
     await delay(1400)
     return mockGreenNet(sessionId, className, MOCK_BASELINE_TEST_CODE)
+  },
+
+  // Demo: the "Windows runner" completes on the first poll — the job is already DONE with a green net.
+  async startBaselineTestsJob(
+    sessionId: string,
+    className: string,
+    engine?: EngineParams,
+  ): Promise<BaselineJobStatus> {
+    void engine
+    await delay(1400)
+    return {
+      jobId: `mock-${className}`,
+      state: 'DONE',
+      result: mockGreenNet(sessionId, className, MOCK_BASELINE_TEST_CODE),
+      error: null,
+    }
+  },
+
+  async getBaselineJob(jobId: string): Promise<BaselineJobStatus> {
+    await delay(200)
+    return {
+      jobId,
+      state: 'DONE',
+      result: mockGreenNet('s', 'C', MOCK_BASELINE_TEST_CODE),
+      error: null,
+    }
   },
 
   async rerunBaselineTests(

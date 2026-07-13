@@ -2,6 +2,7 @@ package com.vbgone.controller;
 
 import com.vbgone.model.AssessRequest;
 import com.vbgone.model.AugmentBaselineRequest;
+import com.vbgone.model.BaselineJobStatus;
 import com.vbgone.model.BaselineRerunRequest;
 import com.vbgone.model.BaselineResult;
 import com.vbgone.model.BaselineTestsResult;
@@ -14,6 +15,7 @@ import com.vbgone.model.RepairRequest;
 import com.vbgone.model.ZipManifest;
 import com.vbgone.service.AssureArtifactService;
 import com.vbgone.service.AssureAssessmentService;
+import com.vbgone.service.AssureJobService;
 import com.vbgone.service.AssureService;
 import com.vbgone.service.RepoIngestService;
 import com.vbgone.service.ZipExtractorService;
@@ -43,17 +45,20 @@ import java.nio.charset.StandardCharsets;
 public class AssureController {
 
     private final AssureService assureService;
+    private final AssureJobService assureJobService;
     private final AssureAssessmentService assessmentService;
     private final ZipExtractorService zipExtractorService;
     private final RepoIngestService repoIngestService;
     private final AssureArtifactService artifactService;
 
     public AssureController(AssureService assureService,
+                             AssureJobService assureJobService,
                              AssureAssessmentService assessmentService,
                              ZipExtractorService zipExtractorService,
                              RepoIngestService repoIngestService,
                              AssureArtifactService artifactService) {
         this.assureService = assureService;
+        this.assureJobService = assureJobService;
         this.assessmentService = assessmentService;
         this.zipExtractorService = zipExtractorService;
         this.repoIngestService = repoIngestService;
@@ -91,7 +96,26 @@ public class AssureController {
 
     @PostMapping("/baseline-tests")
     public BaselineTestsResult baselineTests(@RequestBody ClassRequest request) {
-        return assureService.runBaselineTests(request.sessionId(), request.className(), request.aiOptions());
+        return assureService.runBaselineTests(request.sessionId(), request.className(),
+                request.aiOptions(), request.runnerMode());
+    }
+
+    /**
+     * Async twin of {@code /baseline-tests} for the Windows runner path, whose characterisation runs
+     * on a GitHub {@code windows-latest} runner and takes minutes. Returns a job id immediately; the
+     * client polls {@code /baseline-tests-async/{jobId}} for the result. The frontend routes here only
+     * when the user picked the Windows runner — the Linux path stays on the synchronous endpoint.
+     */
+    @PostMapping("/baseline-tests-async")
+    public BaselineJobStatus baselineTestsAsync(@RequestBody ClassRequest request) {
+        return assureJobService.start(request);
+    }
+
+    @GetMapping("/baseline-tests-async/{jobId}")
+    public ResponseEntity<BaselineJobStatus> baselineTestsJob(@PathVariable String jobId) {
+        return assureJobService.getStatus(jobId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     /** Re-run a corrected net (edited assertions) against the original VB — no AI call. */

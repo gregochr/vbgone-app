@@ -44,6 +44,9 @@ class AssureControllerTest {
     private AssureService assureService;
 
     @MockitoBean
+    private com.vbgone.service.AssureJobService assureJobService;
+
+    @MockitoBean
     private AssureAssessmentService assessmentService;
 
     @MockitoBean
@@ -146,7 +149,7 @@ class AssureControllerTest {
     @Test
     void baselineTests_returns200WithNetResult() throws Exception {
         BuildResult build = new BuildResult(SESSION_ID, BuildStatus.GREEN, 43, 43, 0, List.of(), List.of());
-        when(assureService.runBaselineTests(eq(SESSION_ID), eq("OrderProcessor"), any()))
+        when(assureService.runBaselineTests(eq(SESSION_ID), eq("OrderProcessor"), any(), anyString()))
                 .thenReturn(new BaselineTestsResult(SESSION_ID, "OrderProcessor", "OrderProcessorBaselineTests",
                         "[TestClass] public class OrderProcessorBaselineTests {}", 43, true, build, List.of()));
 

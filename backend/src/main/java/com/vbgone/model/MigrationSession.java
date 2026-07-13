@@ -16,6 +16,15 @@ public class MigrationSession {
      * estate — otherwise WinForms classes in the same upload break the build.
      */
     private String assurableSource;
+    /**
+     * Per-class readiness bucket from the last assessment (class name → {@link Bucket}). The routing
+     * signal that decides which characterisation runner handles a class: {@link Bucket#NET_READY}
+     * runs on the Linux sidecar, {@link Bucket#WINDOWS_GATED} on the Windows runner.
+     */
+    private final Map<String, Bucket> classBuckets = new HashMap<>();
+    /** The characterisation runner chosen in the UI for this Assure run: {@code "linux"} or
+     *  {@code "windows"}. Defaults to Linux; set from the baseline-tests request. */
+    private String runnerMode = "linux";
     private String targetLanguage = "csharp";
     private final Map<String, String> classSources = new HashMap<>();
     private AnalysisResult analysisResult;
@@ -54,6 +63,18 @@ public class MigrationSession {
 
     public String getAssurableSource() { return assurableSource; }
     public void setAssurableSource(String assurableSource) { this.assurableSource = assurableSource; }
+
+    public void setClassBuckets(Map<String, Bucket> buckets) {
+        classBuckets.clear();
+        if (buckets != null) classBuckets.putAll(buckets);
+    }
+    /** The class's readiness bucket, or {@code null} if it wasn't in the last assessment. */
+    public Bucket getBucketForClass(String className) { return classBuckets.get(className); }
+
+    public String getRunnerMode() { return runnerMode; }
+    public void setRunnerMode(String runnerMode) {
+        this.runnerMode = (runnerMode == null || runnerMode.isBlank()) ? "linux" : runnerMode;
+    }
 
     public String getTargetLanguage() { return targetLanguage; }
     public void setTargetLanguage(String targetLanguage) { this.targetLanguage = targetLanguage; }
