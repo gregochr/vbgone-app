@@ -1496,7 +1496,12 @@ public class OrderProcessor : IOrderProcessor
 
   async getBaselineJob(jobId: string): Promise<BaselineJobStatus> {
     await delay(200)
-    return { jobId, state: 'DONE', result: mockGreenNet('s', 'C', MOCK_BASELINE_TEST_CODE), error: null }
+    return {
+      jobId,
+      state: 'DONE',
+      result: mockGreenNet('s', 'C', MOCK_BASELINE_TEST_CODE),
+      error: null,
+    }
   },
 
   async rerunBaselineTests(

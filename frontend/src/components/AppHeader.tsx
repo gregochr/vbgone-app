@@ -14,8 +14,10 @@ const RUNNER_STEP_LOCK_TITLE =
   'Pick the runner on step 1, before the run begins — it is fixed once characterisation is under way.'
 
 const RUNNER_TITLES: Record<RunnerMode, string> = {
-  linux: 'Linux · net8.0 sidecar. Characterises net-ready classes; framework-gated classes stay blocked.',
-  windows: 'Windows · net48 runner. Also characterises the framework-gated classes the Linux sidecar cannot build.',
+  linux:
+    'Linux · net8.0 sidecar. Characterises net-ready classes; framework-gated classes stay blocked.',
+  windows:
+    'Windows · net48 runner. Also characterises the framework-gated classes the Linux sidecar cannot build.',
 }
 
 const ENGINE_LOCK_TITLE =
