@@ -73,7 +73,19 @@ public class AssureService {
      * assertion holds against the untouched original.
      */
     public BaselineTestsResult runBaselineTests(String sessionId, String className, AiRequestOptions options) {
+        return runBaselineTests(sessionId, className, options, "linux");
+    }
+
+    /**
+     * As above, but pins the characterisation runner chosen in the UI ({@code "linux"} or
+     * {@code "windows"}) onto the session so the {@code CharacterisationRouter} sends framework-gated
+     * classes to the Windows runner. Set here, at the first net execution, and reused by every later
+     * run (rerun/augment/quarantine/repair) for the class.
+     */
+    public BaselineTestsResult runBaselineTests(String sessionId, String className,
+                                                AiRequestOptions options, String runnerMode) {
         MigrationSession session = sessionStore.getOrThrow(sessionId);
+        session.setRunnerMode(runnerMode);
 
         String userMessage = prompts.baselineTestsUserMessage(
                 className, session.getVbContentForClass(className));

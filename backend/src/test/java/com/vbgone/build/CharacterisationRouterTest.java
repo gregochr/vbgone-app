@@ -31,16 +31,17 @@ class CharacterisationRouterTest {
     private final BuildResult sentinel =
             new BuildResult("s", BuildStatus.GREEN, 1, 1, 0, List.of(), List.of());
 
-    private MigrationSession sessionWith(Bucket bucket) {
+    private MigrationSession sessionWith(Bucket bucket, String runnerMode) {
         MigrationSession s = new MigrationSession("s");
         s.setClassBuckets(Map.of("Foo", bucket));
+        s.setRunnerMode(runnerMode);
         return s;
     }
 
     @Test
-    void windowsGatedRoutesToWindows_whenEnabled() {
+    void windowsGatedRoutesToWindows_whenWindowsChosenAndEnabled() {
         CharacterisationRouter router = new CharacterisationRouter(linux, windows, true);
-        MigrationSession session = sessionWith(Bucket.WINDOWS_GATED);
+        MigrationSession session = sessionWith(Bucket.WINDOWS_GATED, "windows");
         when(windows.run(session, "Foo", suite)).thenReturn(sentinel);
 
         assertThat(router.run(session, "Foo", suite)).isSameAs(sentinel);
@@ -49,9 +50,9 @@ class CharacterisationRouterTest {
     }
 
     @Test
-    void netReadyRoutesToLinux_whenEnabled() {
+    void netReadyStaysOnLinux_evenInWindowsMode() {
         CharacterisationRouter router = new CharacterisationRouter(linux, windows, true);
-        MigrationSession session = sessionWith(Bucket.NET_READY);
+        MigrationSession session = sessionWith(Bucket.NET_READY, "windows");
         when(linux.run(session, "Foo", suite)).thenReturn(sentinel);
 
         assertThat(router.run(session, "Foo", suite)).isSameAs(sentinel);
@@ -60,9 +61,20 @@ class CharacterisationRouterTest {
     }
 
     @Test
-    void windowsGatedFallsBackToLinux_whenDisabled() {
+    void windowsGatedStaysOnLinux_whenLinuxChosen() {
+        CharacterisationRouter router = new CharacterisationRouter(linux, windows, true);
+        MigrationSession session = sessionWith(Bucket.WINDOWS_GATED, "linux");
+        when(linux.run(session, "Foo", suite)).thenReturn(sentinel);
+
+        assertThat(router.run(session, "Foo", suite)).isSameAs(sentinel);
+        verify(linux).run(session, "Foo", suite);
+        verifyNoInteractions(windows);
+    }
+
+    @Test
+    void killSwitchForcesLinux_evenWhenWindowsChosen() {
         CharacterisationRouter router = new CharacterisationRouter(linux, windows, false);
-        MigrationSession session = sessionWith(Bucket.WINDOWS_GATED);
+        MigrationSession session = sessionWith(Bucket.WINDOWS_GATED, "windows");
         when(linux.run(session, "Foo", suite)).thenReturn(sentinel);
 
         assertThat(router.run(session, "Foo", suite)).isSameAs(sentinel);

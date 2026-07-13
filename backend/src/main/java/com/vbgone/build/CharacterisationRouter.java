@@ -9,21 +9,23 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 /**
- * The {@link CharacterisationRunner} that {@code AssureService} depends on. Routes each class to the
- * runner its readiness {@link Bucket} implies:
+ * The {@link CharacterisationRunner} that {@code AssureService} depends on. A class routes to the
+ * Windows runner only when all three hold:
  * <ul>
- *   <li>{@link Bucket#WINDOWS_GATED} → the {@link WindowsCharacterisationRunner} (when enabled), which
- *       builds on net48 on a GitHub-hosted Windows runner;</li>
- *   <li>everything else → the {@link VbCharacterisationRunner} Linux sidecar.</li>
+ *   <li>the user picked <b>Windows</b> in the header RUNNER toggle ({@code session.getRunnerMode()});</li>
+ *   <li>the class is {@link Bucket#WINDOWS_GATED} (net-ready classes always run on the faster Linux
+ *       sidecar, even in Windows mode);</li>
+ *   <li>the global kill-switch {@code vbgone.assure.windows-runner.enabled} is on (default true).</li>
  * </ul>
+ * Otherwise it routes to the {@link VbCharacterisationRunner} Linux sidecar. Since the runner mode
+ * defaults to Linux, default behaviour is unchanged — only an explicit Windows choice dispatches.
  *
- * <p>Gated by {@code vbgone.assure.windows-runner.enabled} (default {@code false}). With it off,
- * every class routes to Linux — so a WINDOWS_GATED class surfaces as ERROR on compile, exactly as it
- * does today. This is what makes the whole feature safe to merge before the runner is provisioned.
+ * <p>The kill-switch lets an operator disable the Windows path estate-wide (e.g. a deployment with no
+ * Windows runner provisioned) without touching the UI.
  *
- * <p><b>Note:</b> a Windows run takes minutes; before enabling in production the Assure baseline-tests
- * call must be made asynchronous (the Phase 3 job wrapper, modelled on the mutation-testing job) so
- * the HTTP request doesn't block.
+ * <p><b>Note:</b> a Windows run takes minutes; before relying on it in production the Assure
+ * baseline-tests call must be made asynchronous (the Phase 3 job wrapper, modelled on the
+ * mutation-testing job) so the HTTP request doesn't block.
  */
 @Component
 @Primary
@@ -36,7 +38,7 @@ public class CharacterisationRouter implements CharacterisationRunner {
     public CharacterisationRouter(
             VbCharacterisationRunner linux,
             WindowsCharacterisationRunner windows,
-            @Value("${vbgone.assure.windows-runner.enabled:false}") boolean windowsEnabled) {
+            @Value("${vbgone.assure.windows-runner.enabled:true}") boolean windowsEnabled) {
         this.linux = linux;
         this.windows = windows;
         this.windowsEnabled = windowsEnabled;
@@ -44,9 +46,11 @@ public class CharacterisationRouter implements CharacterisationRunner {
 
     @Override
     public BuildResult run(MigrationSession session, String className, TestsResult suite) {
-        if (windowsEnabled && session.getBucketForClass(className) == Bucket.WINDOWS_GATED) {
-            return windows.run(session, className, suite);
-        }
-        return linux.run(session, className, suite);
+        boolean useWindows = windowsEnabled
+                && "windows".equalsIgnoreCase(session.getRunnerMode())
+                && session.getBucketForClass(className) == Bucket.WINDOWS_GATED;
+        return useWindows
+                ? windows.run(session, className, suite)
+                : linux.run(session, className, suite);
     }
 }

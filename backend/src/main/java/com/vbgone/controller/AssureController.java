@@ -91,7 +91,8 @@ public class AssureController {
 
     @PostMapping("/baseline-tests")
     public BaselineTestsResult baselineTests(@RequestBody ClassRequest request) {
-        return assureService.runBaselineTests(request.sessionId(), request.className(), request.aiOptions());
+        return assureService.runBaselineTests(request.sessionId(), request.className(),
+                request.aiOptions(), request.runnerMode());
     }
 
     /** Re-run a corrected net (edited assertions) against the original VB — no AI call. */
