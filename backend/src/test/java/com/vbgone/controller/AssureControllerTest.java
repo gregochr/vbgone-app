@@ -44,6 +44,9 @@ class AssureControllerTest {
     private AssureService assureService;
 
     @MockitoBean
+    private com.vbgone.service.AssureJobService assureJobService;
+
+    @MockitoBean
     private AssureAssessmentService assessmentService;
 
     @MockitoBean
