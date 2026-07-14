@@ -87,6 +87,9 @@ class WindowsCharacterisationRunnerTest {
                 .contains("<LangVersion>latest</LangVersion>");
         assertThat(files.get("runner-workspace/Settlement.Vb/Settlement.vbproj"))
                 .contains("net48")
-                .contains("System.Data.Linq");
+                .contains("System.Data.Linq")
+                // WinForms refs are essential — the bucket is dominated by Form-inheriting classes.
+                .contains("System.Windows.Forms")
+                .contains("System.Drawing");
     }
 }

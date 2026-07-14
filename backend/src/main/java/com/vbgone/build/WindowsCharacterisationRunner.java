@@ -34,7 +34,9 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
     // net48 twin of VbCharacterisationRunner.VBPROJ. References the .NET Framework-only assemblies
     // the WINDOWS_GATED bucket depends on; referencing one the class doesn't use is harmless, so a
     // single template covers the whole bucket without per-class dependency detection (that can come
-    // later if a class needs an assembly outside this set).
+    // later if a class needs an assembly outside this set). System.Windows.Forms + System.Drawing are
+    // essential, not optional: the bucket is dominated by "pure logic trapped in a WinForms class"
+    // (a class inheriting System.Windows.Forms.Form), which won't compile without them (BC30002).
     static final String VBPROJ = """
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
@@ -43,6 +45,8 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
                 <Nullable>disable</Nullable>
               </PropertyGroup>
               <ItemGroup>
+                <Reference Include="System.Windows.Forms" />
+                <Reference Include="System.Drawing" />
                 <Reference Include="System.Web" />
                 <Reference Include="System.Web.Services" />
                 <Reference Include="System.Data.Linq" />
