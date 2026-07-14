@@ -9,7 +9,8 @@ import {
 import type { ClassReadiness, ReadinessReport, RestApiEndpoint } from '../../../api/migrateApi'
 import { BUCKETS } from '../../../config/engine'
 import type { Bucket } from '../../../config/engine'
-import { deriveAnalysis, readinessSubtitle } from './readiness'
+import { useWizardConfig } from '../../../config/WizardConfigContext'
+import { deriveAnalysis, isActionable, readinessSubtitle } from './readiness'
 
 interface Props {
   state: WizardState
@@ -27,6 +28,8 @@ const KICKER = 'STEP 02 · READINESS'
  * renders the readiness report + a queue of ready classes to assure one at a time.
  */
 export function StepReadiness({ state, update, onReady, onAssureClass }: Props) {
+  const { runner } = useWizardConfig()
+  const windowsOn = runner === 'windows'
   const isPortfolio = state.filename.toLowerCase().endsWith('.zip')
   const report = state.readiness
   // For a single .vb the report's file equals the filename; reuse only a matching report.
@@ -46,13 +49,14 @@ export function StepReadiness({ state, update, onReady, onAssureClass }: Props) 
   const assuredGreen = state.assuredGreen ?? []
 
   const store = (r: ReadinessReport) =>
-    update({ readiness: r, analysis: deriveAnalysis(r, isPortfolio) })
+    update({ readiness: r, analysis: deriveAnalysis(r, isPortfolio, windowsOn) })
 
   // Single-file: auto-scan on mount. Portfolio: wait for an explicit "Assess readiness" click.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isPortfolio || usable) {
-      if (usable && !isPortfolio && report!.classes.some((c) => c.bucket === 'net-ready')) onReady()
+      if (usable && !isPortfolio && report!.classes.some((c) => isActionable(c.bucket, windowsOn)))
+        onReady()
       return
     }
     setLoading(true)
@@ -60,7 +64,7 @@ export function StepReadiness({ state, update, onReady, onAssureClass }: Props) 
       .then((r) => {
         store(r)
         setLoading(false)
-        if (r.classes.some((c) => c.bucket === 'net-ready')) onReady()
+        if (r.classes.some((c) => isActionable(c.bucket, windowsOn))) onReady()
       })
       .catch((err) => {
         setLoading(false)
@@ -89,7 +93,7 @@ export function StepReadiness({ state, update, onReady, onAssureClass }: Props) 
             clearInterval(tick)
             store(r)
             setScanning(false)
-            if (r.classes.some((c) => c.bucket === 'net-ready')) onReady()
+            if (r.classes.some((c) => isActionable(c.bucket, windowsOn))) onReady()
           }
         }, 40)
       })
@@ -131,6 +135,7 @@ export function StepReadiness({ state, update, onReady, onAssureClass }: Props) 
             netted,
             assuredGreen,
             onAssureClass,
+            windowsOn,
           }}
         />
       )
@@ -232,7 +237,7 @@ export function StepReadiness({ state, update, onReady, onAssureClass }: Props) 
   }
 
   const cls = report.classes[0]
-  const ready = cls.bucket === 'net-ready'
+  const ready = isActionable(cls.bucket, windowsOn)
 
   return (
     <div>
@@ -313,6 +318,8 @@ interface ReportProps {
   /** Subset of netted whose baseline went green — the classes with a downloadable suite. */
   assuredGreen: string[]
   onAssureClass?: (name: string) => void
+  /** Windows runner selected — windows-gated classes become assurable, not just net-ready ones. */
+  windowsOn: boolean
 }
 
 function PortfolioReport({
@@ -324,16 +331,20 @@ function PortfolioReport({
   netted,
   assuredGreen,
   onAssureClass,
+  windowsOn,
 }: ReportProps) {
   const t = report.totals
   const sessionId = report.sessionId
+  // The set the drill-in queue and the "assure the N classes" CTA count against: net-ready always,
+  // plus windows-gated when the Windows runner is on.
+  const actionableTotal = t.netReady + (windowsOn ? t.windowsGated : 0)
   const methodsLabel = t.methods.toLocaleString('en-US')
   const pctN = Math.round((t.methodNetReady / t.methods) * 100)
   const pctW = Math.round((t.methodWindowsGated / t.methods) * 100)
   const pctR = 100 - pctN - pctW
   const seg = (pct: number) => ({ width: `${pct}%`, minWidth: pct > 0 ? 3 : 0 })
 
-  const subtitle = readinessSubtitle(report)
+  const subtitle = readinessSubtitle(report, windowsOn)
 
   const tiles: { bucket: Bucket; count: number; methods: number }[] = [
     { bucket: 'net-ready', count: t.netReady, methods: t.methodNetReady },
@@ -353,21 +364,21 @@ function PortfolioReport({
     (filter === 'all' ? '' : ` · ${BUCKETS[filter].label}`)
 
   const nettedReady = report.classes.filter(
-    (c) => c.bucket === 'net-ready' && netted.includes(c.name),
+    (c) => isActionable(c.bucket, windowsOn) && netted.includes(c.name),
   ).length
   const queueActive = nettedReady > 0
-  const queuePct = `${Math.round((nettedReady / Math.max(t.netReady, 1)) * 100)}%`
-  const remaining = t.netReady - nettedReady
+  const queuePct = `${Math.round((nettedReady / Math.max(actionableTotal, 1)) * 100)}%`
+  const remaining = actionableTotal - nettedReady
   const firstReady = report.classes.find(
-    (c) => c.bucket === 'net-ready' && !netted.includes(c.name),
+    (c) => isActionable(c.bucket, windowsOn) && !netted.includes(c.name),
   )?.name
-  const blocked = t.netReady === 0
+  const blocked = actionableTotal === 0
   // Every ready class is assured: the panel flips from a "keep going" CTA to a download-the-suite one.
   const allAssured = remaining === 0 && nettedReady > 0
-  // Downloadable = net-ready classes whose baseline actually went green (a suite exists server-side).
+  // Downloadable = assurable classes whose baseline actually went green (a suite exists server-side).
   // This is a subset of the netted queue, which also holds classes left early or quarantined.
   const downloadableCount = report.classes.filter(
-    (c) => c.bucket === 'net-ready' && assuredGreen.includes(c.name),
+    (c) => isActionable(c.bucket, windowsOn) && assuredGreen.includes(c.name),
   ).length
 
   const toggle = (name: string) => setExpanded({ ...expanded, [name]: !expanded[name] })
@@ -449,7 +460,7 @@ function PortfolioReport({
             <span className="assure-progress-title">Assurance progress</span>
             <div className="assure-progress-head-right">
               <span className="assure-progress-count">
-                {nettedReady} / {t.netReady} assured
+                {nettedReady} / {actionableTotal} assured
               </span>
               {downloadableCount > 0 && (
                 <button
@@ -487,7 +498,7 @@ function PortfolioReport({
         {visible.map((c) => {
           const readyCount = c.methods.filter((m) => m.bucket === 'net-ready').length
           const isNetted = netted.includes(c.name)
-          const isReady = c.bucket === 'net-ready'
+          const isReady = isActionable(c.bucket, windowsOn)
           return (
             <div className="class-row-wrap" key={c.name}>
               <div className="class-row" onClick={() => toggle(c.name)}>
@@ -593,7 +604,11 @@ function PortfolioReport({
             <div className="proceed-desc">
               {nettedReady === 0
                 ? 'Start with the classes that are ready. Each drills into Baseline → Baseline Tests, then returns here.'
-                : `${remaining} classes still ready to assure. Windows-runner and UI-tangled classes stay queued.`}
+                : `${remaining} classes still ready to assure. ${
+                    windowsOn
+                      ? 'UI-tangled classes stay queued.'
+                      : 'Windows-runner and UI-tangled classes stay queued.'
+                  }`}
             </div>
           </div>
           <button

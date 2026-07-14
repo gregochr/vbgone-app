@@ -30,7 +30,7 @@ interface Props {
 type UploadMode = 'single' | 'project'
 
 export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props) {
-  const { targetLanguage, mode: wizardMode } = useWizardConfig()
+  const { targetLanguage, mode: wizardMode, runner } = useWizardConfig()
   const lang = LANGS[targetLanguage]
   const assure = wizardMode === 'assure'
   const [mode, setMode] = useState<UploadMode>('single')
@@ -150,7 +150,7 @@ export function Step1Upload({ state, update, onReady, onProjectAnalysed }: Props
         zipFile: null,
         repoSlug: parsed.slug,
         readiness: report,
-        analysis: deriveAnalysis(report, true),
+        analysis: deriveAnalysis(report, true, runner === 'windows'),
       })
       onReady()
     } catch (err) {

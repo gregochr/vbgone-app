@@ -269,7 +269,7 @@ export function WizardShell({ projectMode, onProjectAnalysed }: WizardShellProps
           onReady={onReady}
           fromQueue={state.fromQueue}
           assuredCount={state.netted.length}
-          readyTotal={state.readiness?.totals.netReady ?? assureOrder.length}
+          readyTotal={assureOrder.length || (state.readiness?.totals.netReady ?? 0)}
           nextClassName={nextClassName}
           onAssureNext={assureNext}
           onBackToReadiness={backToReadiness}
