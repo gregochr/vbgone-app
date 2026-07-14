@@ -111,7 +111,7 @@ export function Step4BaselineTests({
     setShowConfirm(false)
     setLoading(true)
     setError(null)
-    // Windows runner: the net48 characterisation runs on a GitHub windows-latest runner and takes
+    // Windows runner: the .NET Framework 4.8 characterisation runs on a GitHub windows-latest runner and takes
     // minutes, so start a job and poll it rather than block. Linux stays on the fast sync endpoint.
     if (engineParams.runner === 'windows') {
       startBaselineTestsJob(sessionId, className, engineParams)
@@ -325,7 +325,7 @@ export function Step4BaselineTests({
           <span className="spinner" />
           <span className="loading-text">
             {windowsJobId
-              ? 'Running the characterisation on the Windows runner (net48) — this can take a few minutes…'
+              ? 'Running the characterisation on the Windows runner (.NET Framework 4.8) — this can take a few minutes…'
               : "Capturing your app's current behaviour as tests and running them against your original VB.NET…"}
           </span>
         </div>

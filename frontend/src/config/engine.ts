@@ -19,8 +19,8 @@ export type ModelOverrides = Partial<Record<Role, string>>
 export type Mode = 'migrate' | 'assure'
 
 /**
- * Which runner characterises a class in Assure: the Linux/net8.0 sidecar (net-ready classes only)
- * or the Windows/net48 runner (unlocks the framework-gated classes). Meaningful in Assure only —
+ * Which runner characterises a class in Assure: the Linux/.NET 8 sidecar (net-ready classes only)
+ * or the Windows/.NET Framework 4.8 runner (unlocks the framework-gated classes). Meaningful in Assure only —
  * Transform always builds its generated C# on modern .NET, so it is Linux regardless.
  */
 export type RunnerMode = 'linux' | 'windows'

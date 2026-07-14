@@ -54,6 +54,16 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
                 <Reference Include="System.EnterpriseServices" />
                 <Reference Include="System.Configuration" />
               </ItemGroup>
+              <ItemGroup>
+                <!-- Project-level VB imports. Legacy classes routinely inherit or reference an
+                     UNQUALIFIED type (e.g. `Inherits Form`) that relied on a classic WinForms
+                     project's default namespace imports — which SDK-style VB does not add. Referencing
+                     the assembly alone isn't enough: without the namespace import, `Form` won't resolve
+                     (BC30002 'Type Form is not defined'). These make the WinForms types resolve
+                     unqualified, matching how the original project compiled. -->
+                <Import Include="System.Windows.Forms" />
+                <Import Include="System.Drawing" />
+              </ItemGroup>
             </Project>
             """;
 

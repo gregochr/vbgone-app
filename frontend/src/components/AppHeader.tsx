@@ -15,9 +15,9 @@ const RUNNER_STEP_LOCK_TITLE =
 
 const RUNNER_TITLES: Record<RunnerMode, string> = {
   linux:
-    'Linux · net8.0 sidecar. Characterises net-ready classes; framework-gated classes stay blocked.',
+    'Linux · .NET 8 sidecar. Characterises net-ready classes; framework-gated classes stay blocked.',
   windows:
-    'Windows · net48 runner. Also characterises the framework-gated classes the Linux sidecar cannot build.',
+    'Windows · .NET Framework 4.8 runner. Also characterises the framework-gated classes the Linux sidecar cannot build.',
 }
 
 const ENGINE_LOCK_TITLE =
