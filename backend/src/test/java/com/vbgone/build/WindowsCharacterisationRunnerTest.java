@@ -80,15 +80,11 @@ class WindowsCharacterisationRunnerTest {
                 "runner-workspace/Settlement.Vb/Settlement.vbproj",
                 "runner-workspace/Settlement.Vb/Settlement.vb",
                 "runner-workspace/Settlement.Baseline/Settlement.Baseline.csproj",
-                "runner-workspace/Settlement.Baseline/SettlementBaselineTests.cs",
-                "runner-workspace/characterisation.runsettings");
+                "runner-workspace/Settlement.Baseline/SettlementBaselineTests.cs");
 
         assertThat(files.get("runner-workspace/Settlement.Baseline/Settlement.Baseline.csproj"))
                 .contains("net48")
-                .contains("<LangVersion>latest</LangVersion>")
-                // The C# test project must carry the framework refs too — net48 ProjectReference does
-                // not flow them transitively, and the generated tests fully-qualify framework types (CS0234).
-                .contains("System.Windows.Forms");
+                .contains("<LangVersion>latest</LangVersion>");
         assertThat(files.get("runner-workspace/Settlement.Vb/Settlement.vbproj"))
                 .contains("net48")
                 .contains("System.Data.Linq")
@@ -97,8 +93,5 @@ class WindowsCharacterisationRunnerTest {
                 .contains("System.Drawing")
                 // ...and a project-level Import, so an unqualified `Inherits Form` resolves (BC30002).
                 .contains("<Import Include=\"System.Windows.Forms\" />");
-        // STA runsettings — WinForms ctors throw ThreadStateException on MTA (MSTest's net48 default).
-        assertThat(files.get("runner-workspace/characterisation.runsettings"))
-                .contains("<ExecutionThreadApartmentState>STA</ExecutionThreadApartmentState>");
     }
 }

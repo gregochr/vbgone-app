@@ -36,12 +36,10 @@ jobs:
           $proj = Get-ChildItem -Recurse runner-workspace -Filter *.Baseline.csproj | Select-Object -First 1
           if (-not $proj) { throw "No *.Baseline.csproj found under runner-workspace/" }
           Write-Host "Characterising $($proj.FullName)"
-          # --settings applies the STA apartment state (WinForms ctors throw on MTA) + a session timeout.
-          # No coverage collector: this path only parses the .trx, and coverlet is fragile on net48/Release.
           dotnet test $proj.FullName `
             --configuration Release `
-            --settings runner-workspace/characterisation.runsettings `
             --logger "trx;LogFileName=results.trx" `
+            --collect:"XPlat Code Coverage" `
             --results-directory runner-workspace/TestResults
 
       - name: Upload characterisation results (.trx + coverage)

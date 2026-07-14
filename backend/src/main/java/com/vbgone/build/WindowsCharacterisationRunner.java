@@ -51,7 +51,6 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
                 <Reference Include="System.Web.Services" />
                 <Reference Include="System.Data.Linq" />
                 <Reference Include="System.ServiceModel" />
-                <Reference Include="System.ServiceModel.Web" />
                 <Reference Include="System.EnterpriseServices" />
                 <Reference Include="System.Configuration" />
               </ItemGroup>
@@ -90,42 +89,9 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
                 <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
               </ItemGroup>
               <ItemGroup>
-                <!-- net48 does NOT flow the VB ProjectReference's framework <Reference>s transitively,
-                     and the AI MSTest suites name framework types FULLY QUALIFIED (e.g.
-                     typeof(System.Windows.Forms.Form)) — so this test project must carry the SAME
-                     framework references as the VB project it references. Keep the two lists in lockstep.
-                     (No <Import> here: that's a VB-only project-level namespace import; the C# tests are
-                     fully qualified, so an assembly reference is all they need.) -->
-                <Reference Include="System.Windows.Forms" />
-                <Reference Include="System.Drawing" />
-                <Reference Include="System.Web" />
-                <Reference Include="System.Web.Services" />
-                <Reference Include="System.Data.Linq" />
-                <Reference Include="System.ServiceModel" />
-                <Reference Include="System.ServiceModel.Web" />
-                <Reference Include="System.EnterpriseServices" />
-                <Reference Include="System.Configuration" />
-              </ItemGroup>
-              <ItemGroup>
                 <ProjectReference Include="../%1$s.Vb/%1$s.vbproj" />
               </ItemGroup>
             </Project>
-            """;
-
-    // MSTest .runsettings. WINDOWS_GATED is dominated by `Inherits Form` classes; MSTest on net48 runs the
-    // test thread MTA by default, and constructing a WinForms control that does OLE work in its constructor
-    // (Clipboard, drag-drop, ActiveX/WebBrowser host) throws ThreadStateException on MTA. STA matches how the
-    // original app ran and is a no-op for non-OLE forms and for the WCF/LINQ/ASMX buckets. TestSessionTimeout
-    // bounds a headless hang (a ctor/method that pops MessageBox.Show / Application.Run) below the 15-min job
-    // timeout, so the job fails loudly with a missing .trx (→ BuildResult.ERROR) rather than the hard kill.
-    static final String RUNSETTINGS = """
-            <?xml version="1.0" encoding="utf-8"?>
-            <RunSettings>
-              <RunConfiguration>
-                <ExecutionThreadApartmentState>STA</ExecutionThreadApartmentState>
-                <TestSessionTimeout>600000</TestSessionTimeout>
-              </RunConfiguration>
-            </RunSettings>
             """;
 
     /** Root under which the generated project is written; the workflow discovers the .csproj here. */
@@ -167,8 +133,6 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
         files.put(WORKSPACE + className + ".Baseline/" + className + ".Baseline.csproj",
                 String.format(BASELINE_CSPROJ_TEMPLATE, className));
         files.put(WORKSPACE + className + ".Baseline/" + suite.testClassName() + ".cs", suite.code());
-        // Class-independent, so a single fixed path; the workflow passes it via `dotnet test --settings`.
-        files.put(WORKSPACE + "characterisation.runsettings", RUNSETTINGS);
         return files;
     }
 
