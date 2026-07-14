@@ -90,6 +90,8 @@ class WindowsCharacterisationRunnerTest {
                 .contains("System.Data.Linq")
                 // WinForms refs are essential — the bucket is dominated by Form-inheriting classes.
                 .contains("System.Windows.Forms")
-                .contains("System.Drawing");
+                .contains("System.Drawing")
+                // ...and a project-level Import, so an unqualified `Inherits Form` resolves (BC30002).
+                .contains("<Import Include=\"System.Windows.Forms\" />");
     }
 }

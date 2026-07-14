@@ -16,7 +16,7 @@ export interface WizardConfig {
   targetLanguage: TargetLanguage
   provider: ProviderId
   modelOverrides: ModelOverrides
-  /** Assure characterisation runner (Linux net8.0 vs Windows net48). Ignored in Migrate. */
+  /** Assure characterisation runner (Linux .NET 8 vs Windows .NET Framework 4.8). Ignored in Migrate. */
   runner: RunnerMode
   engineOpen: boolean
 
