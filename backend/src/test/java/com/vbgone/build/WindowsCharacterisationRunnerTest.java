@@ -29,6 +29,16 @@ class WindowsCharacterisationRunnerTest {
               </ResultSummary>
             </TestRun>""";
 
+    // Cobertura report shape CoverageParser expects: prefers the <package> whose name == the module
+    // under test (the VB assembly name). Line 80% / branch 60% for the "Settlement" package.
+    private static final String COVERAGE_XML = """
+            <?xml version="1.0"?>
+            <coverage line-rate="0.5" branch-rate="0.25">
+              <packages>
+                <package name="Settlement" line-rate="0.8" branch-rate="0.6"></package>
+              </packages>
+            </coverage>""";
+
     @Mock
     private WindowsRunnerTransport transport;
 
@@ -52,13 +62,29 @@ class WindowsCharacterisationRunnerTest {
 
     @Test
     void greenTrxFromRunnerProducesGreenBuild() throws Exception {
-        when(transport.characterise(anyString(), anyMap())).thenReturn(GREEN_TRX);
+        when(transport.characterise(anyString(), anyMap()))
+                .thenReturn(new WindowsRunnerTransport.Artifacts(GREEN_TRX, null));
 
         BuildResult result = runner.run(session(), "Settlement", suite());
 
         assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
         assertThat(result.total()).isEqualTo(3);
         assertThat(result.passed()).isEqualTo(3);
+        // No coverage report from the runner → coverage stays null (informational, never fatal).
+        assertThat(result.coveragePercent()).isNull();
+    }
+
+    @Test
+    void coverageReportFromRunnerIsAttached() throws Exception {
+        when(transport.characterise(anyString(), anyMap()))
+                .thenReturn(new WindowsRunnerTransport.Artifacts(GREEN_TRX, COVERAGE_XML));
+
+        BuildResult result = runner.run(session(), "Settlement", suite());
+
+        assertThat(result.buildStatus()).isEqualTo(BuildStatus.GREEN);
+        // The "Settlement" package's rates, as percentages — the module under test, not the aggregate.
+        assertThat(result.coveragePercent()).isEqualTo(80.0);
+        assertThat(result.branchCoveragePercent()).isEqualTo(60.0);
     }
 
     @Test
@@ -97,8 +123,13 @@ class WindowsCharacterisationRunnerTest {
                 .contains("System.Drawing")
                 // ...and a project-level Import, so an unqualified `Inherits Form` resolves (BC30002).
                 .contains("<Import Include=\"System.Windows.Forms\" />");
-        // STA runsettings — WinForms ctors throw ThreadStateException on MTA (MSTest's net48 default).
+        // STA runsettings (WinForms ctors throw ThreadStateException on MTA) + the native Microsoft
+        // Code Coverage collector emitting Cobertura (robust on net48, unlike coverlet).
         assertThat(files.get("runner-workspace/characterisation.runsettings"))
-                .contains("<ExecutionThreadApartmentState>STA</ExecutionThreadApartmentState>");
+                .contains("<ExecutionThreadApartmentState>STA</ExecutionThreadApartmentState>")
+                .contains("datacollector://Microsoft/CodeCoverage/2.0")
+                .contains("<Format>Cobertura</Format>")
+                // The <class>.Baseline.dll exclude, with the regex dots backslash-escaped in the XML.
+                .contains(".*\\.Baseline\\.dll$");
     }
 }

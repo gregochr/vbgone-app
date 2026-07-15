@@ -48,11 +48,25 @@ public final class CoverageParser {
             return Coverage.EMPTY;
         }
         try {
-            String xml = Files.readString(report.get());
+            return parseXml(Files.readString(report.get()), moduleUnderTest);
+        } catch (Exception e) {
+            return Coverage.EMPTY;
+        }
+    }
+
+    /**
+     * Same as {@link #parse(Path, String)} but from a Cobertura XML string in memory — used by the
+     * Windows runner, which pulls the report out of the artifact zip rather than reading it off disk.
+     * Returns {@link Coverage#EMPTY} on any failure (coverage is informational, never fatal).
+     */
+    public static Coverage parseXml(String coberturaXml, String moduleUnderTest) {
+        if (coberturaXml == null || coberturaXml.isBlank()) {
+            return Coverage.EMPTY;
+        }
+        try {
             Document doc = DocumentBuilderFactory.newInstance()
                     .newDocumentBuilder()
-                    .parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
-
+                    .parse(new ByteArrayInputStream(coberturaXml.getBytes(StandardCharsets.UTF_8)));
             return new Coverage(
                     rateFor(doc, moduleUnderTest, "line-rate"),
                     rateFor(doc, moduleUnderTest, "branch-rate"));
