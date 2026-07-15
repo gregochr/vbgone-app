@@ -1,5 +1,6 @@
 package com.vbgone.build;
 
+import com.vbgone.model.Bucket;
 import com.vbgone.model.BuildResult;
 import com.vbgone.model.BuildStatus;
 import com.vbgone.model.MigrationSession;
@@ -95,6 +96,25 @@ class WindowsCharacterisationRunnerTest {
 
         assertThat(result.buildStatus()).isEqualTo(BuildStatus.ERROR);
         assertThat(result.errors()).anyMatch(e -> e.contains("dispatch boom"));
+    }
+
+    @Test
+    void clusteredSource_pullsSiblingsButExcludesTangledClasses() {
+        MigrationSession s = new MigrationSession("s1");
+        s.putClassSource("Order",
+                "Public Class Order\n  Public Property Lines As EntitySet(Of OrderLine)\n  Dim f As TangledForm\nEnd Class");
+        s.putClassSource("OrderLine", "Public Class OrderLine\n  Public Sku As String\nEnd Class");
+        s.putClassSource("TangledForm", "Public Class TangledForm\n  Inherits Form\nEnd Class");
+        s.setClassBuckets(Map.of(
+                "Order", Bucket.WINDOWS_GATED,
+                "OrderLine", Bucket.WINDOWS_GATED,
+                "TangledForm", Bucket.REFACTOR_FIRST));
+
+        String clustered = runner.clusteredSource(s, "Order");
+
+        assertThat(clustered).contains("Public Class Order").contains("Public Class OrderLine");
+        // TangledForm is referenced but REFACTOR_FIRST → excluded (it wouldn't compile anyway).
+        assertThat(clustered).doesNotContain("Public Class TangledForm");
     }
 
     @Test

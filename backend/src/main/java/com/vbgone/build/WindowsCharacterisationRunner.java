@@ -1,5 +1,6 @@
 package com.vbgone.build;
 
+import com.vbgone.model.Bucket;
 import com.vbgone.model.BuildResult;
 import com.vbgone.model.BuildStatus;
 import com.vbgone.model.MigrationSession;
@@ -7,6 +8,7 @@ import com.vbgone.model.TestsResult;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -172,7 +174,7 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
     @Override
     public BuildResult run(MigrationSession session, String className, TestsResult suite) {
         String sessionId = session.getSessionId();
-        Map<String, String> files = projectFiles(className, session.getVbContentForClass(className), suite);
+        Map<String, String> files = projectFiles(className, clusteredSource(session, className), suite);
         try {
             WindowsRunnerTransport.Artifacts artifacts = transport.characterise(jobId(className), files);
             TrxParser.Parsed parsed = TrxParser.parse(sessionId, artifacts.trx());
@@ -192,6 +194,19 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
     private static BuildResult error(MigrationSession session, String sessionId, String message) {
         session.setFailureMessages(Map.of());
         return new BuildResult(sessionId, BuildStatus.ERROR, 0, 0, 0, List.of(message), List.of());
+    }
+
+    /**
+     * The compilation unit for {@code className}: the class plus the transitive closure of the estate
+     * sibling classes it references, so a class with sibling type refs (e.g. a LINQ-to-SQL entity's
+     * {@code EntitySet(Of OtherEntity)} associations) compiles as one unit instead of failing BC30002 in
+     * isolation. Tangled ({@link Bucket#REFACTOR_FIRST}) classes are excluded as candidates — they can't
+     * compile anyway, so pulling one in would only break the cluster.
+     */
+    String clusteredSource(MigrationSession session, String className) {
+        Map<String, String> candidates = new HashMap<>(session.getClassSources());
+        candidates.keySet().removeIf(name -> session.getBucketForClass(name) == Bucket.REFACTOR_FIRST);
+        return ClusterAssembler.assemble(className, session.getVbContentForClass(className), candidates);
     }
 
     /** The repo-relative files that make up the net48 characterisation project for {@code className}. */
