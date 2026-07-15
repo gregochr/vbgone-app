@@ -79,13 +79,13 @@ public class GitHubActionsTransport implements WindowsRunnerTransport {
     }
 
     @Override
-    public String characterise(String jobId, Map<String, String> files)
+    public Artifacts characterise(String jobId, Map<String, String> files)
             throws IOException, InterruptedException {
         String branch = branchPrefix + jobId;
         pushBranch(branch, files);
         try {
             long runId = waitForRun(branch);
-            return extractTrx(downloadArtifactZip(runId));
+            return extractArtifacts(downloadArtifactZip(runId));
         } finally {
             deleteBranchQuietly(branch);
         }
@@ -168,16 +168,28 @@ public class GitHubActionsTransport implements WindowsRunnerTransport {
         }
     }
 
-    private String extractTrx(byte[] zipBytes) throws IOException {
+    /** Pull the required results.trx and the optional Cobertura coverage report out of the artifact zip. */
+    private Artifacts extractArtifacts(byte[] zipBytes) throws IOException {
+        String trx = null;
+        String coverageXml = null;
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
-                if (entry.getName().endsWith(".trx")) {
-                    return new String(zip.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                if (entry.isDirectory()) {
+                    continue;
+                }
+                String name = entry.getName();
+                if (name.endsWith(".trx")) {
+                    trx = new String(zip.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                } else if (name.endsWith(".cobertura.xml")) {
+                    coverageXml = new String(zip.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
                 }
             }
         }
-        throw new IOException("Artifact contained no .trx");
+        if (trx == null) {
+            throw new IOException("Artifact contained no .trx");
+        }
+        return new Artifacts(trx, coverageXml);
     }
 
     private void deleteBranchQuietly(String branch) {

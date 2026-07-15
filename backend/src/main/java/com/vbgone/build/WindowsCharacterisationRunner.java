@@ -43,6 +43,10 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
                 <TargetFramework>net48</TargetFramework>
                 <RootNamespace></RootNamespace>
                 <Nullable>disable</Nullable>
+                <!-- Full PDB next to the DLL so Microsoft's native Code Coverage engine can instrument
+                     the VB assembly (its dynamic instrumentation needs the symbols beside the module). -->
+                <DebugType>full</DebugType>
+                <DebugSymbols>true</DebugSymbols>
               </PropertyGroup>
               <ItemGroup>
                 <Reference Include="System.Windows.Forms" />
@@ -64,6 +68,12 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
                      unqualified, matching how the original project compiled. -->
                 <Import Include="System.Windows.Forms" />
                 <Import Include="System.Drawing" />
+                <!-- LINQ-to-SQL entities reference EntitySet/EntityRef, the mapping attributes and
+                     INotifyPropertyChanging/ed UNQUALIFIED, relying on the DataContext project's default
+                     imports (BC30002 'EntitySet'/'PropertyChangingEventArgs'/'AutoSync' otherwise). -->
+                <Import Include="System.ComponentModel" />
+                <Import Include="System.Data.Linq" />
+                <Import Include="System.Data.Linq.Mapping" />
               </ItemGroup>
             </Project>
             """;
@@ -84,7 +94,8 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
                 <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
                 <PackageReference Include="MSTest.TestAdapter" Version="3.6.1" />
                 <PackageReference Include="MSTest.TestFramework" Version="3.6.1" />
-                <PackageReference Include="coverlet.collector" Version="6.0.2" />
+                <!-- No coverlet: coverage comes from the native Microsoft Code Coverage collector, which
+                     flows transitively from Microsoft.NET.Test.Sdk and is far more robust on net48. -->
               </ItemGroup>
               <ItemGroup>
                 <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
@@ -125,6 +136,27 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
                 <ExecutionThreadApartmentState>STA</ExecutionThreadApartmentState>
                 <TestSessionTimeout>600000</TestSessionTimeout>
               </RunConfiguration>
+              <DataCollectionRunSettings>
+                <DataCollectors>
+                  <DataCollector friendlyName="Code Coverage"
+                                 uri="datacollector://Microsoft/CodeCoverage/2.0">
+                    <Configuration>
+                      <Format>Cobertura</Format>
+                      <CodeCoverage>
+                        <ModulePaths>
+                          <Exclude>
+                            <!-- Drop the MSTest project (<class>.Baseline.dll) so the report's root
+                                 aggregate equals the VB module under test - a casing-proof fallback if
+                                 the <package name="..."> match ever fails. Class-agnostic: every
+                                 generated test assembly is named *.Baseline.dll. -->
+                            <ModulePath>.*\\.Baseline\\.dll$</ModulePath>
+                          </Exclude>
+                        </ModulePaths>
+                      </CodeCoverage>
+                    </Configuration>
+                  </DataCollector>
+                </DataCollectors>
+              </DataCollectionRunSettings>
             </RunSettings>
             """;
 
@@ -142,10 +174,13 @@ public class WindowsCharacterisationRunner implements CharacterisationRunner {
         String sessionId = session.getSessionId();
         Map<String, String> files = projectFiles(className, session.getVbContentForClass(className), suite);
         try {
-            String trx = transport.characterise(jobId(className), files);
-            TrxParser.Parsed parsed = TrxParser.parse(sessionId, trx);
+            WindowsRunnerTransport.Artifacts artifacts = transport.characterise(jobId(className), files);
+            TrxParser.Parsed parsed = TrxParser.parse(sessionId, artifacts.trx());
             session.setFailureMessages(parsed.failureMessages());
-            return parsed.result();
+            // Coverage of the legacy VB assembly (its module name equals className), when the runner
+            // collected it — the same Cobertura report shape the Linux path produces.
+            CoverageParser.Coverage cov = CoverageParser.parseXml(artifacts.coverageXml(), className);
+            return parsed.result().withCoverage(cov.linePercent(), cov.branchPercent());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return error(session, sessionId, "Windows runner interrupted");
