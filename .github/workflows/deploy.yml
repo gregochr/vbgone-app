@@ -70,6 +70,34 @@ jobs:
     needs: build-images
     runs-on: [self-hosted, dockermacmini]
     steps:
+      # The images are private, so the pull needs a credential. This job had
+      # none: it leaned on the one a human cached in ~/.docker/config.json by
+      # running `docker login` on dockermacmini once (see DEPLOY.md). That
+      # file was emptied to {"auths":{}} on 2026-07-29 — not an expired
+      # token, which would have left its entry behind, but a removed one.
+      # Nothing on the box logs out automatically, so it was almost certainly
+      # a hand-run `docker logout`.
+      #
+      # Wainwrights died on the resulting "error from registry: unauthorized"
+      # at v0.17.6. This deploy has the identical shape and has simply not
+      # been tagged since 15 July, so it is waiting to fail the same way.
+      #
+      # A credential no job owns is a credential no job can be sure of.
+      # GITHUB_TOKEN is minted per run and already carries packages: write
+      # from the workflow-level permissions block, so the deploy can
+      # authenticate itself and depend on nothing kept by hand.
+      #
+      # Note the action's post-step runs `docker logout ghcr.io`, so this job
+      # leaves auths empty rather than merely finding it that way. That is
+      # fine now that wainwrights logs in for itself too — but anything else
+      # here pulling from GHCR needs its own login, not a shared cached one.
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: docker compose pull && up -d
         # A copy of docker-compose.yml + a .env live here on the box (one-time
         # setup — see DEPLOY.md). Brings up frontend, backend, and the .NET
